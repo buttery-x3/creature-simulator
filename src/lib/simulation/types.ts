@@ -10,6 +10,10 @@
  */
 
 import type { Habitat, HabitatFeatureKind, HabitatGenerationConfig, Vec2 } from '$lib/habitat';
+import type { HeardSignal, SignalEmission, SymbolId } from './communication/types';
+
+export type { HeardSignal, SignalEmission, SymbolId } from './communication/types';
+export { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 
 /** Outcome the creature is currently pursuing. */
 export type CreatureGoal = 'seek_food' | 'seek_water' | 'rest' | 'wander';
@@ -136,6 +140,20 @@ export type Creature = {
 	lastCandidates: CandidateEvaluation[];
 	/** Recent goal/action transitions, newest last, length-capped. */
 	recentTransitions: BehaviourTransition[];
+
+	/**
+	 * Deterministic preferred symbol assigned at creation.
+	 * Arbitrary — no resource or danger meaning.
+	 */
+	preferredSymbolId: SymbolId;
+	/** Number of emissions this creature has produced (drives stable emission ids). */
+	emissionCount: number;
+	/** Simulation time of last accepted emission; -1 if never. */
+	lastEmissionAt: number;
+	/** Recent emissions by this creature, newest last, length-capped. */
+	recentEmitted: SignalEmission[];
+	/** Recent signals heard by this creature, newest last, length-capped. */
+	recentHeard: HeardSignal[];
 };
 
 export type SimulationState = {
@@ -144,6 +162,12 @@ export type SimulationState = {
 	timeSeconds: number;
 	habitat: Habitat;
 	creatures: Creature[];
+	/** Currently active (non-expired) emissions. */
+	activeEmissions: SignalEmission[];
+	/** Bounded recent emission history for diagnostics, newest last. */
+	recentEmissions: SignalEmission[];
+	/** Monotonic counter reserved for emission sequencing diagnostics. */
+	nextEmissionSeq: number;
 };
 
 /** Inclusive movement-speed range sampled at creature creation. */
@@ -224,6 +248,23 @@ export type SimulationConfig = {
 	 * How long a pursued food/water observation remains usable after last seeing it.
 	 */
 	trackedObservationDurationSeconds: number;
+
+	/**
+	 * Arbitrary symbol inventory. No built-in semantic mapping to resources or danger.
+	 */
+	symbolInventory: readonly SymbolId[];
+	/** Circular hearing radius on the ground plane (simulation units). */
+	hearingRadius: number;
+	/** How long an emission remains active after emission time. */
+	signalLifetimeSeconds: number;
+	/** Minimum simulated seconds between accepted emissions from one creature. */
+	emissionCooldownSeconds: number;
+	/** Max length of per-creature recentEmitted (oldest dropped). */
+	recentEmittedHistoryLimit: number;
+	/** Max length of per-creature recentHeard (oldest dropped). */
+	recentHeardHistoryLimit: number;
+	/** Max length of simulation recentEmissions (oldest dropped). */
+	recentSimulationEmissionHistoryLimit: number;
 
 	/** Initial hunger pressure at creation (fixed for determinism). */
 	initialHunger: number;

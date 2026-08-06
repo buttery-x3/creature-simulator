@@ -193,6 +193,8 @@
 			<ThreeViewport
 				{habitat}
 				{creatures}
+				activeEmissions={simulation.activeEmissions}
+				timeSeconds={simulation.timeSeconds}
 				{selectedCreatureId}
 				sensingRadius={simulationConfigBase.sensingRadius}
 				onSelectCreature={selectCreature}

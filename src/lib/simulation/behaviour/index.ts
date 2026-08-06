@@ -36,4 +36,8 @@ export {
 	WANDER_BASELINE_SCORE
 } from './decisions';
 export { actionForGoal, appendTransition, applyDecision, transitionToConsumptive } from './actions';
-export { stepCreatureBehaviour, type BehaviourStepConfig } from './step-creature-behaviour';
+export {
+	stepCreatureBehaviour,
+	type BehaviourStepConfig,
+	type CreatureBehaviourStepResult
+} from './step-creature-behaviour';

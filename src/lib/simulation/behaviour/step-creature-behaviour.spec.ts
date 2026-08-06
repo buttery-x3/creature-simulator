@@ -60,7 +60,7 @@ describe('stepCreatureBehaviour integration', () => {
 		});
 		expect(isAtFeature(creature.position, food, config.arrivalDistance)).toBe(true);
 
-		const next = stepCreatureBehaviour(creature, 1, 1, config.seed, base.habitat, config);
+		const next = stepCreatureBehaviour(creature, 1, 1, config.seed, base.habitat, config).creature;
 		expect(next.hunger).toBeLessThan(0.8);
 	});
 
@@ -79,7 +79,7 @@ describe('stepCreatureBehaviour integration', () => {
 			nextReconsiderAt: 999,
 			movementSpeed: 5
 		});
-		const next = stepCreatureBehaviour(creature, 1, 1, config.seed, base.habitat, config);
+		const next = stepCreatureBehaviour(creature, 1, 1, config.seed, base.habitat, config).creature;
 		expect(next.energy).toBeGreaterThan(creature.energy);
 		expect(next.position).toEqual(creature.position);
 	});
@@ -103,7 +103,7 @@ describe('stepCreatureBehaviour integration', () => {
 			config.seed,
 			base.habitat,
 			config
-		);
+		).creature;
 		expect(next.lastDecision?.trigger).toBe('invalid_target');
 		expect(next.goal).toBe('wander');
 		expect(isTargetValid(base.habitat, next.target)).toBe(true);
@@ -162,7 +162,7 @@ describe('stepCreatureBehaviour integration', () => {
 			searchTarget: { x: 8, y: 8 },
 			nextReconsiderAt: 999
 		});
-		const next = stepCreatureBehaviour(
+		const result = stepCreatureBehaviour(
 			creature,
 			config.fixedDt,
 			1,
@@ -170,9 +170,10 @@ describe('stepCreatureBehaviour integration', () => {
 			base.habitat,
 			config
 		);
-		expect(next.goal).toBe('seek_food');
-		expect(next.action).toBe('search');
-		expect(next.target?.kind).toBe('point');
+		expect(result.creature.goal).toBe('seek_food');
+		expect(result.creature.action).toBe('search');
+		expect(result.creature.target?.kind).toBe('point');
+		expect(result.emissionRequest).toBeNull();
 	});
 
 	it('transitions from search to move when food is perceived', () => {
@@ -198,7 +199,7 @@ describe('stepCreatureBehaviour integration', () => {
 			movementSpeed: 0.01,
 			nextReconsiderAt: 999
 		});
-		const next = stepCreatureBehaviour(
+		const result = stepCreatureBehaviour(
 			creature,
 			config.fixedDt,
 			1,
@@ -206,6 +207,7 @@ describe('stepCreatureBehaviour integration', () => {
 			base.habitat,
 			config
 		);
+		const next = result.creature;
 		expect(next.goal).toBe('seek_food');
 		expect(next.action).toBe('move');
 		expect(next.target).toEqual({
@@ -215,6 +217,12 @@ describe('stepCreatureBehaviour integration', () => {
 		});
 		expect(next.perception.tracked?.featureId).toBe(food.id);
 		expect(next.recentTransitions.some((t) => t.reason.includes('food perceived'))).toBe(true);
+		expect(result.emissionRequest).toEqual({
+			senderId: creature.id,
+			origin: { x: creature.position.x, y: creature.position.y },
+			context: 'resource_discovered',
+			contextDetail: 'food'
+		});
 	});
 
 	it('returns to search when tracked observation expires without reacquisition', () => {
@@ -256,7 +264,7 @@ describe('stepCreatureBehaviour integration', () => {
 			config.seed,
 			base.habitat,
 			config
-		);
+		).creature;
 		expect(next.goal).toBe('seek_food');
 		expect(next.action).toBe('search');
 		expect(next.perception.tracked).toBeNull();
@@ -283,8 +291,8 @@ describe('stepCreatureBehaviour integration', () => {
 			perception: emptyPerception()
 		});
 		// Force arrival-style retarget by placing on search point with large dt movement
-		const a = stepCreatureBehaviour(creature, 0.01, 1, config.seed, base.habitat, config);
-		const b = stepCreatureBehaviour(creature, 0.01, 1, config.seed, base.habitat, config);
+		const a = stepCreatureBehaviour(creature, 0.01, 1, config.seed, base.habitat, config).creature;
+		const b = stepCreatureBehaviour(creature, 0.01, 1, config.seed, base.habitat, config).creature;
 		expect(a.searchTarget).toEqual(b.searchTarget);
 		const halfW = base.habitat.bounds.width / 2 - config.creatureRadius;
 		const halfH = base.habitat.bounds.height / 2 - config.creatureRadius;

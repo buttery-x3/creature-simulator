@@ -1,9 +1,11 @@
 /**
  * Lightweight simulation diagnostics for the workbench.
- * Decision and perception reasons come from structured simulation records only.
+ * Decision, perception and communication reasons come from structured simulation records only.
+ * Symbols are arbitrary — never formatted as food/water meanings.
  */
 
 import type { Creature, CreatureTarget, SimulationConfig, SimulationState } from './types';
+import type { HeardSignal, SignalEmission } from './communication/types';
 
 function formatTarget(target: CreatureTarget | null): string {
 	if (!target) {
@@ -38,6 +40,24 @@ function formatCreature(creature: Creature): string {
 	);
 }
 
+function formatEmissionLine(emission: SignalEmission): string {
+	return (
+		`${emission.id} symbol=${emission.symbolId} sender=${emission.senderId} ` +
+		`origin=(${emission.origin.x.toFixed(3)}, ${emission.origin.y.toFixed(3)}) ` +
+		`emitted@${emission.emittedAt.toFixed(3)} expires@${emission.expiresAt.toFixed(3)} ` +
+		`context=${emission.context}/${emission.contextDetail} ` +
+		`symbolReason=${emission.symbolSelectionReason}`
+	);
+}
+
+function formatHeardLine(heard: HeardSignal): string {
+	return (
+		`emission=${heard.emissionId} symbol=${heard.symbolId} sender=${heard.senderId} ` +
+		`origin=(${heard.origin.x.toFixed(3)}, ${heard.origin.y.toFixed(3)}) ` +
+		`emitted@${heard.emittedAt.toFixed(3)} heard@${heard.heardAt.toFixed(3)}`
+	);
+}
+
 /**
  * Human-readable simulation summary plus per-creature lines.
  */
@@ -51,6 +71,7 @@ export function formatSimulationDiagnostics(
 		`status: ${paused ? 'paused' : 'running'}`,
 		`time: ${state.timeSeconds.toFixed(3)} s`,
 		`creatures: ${state.creatures.length}`,
+		`active emissions: ${state.activeEmissions.length}`,
 		'',
 		'creatures:'
 	];
@@ -59,12 +80,19 @@ export function formatSimulationDiagnostics(
 		lines.push(`  ${formatCreature(creature)}`);
 	}
 
+	if (state.activeEmissions.length > 0) {
+		lines.push('', 'active emissions:');
+		for (const emission of state.activeEmissions) {
+			lines.push(`  ${formatEmissionLine(emission)}`);
+		}
+	}
+
 	return lines.join('\n');
 }
 
 export type InspectionConfig = Pick<
 	SimulationConfig,
-	'sensingRadius' | 'trackedObservationDurationSeconds'
+	'sensingRadius' | 'trackedObservationDurationSeconds' | 'hearingRadius'
 >;
 
 /**
@@ -178,6 +206,33 @@ export function formatCreatureInspection(
 			lines.push(
 				`  t=${t.timeSeconds.toFixed(3)}: ${t.fromGoal}/${t.fromAction} → ${t.toGoal}/${t.toAction} (${t.reason})`
 			);
+		}
+	}
+
+	const hearingRadius = config?.hearingRadius;
+	lines.push('', 'communication:');
+	lines.push(`  preferred symbol: ${creature.preferredSymbolId} (arbitrary; no global meaning)`);
+	if (hearingRadius !== undefined) {
+		lines.push(`  hearing radius: ${hearingRadius.toFixed(3)}`);
+	}
+	lines.push(
+		`  emission count: ${creature.emissionCount}`,
+		`  last emission: ${creature.lastEmissionAt >= 0 ? `${creature.lastEmissionAt.toFixed(3)} s` : 'never'}`
+	);
+	if (creature.recentEmitted.length === 0) {
+		lines.push('  recent emitted: (none)');
+	} else {
+		lines.push('  recent emitted:');
+		for (const emission of creature.recentEmitted) {
+			lines.push(`    ${formatEmissionLine(emission)}`);
+		}
+	}
+	if (creature.recentHeard.length === 0) {
+		lines.push('  recent heard: (none)');
+	} else {
+		lines.push('  recent heard:');
+		for (const heard of creature.recentHeard) {
+			lines.push(`    ${formatHeardLine(heard)}`);
 		}
 	}
 

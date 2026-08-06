@@ -31,6 +31,11 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		lastDecision: null,
 		lastCandidates: [],
 		recentTransitions: [],
+		preferredSymbolId: 'glyph-0',
+		emissionCount: 0,
+		lastEmissionAt: -1,
+		recentEmitted: [],
+		recentHeard: [],
 		...overrides
 	};
 }

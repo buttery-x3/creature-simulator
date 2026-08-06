@@ -1,8 +1,10 @@
 /**
  * Per-creature fixed-step behaviour: needs → perception → replan gates → action/movement.
+ * May request a communication emission on resource discovery; does not transmit or receive.
  */
 
 import type { Habitat } from '$lib/habitat';
+import type { EmissionRequest } from '../communication/types';
 import {
 	clampToInterior,
 	distanceSquared,
@@ -23,6 +25,13 @@ import {
 	updatePerception
 } from './perception';
 import { isAtTarget, isTargetValid, movementPoint, pointTarget } from './resource-awareness';
+
+/** Result of one creature behaviour step, including optional emission handoff. */
+export type CreatureBehaviourStepResult = {
+	creature: Creature;
+	/** Set only on search → resource-target discovery transitions. */
+	emissionRequest: EmissionRequest | null;
+};
 
 export type BehaviourStepConfig = Pick<
 	SimulationConfig,
@@ -195,7 +204,7 @@ function tryPerceiveAndPursue(
 	creature: Creature,
 	timeSeconds: number,
 	config: BehaviourStepConfig
-): Creature | null {
+): { creature: Creature; discoveryEmission: EmissionRequest | null } | null {
 	if (creature.goal !== 'seek_food' && creature.goal !== 'seek_water') {
 		return null;
 	}
@@ -224,20 +233,21 @@ function tryPerceiveAndPursue(
 		featureKind: nearest.featureKind
 	};
 
+	const fromAction = creature.action;
 	const recentTransitions = appendTransition(
 		creature.recentTransitions,
 		{
 			timeSeconds,
 			fromGoal: creature.goal,
 			toGoal: creature.goal,
-			fromAction: creature.action,
+			fromAction,
 			toAction: 'move',
 			reason: kind === 'food' ? 'food perceived and selected' : 'water perceived and selected'
 		},
 		config.decisionHistoryLimit
 	);
 
-	return {
+	const nextCreature: Creature = {
 		...creature,
 		action: 'move',
 		target: featureTarget,
@@ -248,6 +258,19 @@ function tryPerceiveAndPursue(
 		}),
 		recentTransitions
 	};
+
+	// Emit only on the semantic search → resource-target transition, not every perception.
+	const discoveryEmission: EmissionRequest | null =
+		fromAction === 'search'
+			? {
+					senderId: creature.id,
+					origin: { x: creature.position.x, y: creature.position.y },
+					context: 'resource_discovered',
+					contextDetail: kind
+				}
+			: null;
+
+	return { creature: nextCreature, discoveryEmission };
 }
 
 /**
@@ -260,10 +283,11 @@ export function stepCreatureBehaviour(
 	simulationSeed: string,
 	habitat: Habitat,
 	config: BehaviourStepConfig
-): Creature {
+): CreatureBehaviourStepResult {
 	// 1. Needs
 	const needs = advanceNeeds(creature, dt, config);
 	let next: Creature = { ...creature, ...needs };
+	let emissionRequest: EmissionRequest | null = null;
 
 	// 2. Perception tick
 	next = {
@@ -333,7 +357,8 @@ export function stepCreatureBehaviour(
 	// 4. Search → move when resource perceived
 	const pursued = tryPerceiveAndPursue(next, timeSeconds, config);
 	if (pursued) {
-		next = pursued;
+		next = pursued.creature;
+		emissionRequest = pursued.discoveryEmission;
 	}
 
 	// 5. Invalid target → immediate replan
@@ -378,7 +403,7 @@ export function stepCreatureBehaviour(
 
 	// 8. Pursue action
 	if (next.action === 'eat' || next.action === 'drink' || next.action === 'sleep') {
-		return next;
+		return { creature: next, emissionRequest };
 	}
 
 	// Wander retarget if at wander point before moving.
@@ -486,5 +511,5 @@ export function stepCreatureBehaviour(
 		}
 	}
 
-	return next;
+	return { creature: next, emissionRequest };
 }

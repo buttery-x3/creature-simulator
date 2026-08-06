@@ -48,7 +48,8 @@
 		selectedCreature
 			? formatCreatureInspection(selectedCreature, simulation.timeSeconds, {
 					sensingRadius: config.sensingRadius,
-					trackedObservationDurationSeconds: config.trackedObservationDurationSeconds
+					trackedObservationDurationSeconds: config.trackedObservationDurationSeconds,
+					hearingRadius: config.hearingRadius
 				})
 			: null
 	);
@@ -70,7 +71,7 @@
 		<h2>Simulation</h2>
 		<p class="summary" data-testid="simulation-summary">
 			{paused ? 'Paused' : 'Running'} · t={simulation.timeSeconds.toFixed(2)}s · creatures
-			{simulation.creatures.length}
+			{simulation.creatures.length} · signals {simulation.activeEmissions.length}
 		</p>
 
 		<label class="field" for="habitat-seed">
@@ -295,6 +296,58 @@
 						</dd>
 					</div>
 				{/if}
+				<div>
+					<dt>Preferred symbol</dt>
+					<dd data-testid="inspector-preferred-symbol">
+						{selectedCreature.preferredSymbolId}
+						<span class="muted">(arbitrary)</span>
+					</dd>
+				</div>
+				<div>
+					<dt>Hearing radius</dt>
+					<dd data-testid="inspector-hearing-radius">{config.hearingRadius.toFixed(3)}</dd>
+				</div>
+				<div>
+					<dt>Active emissions</dt>
+					<dd data-testid="inspector-active-emissions">{simulation.activeEmissions.length}</dd>
+				</div>
+				<div>
+					<dt>Recent emitted</dt>
+					<dd data-testid="inspector-recent-emitted">
+						{#if selectedCreature.recentEmitted.length === 0}
+							—
+						{:else}
+							<ul class="signal-list">
+								{#each selectedCreature.recentEmitted as emission (emission.id)}
+									<li>
+										{emission.symbolId} @ ({emission.origin.x.toFixed(2)}, {emission.origin.y.toFixed(
+											2
+										)}) t={emission.emittedAt.toFixed(2)}s · context {emission.context}/{emission.contextDetail}
+										· {emission.symbolSelectionReason}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</dd>
+				</div>
+				<div>
+					<dt>Recent heard</dt>
+					<dd data-testid="inspector-recent-heard">
+						{#if selectedCreature.recentHeard.length === 0}
+							—
+						{:else}
+							<ul class="signal-list">
+								{#each selectedCreature.recentHeard as heard (heard.emissionId + heard.heardAt)}
+									<li>
+										{heard.symbolId} from {heard.senderId} @ ({heard.origin.x.toFixed(2)}, {heard.origin.y.toFixed(
+											2
+										)}) heard t={heard.heardAt.toFixed(2)}s
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</dd>
+				</div>
 			</dl>
 
 			<h3 class="subhead">Candidates</h3>
@@ -378,6 +431,19 @@
 		margin: 0;
 		font-size: 0.75rem;
 		color: #94a3b8;
+		line-height: 1.35;
+	}
+
+	.muted {
+		color: #94a3b8;
+		font-size: 0.75rem;
+	}
+
+	.signal-list {
+		margin: 0.15rem 0 0;
+		padding-left: 1rem;
+		font-size: 0.75rem;
+		color: #d1d5db;
 		line-height: 1.35;
 	}
 

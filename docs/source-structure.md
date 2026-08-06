@@ -57,14 +57,23 @@ src/
                 resource-awareness.ts
                 step-creature-behaviour.ts
                 *.spec.ts
+            communication/
+                index.ts
+                types.ts
+                emission.ts
+                reception.ts
+                step-communication.ts
+                *.spec.ts
 
         HabitatWorkbench.svelte
         ThreeViewport.svelte
         habitat-presentation.ts
         creature-presentation.ts
+        signal-presentation.ts
         habitat-camera.ts
         habitat-camera.spec.ts
         creature-presentation.spec.ts
+        signal-presentation.spec.ts
         ports.ts
         index.ts
 
@@ -77,20 +86,22 @@ Obsolete files should not remain in this topology merely because they were creat
 
 ## Current ownership
 
-| Area                       | Owns                                                                                                                           | Does not own                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `src/lib/determinism/`     | Seeded PRNG and pure seed derivation for independent streams                                                                   | Habitat layout, creature behaviour, UI                              |
-| `src/lib/habitat/`         | Authoritative serialisable habitat data, seeded generation, geometry validation and habitat diagnostics                        | Creatures, Three.js objects, Svelte state, browser controls         |
-| `src/lib/simulation/`      | Authoritative simulation state, creature creation, fixed-step advance, public diagnostics                                      | Three.js resources, Svelte components, browser rAF ownership        |
-| `simulation/behaviour/`    | Needs, goal decisions, actions, local perception, habitat-feature query, search, resource targets, per-creature behaviour step | Presentation, Svelte, habitat generation                            |
-| `habitat-presentation.ts`  | Static habitat mesh construction and disposal                                                                                  | Creature meshes, simulation stepping                                |
-| `creature-presentation.ts` | Dynamic creature mesh reconcile by id and action-derived visuals                                                               | Authoritative creature state, habitat rebuilds                      |
-| `ThreeViewport.svelte`     | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature presentation                               | Authoritative habitat or creature state                             |
-| `habitat-camera.ts`        | Pure camera-framing and visibility calculations                                                                                | Scene construction, simulation state or UI controls                 |
-| `HabitatWorkbench.svelte`  | Seed/simulation controls, diagnostics, creature inspector presentation                                                         | Domain algorithms or renderer lifecycle                             |
-| `src/routes/+page.svelte`  | Page composition, session simulation state, rAF catch-up, pause/reset, selected creature id                                    | Domain algorithms, geometry rules or Three.js resource ownership    |
-| `ports.ts`                 | Reserved application and test ports                                                                                            | Runtime simulation configuration                                    |
-| `src/lib/index.ts`         | Deliberate app-level public exports                                                                                            | Private implementation logic or universal re-export of every module |
+| Area                        | Owns                                                                                                                           | Does not own                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `src/lib/determinism/`      | Seeded PRNG and pure seed derivation for independent streams                                                                   | Habitat layout, creature behaviour, UI                              |
+| `src/lib/habitat/`          | Authoritative serialisable habitat data, seeded generation, geometry validation and habitat diagnostics                        | Creatures, Three.js objects, Svelte state, browser controls         |
+| `src/lib/simulation/`       | Authoritative simulation state, creature creation, fixed-step advance, public diagnostics                                      | Three.js resources, Svelte components, browser rAF ownership        |
+| `simulation/behaviour/`     | Needs, goal decisions, actions, local perception, habitat-feature query, search, resource targets, per-creature behaviour step | Transmission/reception of signals, presentation, habitat generation |
+| `simulation/communication/` | Arbitrary symbols, emission construction, hearing radius, reception records, emission expiry, communication histories          | Symbol semantics, listener behaviour changes, presentation meshes   |
+| `habitat-presentation.ts`   | Static habitat mesh construction and disposal                                                                                  | Creature meshes, simulation stepping                                |
+| `creature-presentation.ts`  | Dynamic creature mesh reconcile by id and action-derived visuals                                                               | Authoritative creature state, habitat rebuilds                      |
+| `signal-presentation.ts`    | Dynamic signal mesh reconcile by emission id (glyph marker + ring)                                                             | Authoritative reception, emission lifetime decisions                |
+| `ThreeViewport.svelte`      | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal presentation                        | Authoritative habitat or creature state                             |
+| `habitat-camera.ts`         | Pure camera-framing and visibility calculations                                                                                | Scene construction, simulation state or UI controls                 |
+| `HabitatWorkbench.svelte`   | Seed/simulation controls, diagnostics, creature inspector presentation                                                         | Domain algorithms or renderer lifecycle                             |
+| `src/routes/+page.svelte`   | Page composition, session simulation state, rAF catch-up, pause/reset, selected creature id                                    | Domain algorithms, geometry rules or Three.js resource ownership    |
+| `ports.ts`                  | Reserved application and test ports                                                                                            | Runtime simulation configuration                                    |
+| `src/lib/index.ts`          | Deliberate app-level public exports                                                                                            | Private implementation logic or universal re-export of every module |
 
 ## Dependency direction
 
@@ -99,7 +110,7 @@ determinism
         ↓
 habitat model and generation
         ↓
-simulation (creatures + behaviour + fixed-step advance)
+simulation (creatures + behaviour + communication + fixed-step advance)
         ↓
 page-level application state (incl. selection id)
         ↓
@@ -114,12 +125,13 @@ routes              -> habitat public entry point
 routes              -> workbench and viewport components
 workbench           -> habitat + simulation public entry points
 viewport            -> habitat public entry point
-viewport            -> simulation Creature type
-viewport            -> habitat-presentation, creature-presentation, habitat-camera
+viewport            -> simulation Creature / SignalEmission types
+viewport            -> habitat-presentation, creature-presentation, signal-presentation, habitat-camera
 habitat-camera      -> habitat types
 habitat subsystem   -> determinism
 simulation          -> determinism + habitat
-simulation/behaviour -> simulation sibling modules + habitat (private to simulation)
+simulation/behaviour -> simulation sibling modules + habitat (private to simulation); may construct EmissionRequest only
+simulation/communication -> simulation types + determinism (private to simulation); no behaviour internals
 determinism         -> no Svelte, Three.js, habitat or simulation modules
 habitat subsystem   -> no Svelte, Three.js or route modules
 simulation          -> no Svelte, Three.js or route modules

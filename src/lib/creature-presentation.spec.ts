@@ -36,7 +36,12 @@ function creature(
 		nextReconsiderAt: 1.5,
 		lastDecision: null,
 		lastCandidates: [],
-		recentTransitions: []
+		recentTransitions: [],
+		preferredSymbolId: 'glyph-0',
+		emissionCount: 0,
+		lastEmissionAt: -1,
+		recentEmitted: [],
+		recentHeard: []
 	};
 }
 

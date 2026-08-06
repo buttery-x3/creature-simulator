@@ -138,12 +138,25 @@ needs/goal/action state machine and local resource perception:
 - `habitat-feature-query.ts` — named nearby-feature query (circle ∩ footprint);
 - `perception.ts` — sensing interval, perceived snapshot, brief tracked observation;
 - `resource-awareness.ts` — target resolve/arrival; perception-scoped food/water targets; innate home;
-- `step-creature-behaviour.ts` — per-creature fixed-step behaviour orchestration;
+- `step-creature-behaviour.ts` — per-creature fixed-step behaviour orchestration (may emit emission requests);
 - `index.ts` — exports for simulation siblings (not a separate app subsystem).
 
 This directory is at capacity for implementation files (hard limit 8 excluding
-tests). Further growth should restated ownership rather than add thin helpers.
+tests). Further growth should restate ownership rather than add thin helpers.
 Do not move Three.js objects or Svelte components into this subsystem. Creatures must not live on `Habitat`.
+
+Internal communication subdomain (`simulation/communication/`), introduced for
+transient arbitrary signals and local reception (no symbol semantics):
+
+- `types.ts` — symbol ids, emissions, heard records, emission requests;
+- `emission.ts` — preferred-symbol selection, cooldown, ids, bounded history helpers;
+- `reception.ts` — circular hearing radius, sender exclusion, deterministic receiver order;
+- `step-communication.ts` — apply requests, reception, expiry within the fixed step;
+- `index.ts` — exports for simulation siblings.
+
+Behaviour may request an emission; communication owns transmission, reception,
+lifetime and histories. Do not add learned associations or listener behaviour here
+unless a dedicated issue requires it.
 
 ### Presentation
 
@@ -151,6 +164,7 @@ Three.js presentation is split:
 
 - `habitat-presentation.ts` — static habitat mesh construction and disposal;
 - `creature-presentation.ts` — dynamic creature mesh reconcile by id and action visuals;
+- `signal-presentation.ts` — dynamic signal mesh reconcile by emission id (glyph + ring);
 - `ThreeViewport.svelte` — scene lifecycle, camera framing, pick ray, prop wiring;
 - `habitat-camera.ts` — pure framing and visibility calculations.
 

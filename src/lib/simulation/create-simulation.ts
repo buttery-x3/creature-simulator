@@ -13,6 +13,8 @@ import { applyDecision } from './behaviour/actions';
 import { commitDecision } from './behaviour/decisions';
 import { emptyPerception } from './behaviour/perception';
 import { pointTarget } from './behaviour/resource-awareness';
+import { selectPreferredSymbol } from './communication/emission';
+import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 import { sampleSearchTarget, sampleWanderTarget } from './creature-movement';
 import type { Creature, SimulationConfig, SimulationState } from './types';
 
@@ -62,6 +64,15 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	sensingRadius: 3,
 	perceptionIntervalSeconds: 0.25,
 	trackedObservationDurationSeconds: 4,
+
+	// Communication: arbitrary symbols, short-lived local emissions.
+	symbolInventory: DEFAULT_SYMBOL_INVENTORY,
+	hearingRadius: 4,
+	signalLifetimeSeconds: 1.5,
+	emissionCooldownSeconds: 4,
+	recentEmittedHistoryLimit: 8,
+	recentHeardHistoryLimit: 8,
+	recentSimulationEmissionHistoryLimit: 16,
 
 	initialHunger: 0.2,
 	initialThirst: 0.2,
@@ -147,7 +158,10 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'sleepUntilEnergy',
 		'sensingRadius',
 		'perceptionIntervalSeconds',
-		'trackedObservationDurationSeconds'
+		'trackedObservationDurationSeconds',
+		'hearingRadius',
+		'signalLifetimeSeconds',
+		'emissionCooldownSeconds'
 	];
 	for (const key of rateFields) {
 		const value = config[key];
@@ -165,10 +179,33 @@ function validateSimulationConfig(config: SimulationConfig): void {
 			`perceptionIntervalSeconds must be > 0, received ${config.perceptionIntervalSeconds}`
 		);
 	}
+	if (!(config.hearingRadius > 0)) {
+		throw new SimulationCreationError(
+			`hearingRadius must be > 0, received ${config.hearingRadius}`
+		);
+	}
+	if (!(config.signalLifetimeSeconds > 0)) {
+		throw new SimulationCreationError(
+			`signalLifetimeSeconds must be > 0, received ${config.signalLifetimeSeconds}`
+		);
+	}
 	if (!Number.isInteger(config.decisionHistoryLimit) || config.decisionHistoryLimit < 1) {
 		throw new SimulationCreationError(
 			`decisionHistoryLimit must be a positive integer, received ${config.decisionHistoryLimit}`
 		);
+	}
+	if (!config.symbolInventory || config.symbolInventory.length === 0) {
+		throw new SimulationCreationError('symbolInventory must be a non-empty array');
+	}
+	for (const key of [
+		'recentEmittedHistoryLimit',
+		'recentHeardHistoryLimit',
+		'recentSimulationEmissionHistoryLimit'
+	] as const) {
+		const value = config[key];
+		if (!Number.isInteger(value) || value < 1) {
+			throw new SimulationCreationError(`${key} must be a positive integer, received ${value}`);
+		}
 	}
 	for (const key of ['initialHunger', 'initialThirst', 'initialEnergy'] as const) {
 		const value = config[key];
@@ -235,6 +272,8 @@ function createCreatures(
 			config.creatureRadius
 		);
 
+		const preferredSymbolId = selectPreferredSymbol(config.seed, id, config.symbolInventory);
+
 		const draft: Creature = {
 			id,
 			position,
@@ -256,7 +295,12 @@ function createCreatures(
 			nextReconsiderAt: 0,
 			lastDecision: null,
 			lastCandidates: [],
-			recentTransitions: []
+			recentTransitions: [],
+			preferredSymbolId,
+			emissionCount: 0,
+			lastEmissionAt: -1,
+			recentEmitted: [],
+			recentHeard: []
 		};
 
 		const decision = commitDecision({
@@ -305,7 +349,10 @@ export function createSimulation(config: SimulationConfig): SimulationState {
 		seed: config.seed,
 		timeSeconds: 0,
 		habitat,
-		creatures
+		creatures,
+		activeEmissions: [],
+		recentEmissions: [],
+		nextEmissionSeq: 0
 	};
 }
 

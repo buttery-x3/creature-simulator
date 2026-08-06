@@ -16,11 +16,16 @@ export type {
 	CreatureTarget,
 	DecisionRecord,
 	DecisionTrigger,
+	HeardSignal,
 	ResourceObservation,
+	SignalEmission,
 	SimulationConfig,
 	SimulationState,
-	SpeedRange
+	SpeedRange,
+	SymbolId
 } from './types';
+
+export { DEFAULT_SYMBOL_INVENTORY } from './types';
 
 export {
 	DEFAULT_SIMULATION_CONFIG,
@@ -63,3 +68,11 @@ export {
 	senseAt,
 	WANDER_BASELINE_SCORE
 } from './behaviour';
+
+export {
+	expireEmissions,
+	selectPreferredSymbol,
+	selectReceivers,
+	stepCommunication,
+	type EmissionRequest
+} from './communication';

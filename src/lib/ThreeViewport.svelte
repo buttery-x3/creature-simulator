@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import * as THREE from 'three';
 	import type { Habitat } from '$lib/habitat';
-	import type { Creature } from '$lib/simulation';
+	import type { Creature, SignalEmission } from '$lib/simulation';
 	import {
 		clearCreaturePresentation,
 		createCreaturePresentationResources,
@@ -20,6 +20,12 @@
 		frameHabitatPerspectiveCamera,
 		type HabitatVisibilityReport
 	} from './habitat-camera';
+	import {
+		clearSignalPresentation,
+		createSignalPresentationResources,
+		reconcileSignals,
+		type SignalPresentationResources
+	} from './signal-presentation';
 
 	/**
 	 * Coordinate convention:
@@ -31,12 +37,15 @@
 	 *
 	 * Static habitat presentation rebuilds only when habitat identity changes.
 	 * Creature meshes are reconciled by id and updated in place.
+	 * Signal visuals mirror authoritative activeEmissions only.
 	 * Selection is presentation state owned by the page, not simulation state.
 	 */
 
 	type Props = {
 		habitat: Habitat;
 		creatures: Creature[];
+		activeEmissions?: SignalEmission[];
+		timeSeconds?: number;
 		selectedCreatureId?: string | null;
 		/** Authoritative sensing radius from SimulationConfig (presentation overlay only). */
 		sensingRadius?: number;
@@ -46,6 +55,8 @@
 	let {
 		habitat,
 		creatures,
+		activeEmissions = [],
+		timeSeconds = 0,
 		selectedCreatureId = null,
 		sensingRadius = 3,
 		onSelectCreature
@@ -57,6 +68,7 @@
 	let applyHabitat: ((data: Habitat) => void) | undefined = $state();
 	let applyCreatures:
 		((list: Creature[], selectedId: string | null, radius: number) => void) | undefined = $state();
+	let applySignals: ((emissions: SignalEmission[], simTime: number) => void) | undefined = $state();
 	let publishSelection: ((id: string | null) => void) | undefined = $state();
 
 	onMount(() => {
@@ -82,6 +94,9 @@
 
 		const creatureResources: CreaturePresentationResources = createCreaturePresentationResources();
 		scene.add(creatureResources.root);
+
+		const signalResources: SignalPresentationResources = createSignalPresentationResources();
+		scene.add(signalResources.root);
 
 		// Presentation-only sensing radius ring for the selected creature.
 		const sensingRingGeom = new THREE.RingGeometry(0.98, 1.02, 48);
@@ -122,6 +137,8 @@
 			canvas.dataset.creatureCount = String(count);
 			canvas.dataset.habitatBuildCount = String(habitatBuildCount);
 			canvas.dataset.creatureStructureVersion = String(creatureResources.structureVersion);
+			canvas.dataset.signalStructureVersion = String(signalResources.structureVersion);
+			canvas.dataset.activeEmissionCount = String(signalResources.byId.size);
 			canvas.dataset.selectedCreatureId = currentSelectedId ?? '';
 			canvas.dataset.sensingOverlayVisible = sensingRing.visible ? 'true' : 'false';
 			canvas.dataset.sensingRadius = String(currentSensingRadius);
@@ -186,6 +203,12 @@
 			renderFrame();
 		};
 
+		applySignals = (emissions: SignalEmission[], simTime: number) => {
+			reconcileSignals(signalResources, emissions, simTime);
+			publishCreatureMeta(creatureResources.byId.size);
+			renderFrame();
+		};
+
 		publishSelection = (id: string | null) => {
 			currentSelectedId = id;
 			publishCreatureMeta(creatureResources.byId.size);
@@ -228,6 +251,7 @@
 
 		applyHabitat(habitat);
 		applyCreatures(creatures, selectedCreatureId, sensingRadius);
+		applySignals(activeEmissions, timeSeconds);
 
 		const observer = new ResizeObserver(renderFrame);
 		observer.observe(host);
@@ -237,11 +261,14 @@
 			renderer.domElement.removeEventListener('click', onCanvasClick);
 			applyHabitat = undefined;
 			applyCreatures = undefined;
+			applySignals = undefined;
 			publishSelection = undefined;
 			clearHabitatPresentation(habitatResources);
 			clearCreaturePresentation(creatureResources);
+			clearSignalPresentation(signalResources);
 			scene.remove(habitatResources.root);
 			scene.remove(creatureResources.root);
+			scene.remove(signalResources.root);
 			scene.remove(sensingRing);
 			sensingRingGeom.dispose();
 			sensingRingMat.dispose();
@@ -260,6 +287,12 @@
 		const selected = selectedCreatureId;
 		const radius = sensingRadius;
 		applyCreatures?.(list, selected ?? null, radius);
+	});
+
+	$effect(() => {
+		const emissions = activeEmissions;
+		const t = timeSeconds;
+		applySignals?.(emissions, t);
 	});
 
 	$effect(() => {

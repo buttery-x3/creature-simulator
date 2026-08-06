@@ -1,8 +1,14 @@
 /**
  * Fixed-step simulation advancement and bounded wall-clock catch-up.
+ *
+ * Step order (authoritative):
+ * 1. Behaviour for all creatures (needs, perception, decisions, movement)
+ * 2. Communication: apply emission requests, reception, expire active emissions
  */
 
 import { stepCreatureBehaviour } from './behaviour/step-creature-behaviour';
+import { stepCommunication } from './communication/step-communication';
+import type { EmissionRequest } from './communication/types';
 import type { SimulationConfig, SimulationState } from './types';
 
 export type StepSimulationConfig = Pick<
@@ -30,6 +36,12 @@ export type StepSimulationConfig = Pick<
 	| 'sensingRadius'
 	| 'perceptionIntervalSeconds'
 	| 'trackedObservationDurationSeconds'
+	| 'hearingRadius'
+	| 'signalLifetimeSeconds'
+	| 'emissionCooldownSeconds'
+	| 'recentEmittedHistoryLimit'
+	| 'recentHeardHistoryLimit'
+	| 'recentSimulationEmissionHistoryLimit'
 >;
 
 /**
@@ -43,15 +55,33 @@ export function stepSimulation(
 	const dt = config.fixedDt;
 	// Behaviour sees the time *after* this step so need-driven clocks align with state.timeSeconds.
 	const timeSeconds = state.timeSeconds + dt;
-	const creatures = state.creatures.map((creature) =>
-		stepCreatureBehaviour(creature, dt, timeSeconds, state.seed, state.habitat, config)
-	);
 
-	return {
+	const emissionRequests: EmissionRequest[] = [];
+	const creatures = state.creatures.map((creature) => {
+		const result = stepCreatureBehaviour(
+			creature,
+			dt,
+			timeSeconds,
+			state.seed,
+			state.habitat,
+			config
+		);
+		if (result.emissionRequest) {
+			emissionRequests.push(result.emissionRequest);
+		}
+		return result.creature;
+	});
+
+	// Stable request order by sender id (not array iteration accidents).
+	emissionRequests.sort((a, b) => (a.senderId < b.senderId ? -1 : a.senderId > b.senderId ? 1 : 0));
+
+	const afterBehaviour: SimulationState = {
 		...state,
 		timeSeconds,
 		creatures
 	};
+
+	return stepCommunication(afterBehaviour, emissionRequests, timeSeconds, config);
 }
 
 export type CatchUpResult = {

@@ -193,6 +193,9 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	await expect(page.getByTestId('inspector-preferred-symbol')).toBeVisible();
 	await expect(page.getByTestId('inspector-preferred-symbol')).toContainText('glyph-');
 	await expect(page.getByTestId('inspector-hearing-radius')).toBeVisible();
+	await expect(page.getByTestId('inspector-emission-weights')).toBeVisible();
+	await expect(page.getByTestId('inspector-emit-weight-glyph-0')).toContainText('foodW=');
+	await expect(page.getByTestId('inspector-last-selection')).toBeVisible();
 	await expect(page.getByTestId('inspector-recent-emitted')).toBeVisible();
 	await expect(page.getByTestId('inspector-recent-heard')).toBeVisible();
 	await expect(page.getByTestId('inspector-symbol-associations')).toBeVisible();
@@ -201,6 +204,15 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	await expect(page.getByTestId('inspector-active-investigation')).toBeVisible();
 	await expect(page.getByTestId('inspector-recent-learning')).toBeVisible();
 	await expect(page.getByTestId('inspector-candidate-investigate_signal')).toBeVisible();
+
+	// Population panel: observational convergence summaries without inspecting every creature.
+	await expect(page.getByTestId('population-communication-panel')).toBeVisible();
+	await expect(page.getByTestId('population-communication-hint')).toContainText('Observational');
+	await expect(page.getByTestId('population-context-food')).toBeVisible();
+	await expect(page.getByTestId('population-context-water')).toBeVisible();
+	await expect(page.getByTestId('population-food-row-glyph-0')).toBeVisible();
+	await expect(page.getByTestId('population-food-highest-mean')).toBeVisible();
+	await expect(page.getByTestId('population-food-most-emitted')).toBeVisible();
 
 	// Canvas metadata is presentation-only; no need to wait for a natural discovery.
 	await expect(canvas).toHaveAttribute('data-active-emission-count', /\d+/);

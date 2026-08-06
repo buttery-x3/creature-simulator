@@ -5,6 +5,7 @@
 		type SimulationConfig,
 		type SimulationState
 	} from '$lib/simulation';
+	import CreatureEmissionWeights from './CreatureEmissionWeights.svelte';
 
 	type Props = {
 		simulation: SimulationState;
@@ -23,7 +24,10 @@
 			? formatCreatureInspection(selectedCreature, simulation.timeSeconds, {
 					sensingRadius: config.sensingRadius,
 					trackedObservationDurationSeconds: config.trackedObservationDurationSeconds,
-					hearingRadius: config.hearingRadius
+					hearingRadius: config.hearingRadius,
+					emissionExplorationFloor: config.emissionExplorationFloor,
+					emissionAssociationWeightMultiplier: config.emissionAssociationWeightMultiplier,
+					symbolInventory: config.symbolInventory
 				})
 			: null
 	);
@@ -209,7 +213,7 @@
 				<dt>Preferred symbol</dt>
 				<dd data-testid="inspector-preferred-symbol">
 					{selectedCreature.preferredSymbolId}
-					<span class="muted">(arbitrary)</span>
+					<span class="muted">(cold-start fallback)</span>
 				</dd>
 			</div>
 			<div>
@@ -219,6 +223,12 @@
 			<div>
 				<dt>Active emissions</dt>
 				<dd data-testid="inspector-active-emissions">{simulation.activeEmissions.length}</dd>
+			</div>
+			<div class="full-width">
+				<dt class="sr-only">Emission weights</dt>
+				<dd>
+					<CreatureEmissionWeights creature={selectedCreature} {config} />
+				</dd>
 			</div>
 			<div>
 				<dt>Recent emitted</dt>

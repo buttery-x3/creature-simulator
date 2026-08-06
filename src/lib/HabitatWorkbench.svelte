@@ -6,6 +6,7 @@
 		type SimulationState
 	} from '$lib/simulation';
 	import CreatureInspector from './CreatureInspector.svelte';
+	import PopulationCommunicationPanel from './PopulationCommunicationPanel.svelte';
 
 	type Props = {
 		simulation: SimulationState;
@@ -39,7 +40,15 @@
 
 	const habitat: Habitat = $derived(simulation.habitat);
 	const habitatDiagnostics = $derived(formatHabitatDiagnostics(habitat));
-	const simulationDiagnostics = $derived(formatSimulationDiagnostics(simulation, { paused }));
+	const simulationDiagnostics = $derived(
+		formatSimulationDiagnostics(simulation, {
+			paused,
+			config: {
+				symbolInventory: config.symbolInventory,
+				recentEmissionDiagnosticsWindowSeconds: config.recentEmissionDiagnosticsWindowSeconds
+			}
+		})
+	);
 </script>
 
 <aside class="workbench" data-testid="habitat-workbench" aria-label="Simulation controls">
@@ -115,6 +124,8 @@
 	</section>
 
 	<CreatureInspector {simulation} {config} {selectedCreatureId} {onSelectCreature} />
+
+	<PopulationCommunicationPanel {simulation} {config} />
 
 	<section class="panel diagnostics">
 		<h2>Creatures</h2>

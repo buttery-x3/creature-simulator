@@ -1,11 +1,15 @@
 /**
  * Fixed-step communication advance: create emissions, receive, expire.
  * Invoked after behaviour within the same fixed simulation step.
+ *
+ * Symbol choice uses the emitter's personal associations for the discovery context
+ * (see symbol-selection.ts). Listeners never receive context or selection weights.
  */
 
 import type { Creature, SimulationConfig, SimulationState } from '../types';
 import { appendBounded, buildEmission, canEmit, nextEmissionId, toHeardSignal } from './emission';
 import { selectReceivers } from './reception';
+import { selectContextSymbol } from './symbol-selection';
 import type { EmissionRequest, SignalEmission } from './types';
 
 export type CommunicationStepConfig = Pick<
@@ -16,6 +20,9 @@ export type CommunicationStepConfig = Pick<
 	| 'recentEmittedHistoryLimit'
 	| 'recentHeardHistoryLimit'
 	| 'recentSimulationEmissionHistoryLimit'
+	| 'symbolInventory'
+	| 'emissionExplorationFloor'
+	| 'emissionAssociationWeightMultiplier'
 >;
 
 /**
@@ -23,11 +30,12 @@ export type CommunicationStepConfig = Pick<
  *
  * Ordering (authoritative):
  * 1. Process requests in given order (caller sorts by sender id).
- * 2. For each accepted request: build emission, select receivers at post-behaviour
- *    positions, update sender/receiver histories, append to active + sim history.
+ * 2. For each accepted request: select symbol from associations, build emission,
+ *    select receivers at post-behaviour positions, update histories.
  * 3. Drop active emissions with expiresAt <= timeSeconds.
  *
  * Hearing does not alter goals, actions, needs, targets or perception.
+ * Selection never mutates associations or routes listener outcomes to the emitter.
  */
 export function stepCommunication(
 	state: SimulationState,
@@ -51,16 +59,31 @@ export function stepCommunication(
 		}
 
 		const emissionCount = sender.emissionCount;
+		const selection = selectContextSymbol({
+			simulationSeed: state.seed,
+			creatureId: request.senderId,
+			emissionCount,
+			contextDetail: request.contextDetail,
+			inventory: config.symbolInventory,
+			associations: sender.symbolAssociations,
+			preferredSymbolId: sender.preferredSymbolId,
+			config: {
+				emissionExplorationFloor: config.emissionExplorationFloor,
+				emissionAssociationWeightMultiplier: config.emissionAssociationWeightMultiplier
+			}
+		});
+
 		const emission = buildEmission({
 			id: nextEmissionId(request.senderId, emissionCount),
-			symbolId: sender.preferredSymbolId,
+			symbolId: selection.symbolId,
 			senderId: request.senderId,
 			origin: request.origin,
 			emittedAt: timeSeconds,
 			lifetimeSeconds: config.signalLifetimeSeconds,
 			context: request.context,
 			contextDetail: request.contextDetail,
-			symbolSelectionReason: 'creature preferred symbol'
+			symbolSelectionReason: selection.reasonText,
+			selectionEvidence: selection.evidence
 		});
 
 		const receivers = selectReceivers(

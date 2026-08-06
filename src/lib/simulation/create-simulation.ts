@@ -75,7 +75,13 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	emissionCooldownSeconds: 4,
 	recentEmittedHistoryLimit: 8,
 	recentHeardHistoryLimit: 8,
-	recentSimulationEmissionHistoryLimit: 16,
+	recentSimulationEmissionHistoryLimit: 24,
+	// Context-sensitive emission: exploration floor keeps all symbols selectable;
+	// learned association strengths increasingly dominate as evidence accumulates.
+	emissionExplorationFloor: 0.15,
+	emissionAssociationWeightMultiplier: 1,
+	// Population diagnostics only — does not affect selection behaviour.
+	recentEmissionDiagnosticsWindowSeconds: 30,
 
 	// Learning: personal associations + signal investigation (no global meanings).
 	// Per-creature curiosity (sampled at creation) drives unknown-symbol investigation.
@@ -236,12 +242,20 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'investigationDistanceScale',
 		'investigationAgeWeight',
 		'associationReinforcement',
-		'noEvidenceConfidenceReduction'
+		'noEvidenceConfidenceReduction',
+		'emissionExplorationFloor',
+		'emissionAssociationWeightMultiplier',
+		'recentEmissionDiagnosticsWindowSeconds'
 	] as const) {
 		const value = config[key];
 		if (typeof value !== 'number' || !(value >= 0) || !Number.isFinite(value)) {
 			throw new SimulationCreationError(`${key} must be a finite number >= 0, received ${value}`);
 		}
+	}
+	if (!(config.recentEmissionDiagnosticsWindowSeconds > 0)) {
+		throw new SimulationCreationError(
+			`recentEmissionDiagnosticsWindowSeconds must be > 0, received ${config.recentEmissionDiagnosticsWindowSeconds}`
+		);
 	}
 	if (!(config.pendingSignalLifetimeSeconds > 0)) {
 		throw new SimulationCreationError(

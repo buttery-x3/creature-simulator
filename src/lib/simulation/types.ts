@@ -18,7 +18,13 @@ import type {
 	SymbolAssociation
 } from './learning/types';
 
-export type { HeardSignal, SignalEmission, SymbolId } from './communication/types';
+export type {
+	HeardSignal,
+	SignalEmission,
+	SymbolId,
+	SymbolSelectionCandidateEvidence,
+	SymbolSelectionEvidence
+} from './communication/types';
 export { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 export type {
 	ActiveSignalInvestigation,
@@ -295,6 +301,21 @@ export type SimulationConfig = {
 	recentHeardHistoryLimit: number;
 	/** Max length of simulation recentEmissions (oldest dropped). */
 	recentSimulationEmissionHistoryLimit: number;
+	/**
+	 * Base weight added to every symbol during context-sensitive emission selection.
+	 * Ensures cold-start creatures can still emit before learning (exploration floor).
+	 */
+	emissionExplorationFloor: number;
+	/**
+	 * Multiplier applied to context-relevant learned association strength when building
+	 * emission weights. Reuses personal associations; not a separate production table.
+	 */
+	emissionAssociationWeightMultiplier: number;
+	/**
+	 * Simulated-time window for population “recent emission” diagnostics (seconds).
+	 * Pure observation only — does not affect emission behaviour.
+	 */
+	recentEmissionDiagnosticsWindowSeconds: number;
 
 	/** How long a pending heard signal remains an investigation candidate. */
 	pendingSignalLifetimeSeconds: number;

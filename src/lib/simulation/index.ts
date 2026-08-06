@@ -27,7 +27,9 @@ export type {
 	SimulationState,
 	SpeedRange,
 	SymbolAssociation,
-	SymbolId
+	SymbolId,
+	SymbolSelectionCandidateEvidence,
+	SymbolSelectionEvidence
 } from './types';
 
 export { DEFAULT_SYMBOL_INVENTORY } from './types';
@@ -57,6 +59,15 @@ export {
 export { formatCreatureInspection, formatSimulationDiagnostics } from './diagnostics';
 
 export {
+	buildPopulationSymbolDiagnostics,
+	formatPopulationSymbolDiagnostics,
+	type ContextPopulationSummary,
+	type PopulationSymbolDiagnostics,
+	type SymbolContextAssociationSummary,
+	type SymbolContextEmissionSummary
+} from './population-symbol-diagnostics';
+
+export {
 	advanceNeeds,
 	clampNeed,
 	commitDecision,
@@ -75,7 +86,9 @@ export {
 } from './behaviour';
 
 export {
+	buildEmissionWeights,
 	expireEmissions,
+	selectContextSymbol,
 	selectPreferredSymbol,
 	selectReceivers,
 	stepCommunication,

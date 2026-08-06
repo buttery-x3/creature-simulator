@@ -17,7 +17,22 @@ function emission(id: string, symbolId: SignalEmission['symbolId'] = 'glyph-0'):
 		expiresAt: 2.5,
 		context: 'resource_discovered',
 		contextDetail: 'food',
-		symbolSelectionReason: 'creature preferred symbol'
+		symbolSelectionReason: 'weighted_association',
+		selectionEvidence: {
+			emissionContext: 'food',
+			selectedSymbolId: symbolId,
+			candidates: [
+				{
+					symbolId,
+					learnedStrength: 0,
+					explorationFloor: 0.15,
+					effectiveWeight: 0.15
+				}
+			],
+			sample: 0.5,
+			usedFallback: false,
+			reason: 'weighted_association'
+		}
 	};
 }
 

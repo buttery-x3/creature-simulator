@@ -10,8 +10,27 @@ import type { SimulationState } from '../types';
 import { appendBounded, canEmit, nextEmissionId, selectPreferredSymbol } from './emission';
 import { selectReceivers } from './reception';
 import { expireEmissions, stepCommunication } from './step-communication';
-import type { EmissionRequest, SignalEmission } from './types';
+import type { EmissionRequest, ResourceDiscoveryDetail, SignalEmission, SymbolId } from './types';
 import { DEFAULT_SYMBOL_INVENTORY } from './types';
+
+function testSelectionEvidence(
+	symbolId: SymbolId,
+	context: ResourceDiscoveryDetail = 'food'
+): SignalEmission['selectionEvidence'] {
+	return {
+		emissionContext: context,
+		selectedSymbolId: symbolId,
+		candidates: DEFAULT_SYMBOL_INVENTORY.map((id) => ({
+			symbolId: id,
+			learnedStrength: 0,
+			explorationFloor: 0.15,
+			effectiveWeight: 0.15
+		})),
+		sample: 0.5,
+		usedFallback: false,
+		reason: 'weighted_association'
+	};
+}
 
 function commConfig(seed: string) {
 	return {
@@ -109,7 +128,8 @@ describe('expireEmissions', () => {
 				expiresAt: 2.5,
 				context: 'resource_discovered',
 				contextDetail: 'food',
-				symbolSelectionReason: 'creature preferred symbol'
+				symbolSelectionReason: 'weighted_association',
+				selectionEvidence: testSelectionEvidence('glyph-0', 'food')
 			},
 			{
 				id: 'em-b-0',
@@ -120,7 +140,8 @@ describe('expireEmissions', () => {
 				expiresAt: 3,
 				context: 'resource_discovered',
 				contextDetail: 'water',
-				symbolSelectionReason: 'creature preferred symbol'
+				symbolSelectionReason: 'weighted_association',
+				selectionEvidence: testSelectionEvidence('glyph-1', 'water')
 			}
 		];
 		expect(expireEmissions(emissions, 2.5).map((e) => e.id)).toEqual(['em-b-0']);
@@ -165,9 +186,13 @@ describe('stepCommunication', () => {
 		expect(next.activeEmissions).toHaveLength(1);
 		const emission = next.activeEmissions[0]!;
 		expect(emission.id).toBe(nextEmissionId('creature-0', 0));
-		expect(emission.symbolId).toBe('glyph-2');
-		expect(emission.symbolSelectionReason).toBe('creature preferred symbol');
+		expect(DEFAULT_SYMBOL_INVENTORY).toContain(emission.symbolId);
+		expect(emission.selectionEvidence.emissionContext).toBe('food');
+		expect(emission.selectionEvidence.selectedSymbolId).toBe(emission.symbolId);
+		expect(emission.selectionEvidence.candidates.length).toBe(DEFAULT_SYMBOL_INVENTORY.length);
 		expect(emission.contextDetail).toBe('food');
+		// HeardSignal must not include context or selection weights
+		expect(JSON.stringify(emission.selectionEvidence)).toContain('candidates');
 
 		const senderNext = next.creatures.find((c) => c.id === 'creature-0')!;
 		const nearNext = next.creatures.find((c) => c.id === 'creature-1')!;
@@ -181,6 +206,19 @@ describe('stepCommunication', () => {
 		expect(nearNext.recentHeard).toHaveLength(1);
 		expect(nearNext.recentHeard[0]?.emissionId).toBe(emission.id);
 		expect(farNext.recentHeard).toHaveLength(0);
+
+		const heard = nearNext.recentHeard[0]!;
+		expect(JSON.stringify(heard)).not.toContain('contextDetail');
+		expect(JSON.stringify(heard)).not.toContain('selectionEvidence');
+		expect(JSON.stringify(heard)).not.toContain('effectiveWeight');
+		expect(heard).toEqual({
+			emissionId: emission.id,
+			symbolId: emission.symbolId,
+			senderId: emission.senderId,
+			origin: emission.origin,
+			emittedAt: emission.emittedAt,
+			heardAt: 1
+		});
 
 		// Behaviour-critical fields unchanged by hearing
 		expect(nearNext.goal).toBe(near.goal);
@@ -212,15 +250,23 @@ describe('stepCommunication', () => {
 		expect(next.creatures[0]!.emissionCount).toBe(1);
 	});
 
-	it('uses the same preferred symbol for food and water discoveries', () => {
-		const config = commConfig('same-symbol');
+	it('uses context-specific associations so food and water emission may diverge', () => {
+		const config = commConfig('context-symbol');
+		const associations = DEFAULT_SYMBOL_INVENTORY.map((symbolId) => ({
+			symbolId,
+			foodStrength: symbolId === 'glyph-0' ? 10 : 0,
+			waterStrength: symbolId === 'glyph-3' ? 10 : 0,
+			foodEvidenceCount: symbolId === 'glyph-0' ? 1 : 0,
+			waterEvidenceCount: symbolId === 'glyph-3' ? 1 : 0
+		}));
 		const sender = testCreature({
 			id: 'creature-0',
 			position: { x: 0, y: 0 },
 			preferredSymbolId: 'glyph-1',
+			symbolAssociations: associations,
 			lastEmissionAt: -1
 		});
-		let state = bareState({ creatures: [sender], timeSeconds: 1 });
+		let state = bareState({ creatures: [sender], timeSeconds: 1, seed: 'context-symbol' });
 		state = stepCommunication(
 			state,
 			[
@@ -234,12 +280,13 @@ describe('stepCommunication', () => {
 			1,
 			config
 		);
-		const foodSymbol = state.activeEmissions[0]!.symbolId;
+		expect(state.activeEmissions[0]!.selectionEvidence.emissionContext).toBe('food');
+		expect(state.activeEmissions[0]!.symbolId).toBe('glyph-0');
 
-		// Reset cooldown and re-emit for water
 		const senderAfter = {
 			...state.creatures[0]!,
-			lastEmissionAt: -1
+			lastEmissionAt: -1,
+			symbolAssociations: associations
 		};
 		state = {
 			...state,
@@ -260,8 +307,9 @@ describe('stepCommunication', () => {
 			10,
 			config
 		);
-		expect(state.activeEmissions[0]!.symbolId).toBe(foodSymbol);
 		expect(state.activeEmissions[0]!.contextDetail).toBe('water');
+		expect(state.activeEmissions[0]!.selectionEvidence.emissionContext).toBe('water');
+		expect(state.activeEmissions[0]!.symbolId).toBe('glyph-3');
 	});
 
 	it('bounds emitted, heard and simulation histories', () => {
@@ -423,6 +471,114 @@ describe('discovery integration via stepSimulation', () => {
 		}
 		expect(state.creatures[0]!.emissionCount).toBe(1);
 		expect(state.recentEmissions).toHaveLength(1);
+	});
+
+	it('selects symbol from food associations rather than preferred only', () => {
+		const config = commConfig('assoc-emit');
+		const associations = DEFAULT_SYMBOL_INVENTORY.map((symbolId) => ({
+			symbolId,
+			foodStrength: symbolId === 'glyph-3' ? 10 : 0,
+			waterStrength: 0,
+			foodEvidenceCount: symbolId === 'glyph-3' ? 1 : 0,
+			waterEvidenceCount: 0
+		}));
+		const sender = testCreature({
+			id: 'creature-0',
+			position: { x: 0, y: 0 },
+			preferredSymbolId: 'glyph-0',
+			symbolAssociations: associations
+		});
+		const state = bareState({ creatures: [sender], timeSeconds: 1, seed: 'assoc-emit' });
+		const next = stepCommunication(
+			state,
+			[
+				{
+					senderId: 'creature-0',
+					origin: { x: 0, y: 0 },
+					context: 'resource_discovered',
+					contextDetail: 'food'
+				}
+			],
+			1,
+			config
+		);
+		// With extreme food strength, glyph-3 should dominate food emission selections
+		let glyph3 = 0;
+		let current = state;
+		for (let i = 0; i < 20; i += 1) {
+			const stepped = stepCommunication(
+				{
+					...current,
+					creatures: current.creatures.map((c) =>
+						c.id === 'creature-0'
+							? {
+									...c,
+									lastEmissionAt: -1,
+									symbolAssociations: associations,
+									preferredSymbolId: 'glyph-0'
+								}
+							: c
+					)
+				},
+				[
+					{
+						senderId: 'creature-0',
+						origin: { x: 0, y: 0 },
+						context: 'resource_discovered',
+						contextDetail: 'food'
+					}
+				],
+				1 + i,
+				config
+			);
+			const em = stepped.activeEmissions[stepped.activeEmissions.length - 1];
+			if (em?.symbolId === 'glyph-3') {
+				glyph3 += 1;
+			}
+			current = stepped;
+		}
+		expect(glyph3).toBeGreaterThan(10);
+		expect(
+			next.activeEmissions[0]!.selectionEvidence.candidates.find((c) => c.symbolId === 'glyph-3')!
+				.learnedStrength
+		).toBe(10);
+	});
+
+	it('does not mutate emitter associations when delivering to listeners', () => {
+		const config = commConfig('no-emitter-feedback');
+		const associations = DEFAULT_SYMBOL_INVENTORY.map((symbolId) => ({
+			symbolId,
+			foodStrength: 0.5,
+			waterStrength: 0.25,
+			foodEvidenceCount: 1,
+			waterEvidenceCount: 1
+		}));
+		const sender = testCreature({
+			id: 'creature-0',
+			position: { x: 0, y: 0 },
+			symbolAssociations: associations
+		});
+		const listener = testCreature({
+			id: 'creature-1',
+			position: { x: 1, y: 0 }
+		});
+		const before = JSON.stringify(associations);
+		const next = stepCommunication(
+			bareState({ creatures: [sender, listener], timeSeconds: 1 }),
+			[
+				{
+					senderId: 'creature-0',
+					origin: { x: 0, y: 0 },
+					context: 'resource_discovered',
+					contextDetail: 'food'
+				}
+			],
+			1,
+			config
+		);
+		const senderNext = next.creatures.find((c) => c.id === 'creature-0')!;
+		expect(JSON.stringify(senderNext.symbolAssociations)).toBe(before);
+		expect(next.creatures.find((c) => c.id === 'creature-1')!.recentHeard).toHaveLength(1);
 	});
 
 	it('does not emit for ordinary wandering', () => {

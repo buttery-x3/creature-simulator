@@ -21,6 +21,34 @@ export type EmissionContext = 'resource_discovered';
 export type ResourceDiscoveryDetail = 'food' | 'water';
 
 /**
+ * Per-candidate weights used when selecting an emission symbol.
+ * Developer diagnostics only — never part of listener-facing HeardSignal.
+ */
+export type SymbolSelectionCandidateEvidence = {
+	symbolId: SymbolId;
+	/** Context-relevant learned association strength (foodStrength or waterStrength). */
+	learnedStrength: number;
+	explorationFloor: number;
+	effectiveWeight: number;
+};
+
+/**
+ * Structured evidence for deterministic context-sensitive symbol selection.
+ * Authoritative developer diagnostics; not a global dictionary entry.
+ */
+export type SymbolSelectionEvidence = {
+	/** Resource context that drove weight choice (food vs water associations). */
+	emissionContext: ResourceDiscoveryDetail;
+	selectedSymbolId: SymbolId;
+	candidates: SymbolSelectionCandidateEvidence[];
+	/** Uniform sample in [0, 1) used for weighted pick; null when fallback was used. */
+	sample: number | null;
+	usedFallback: boolean;
+	/** Machine-readable reason: weighted_association | fallback_preferred | fallback_inventory */
+	reason: string;
+};
+
+/**
  * Authoritative transient signal event.
  * Plain serialisable; no Three.js/UI objects.
  */
@@ -34,7 +62,10 @@ export type SignalEmission = {
 	/** Developer inspection context; must not be treated as symbol semantics. */
 	context: EmissionContext;
 	contextDetail: ResourceDiscoveryDetail;
+	/** Concise human-readable selection summary for lists/diagnostics. */
 	symbolSelectionReason: string;
+	/** Full candidate weights and sample for inspection; never heard by listeners. */
+	selectionEvidence: SymbolSelectionEvidence;
 };
 
 /** Per-receiver record of a heard emission. Plain serialisable. */

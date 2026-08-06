@@ -9,7 +9,9 @@ export type {
 	HeardSignal,
 	ResourceDiscoveryDetail,
 	SignalEmission,
-	SymbolId
+	SymbolId,
+	SymbolSelectionCandidateEvidence,
+	SymbolSelectionEvidence
 } from './types';
 
 export { DEFAULT_SYMBOL_INVENTORY } from './types';
@@ -24,6 +26,15 @@ export {
 } from './emission';
 
 export { selectReceivers, type ReceiverCandidate } from './reception';
+
+export {
+	buildEmissionWeights,
+	selectContextSymbol,
+	type AssociationStrengthRow,
+	type SelectContextSymbolInput,
+	type SelectContextSymbolResult,
+	type SymbolSelectionConfig
+} from './symbol-selection';
 
 export {
 	expireEmissions,

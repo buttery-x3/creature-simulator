@@ -1,10 +1,10 @@
 /**
- * Emission construction: symbol choice, cooldown, ids, bounded histories.
- * Does not encode resource kind into symbol selection.
+ * Emission construction: preferred-symbol cold-start, cooldown, ids, bounded histories.
+ * Context-sensitive emission selection lives in symbol-selection.ts.
  */
 
 import { createSeededRng, deriveSeed } from '$lib/determinism';
-import type { HeardSignal, SignalEmission, SymbolId } from './types';
+import type { HeardSignal, SignalEmission, SymbolId, SymbolSelectionEvidence } from './types';
 
 export function appendBounded<T>(history: readonly T[], entry: T, limit: number): T[] {
 	const next = [...history, entry];
@@ -57,6 +57,7 @@ export type BuildEmissionInput = {
 	context: SignalEmission['context'];
 	contextDetail: SignalEmission['contextDetail'];
 	symbolSelectionReason: string;
+	selectionEvidence: SymbolSelectionEvidence;
 };
 
 export function buildEmission(input: BuildEmissionInput): SignalEmission {
@@ -69,7 +70,8 @@ export function buildEmission(input: BuildEmissionInput): SignalEmission {
 		expiresAt: input.emittedAt + input.lifetimeSeconds,
 		context: input.context,
 		contextDetail: input.contextDetail,
-		symbolSelectionReason: input.symbolSelectionReason
+		symbolSelectionReason: input.symbolSelectionReason,
+		selectionEvidence: input.selectionEvidence
 	};
 }
 

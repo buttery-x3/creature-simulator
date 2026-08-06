@@ -1,10 +1,10 @@
+import { createSeededRng, type SeededRng } from '$lib/determinism';
 import {
 	featureRect,
 	featuresViolateSpacing,
 	randomCentreForSize,
 	rectInsideBounds
 } from './geometry';
-import { createSeededRng, type SeededRng } from './seeded-rng';
 import type { Habitat, HabitatFeature, HabitatGenerationConfig, Size2, SizeRange } from './types';
 
 export class HabitatGenerationError extends Error {

@@ -12,16 +12,16 @@ export type {
 	ProjectedCorner
 } from './habitat-camera';
 export { ports } from './ports';
+export { createSeededRng, deriveSeed, hashSeed } from './determinism';
+export type { SeededRng } from './determinism';
 export {
 	DEFAULT_HABITAT_CONFIG,
 	HabitatGenerationError,
-	createSeededRng,
 	defaultHabitatConfig,
 	formatHabitatDiagnostics,
 	generateHabitat,
 	habitatDiagnosticRecord,
-	habitatSnapshot,
-	hashSeed
+	habitatSnapshot
 } from './habitat';
 export type {
 	Habitat,
@@ -33,3 +33,14 @@ export type {
 	Vec2,
 	WorldBounds
 } from './habitat';
+export {
+	DEFAULT_SIMULATION_CONFIG,
+	SimulationCreationError,
+	advanceSimulation,
+	createSimulation,
+	defaultSimulationConfig,
+	formatSimulationDiagnostics,
+	simulationSnapshot,
+	stepSimulation
+} from './simulation';
+export type { Creature, SimulationConfig, SimulationState, SpeedRange } from './simulation';

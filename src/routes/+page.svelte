@@ -1,47 +1,74 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import HabitatWorkbench from '$lib/HabitatWorkbench.svelte';
 	import ThreeViewport from '$lib/ThreeViewport.svelte';
+	import { HabitatGenerationError, type Habitat } from '$lib/habitat';
 	import {
-		defaultHabitatConfig,
-		generateHabitat,
-		HabitatGenerationError,
-		type Habitat
-	} from '$lib/habitat';
+		advanceSimulation,
+		createSimulation,
+		defaultSimulationConfig,
+		SimulationCreationError,
+		type SimulationConfig,
+		type SimulationState
+	} from '$lib/simulation';
 
 	// Independent copy so UI mutations never share nested size-range objects.
-	const generationConfig = defaultHabitatConfig('demo');
+	const simulationConfigBase = defaultSimulationConfig('demo');
 
-	function createHabitat(seed: string): { habitat: Habitat; error: string | null } {
+	function configForSeed(seed: string): SimulationConfig {
+		return {
+			...simulationConfigBase,
+			seed,
+			habitat: {
+				...simulationConfigBase.habitat,
+				homeSize: { ...simulationConfigBase.habitat.homeSize },
+				foodSize: { ...simulationConfigBase.habitat.foodSize },
+				waterSize: { ...simulationConfigBase.habitat.waterSize }
+			},
+			movementSpeed: { ...simulationConfigBase.movementSpeed }
+		};
+	}
+
+	function tryCreateSimulation(seed: string): {
+		simulation: SimulationState;
+		error: string | null;
+	} {
 		try {
 			return {
-				habitat: generateHabitat({ ...generationConfig, seed }),
+				simulation: createSimulation(configForSeed(seed)),
 				error: null
 			};
 		} catch (error) {
 			const message =
-				error instanceof HabitatGenerationError
+				error instanceof SimulationCreationError || error instanceof HabitatGenerationError
 					? error.message
 					: error instanceof Error
 						? error.message
-						: 'Habitat generation failed';
+						: 'Simulation creation failed';
 			return {
-				habitat: generateHabitat({ ...generationConfig, seed: 'demo' }),
+				simulation: createSimulation(configForSeed('demo')),
 				error: message
 			};
 		}
 	}
 
-	/** UI-only random seed; not used on the habitat generation path. */
+	/** UI-only random seed; not used on the generation path. */
 	function randomSeed(): string {
 		const bytes = new Uint32Array(2);
 		crypto.getRandomValues(bytes);
 		return `seed-${bytes[0]!.toString(36)}-${bytes[1]!.toString(36)}`;
 	}
 
-	const initial = createHabitat('demo');
-	let habitat = $state(initial.habitat);
-	let seedInput = $state(initial.habitat.seed);
+	const initial = tryCreateSimulation('demo');
+	let simulation = $state(initial.simulation);
+	let seedInput = $state(initial.simulation.seed);
 	let errorMessage = $state<string | null>(initial.error);
+	let paused = $state(false);
+
+	// Accumulator lives outside reactive state so rAF ticks do not thrash Svelte.
+	let accumulator = 0;
+	let lastFrameMs: number | null = null;
+	let rafId = 0;
 
 	function regenerate(): void {
 		const seed = seedInput.trim();
@@ -51,16 +78,18 @@
 		}
 
 		try {
-			habitat = generateHabitat({ ...generationConfig, seed });
-			seedInput = habitat.seed;
+			simulation = createSimulation(configForSeed(seed));
+			seedInput = simulation.seed;
 			errorMessage = null;
+			accumulator = 0;
+			lastFrameMs = null;
 		} catch (error) {
 			errorMessage =
-				error instanceof HabitatGenerationError
+				error instanceof SimulationCreationError || error instanceof HabitatGenerationError
 					? error.message
 					: error instanceof Error
 						? error.message
-						: 'Habitat generation failed';
+						: 'Simulation creation failed';
 		}
 	}
 
@@ -68,28 +97,95 @@
 		seedInput = randomSeed();
 		regenerate();
 	}
+
+	function resetSimulation(): void {
+		const seed = simulation.seed;
+		seedInput = seed;
+		try {
+			simulation = createSimulation(configForSeed(seed));
+			errorMessage = null;
+			accumulator = 0;
+			lastFrameMs = null;
+		} catch (error) {
+			errorMessage =
+				error instanceof SimulationCreationError || error instanceof HabitatGenerationError
+					? error.message
+					: error instanceof Error
+						? error.message
+						: 'Simulation reset failed';
+		}
+	}
+
+	function togglePause(): void {
+		paused = !paused;
+		lastFrameMs = null;
+	}
+
+	onMount(() => {
+		const config = simulationConfigBase;
+
+		function frame(nowMs: number): void {
+			if (lastFrameMs === null) {
+				lastFrameMs = nowMs;
+			} else if (!paused) {
+				const elapsed = Math.min(0.1, (nowMs - lastFrameMs) / 1000);
+				lastFrameMs = nowMs;
+				const result = advanceSimulation(simulation, elapsed, accumulator, config);
+				accumulator = result.accumulator;
+				if (result.stepsTaken > 0) {
+					// Preserve habitat object identity when only creatures/time change
+					// so the viewport does not rebuild static presentation.
+					simulation = {
+						...result.state,
+						habitat:
+							simulation.habitat.seed === result.state.habitat.seed
+								? simulation.habitat
+								: result.state.habitat
+					};
+				}
+			} else {
+				lastFrameMs = nowMs;
+			}
+
+			rafId = requestAnimationFrame(frame);
+		}
+
+		rafId = requestAnimationFrame(frame);
+		return () => {
+			cancelAnimationFrame(rafId);
+		};
+	});
+
+	const habitat: Habitat = $derived(simulation.habitat);
+	const creatures = $derived(simulation.creatures);
 </script>
 
 <main class="page">
 	<header class="header">
 		<h1>Creature Simulator</h1>
-		<p>Seeded bounded habitat. Simulation state is plain data; Three.js is presentation only.</p>
+		<p>
+			Authoritative creatures with deterministic bounded wandering. Simulation state is plain data;
+			Three.js is presentation only.
+		</p>
 	</header>
 
 	<div class="workspace">
 		<section class="stage" aria-label="Presentation stage">
-			<ThreeViewport {habitat} />
+			<ThreeViewport {habitat} {creatures} />
 		</section>
 		<HabitatWorkbench
-			{habitat}
+			{simulation}
 			{seedInput}
 			{errorMessage}
-			config={generationConfig}
+			config={configForSeed(simulation.seed)}
+			{paused}
 			onSeedInput={(value) => {
 				seedInput = value;
 			}}
 			onRegenerate={regenerate}
 			onRandomSeed={useRandomSeed}
+			onTogglePause={togglePause}
+			onReset={resetSimulation}
 		/>
 	</div>
 </main>

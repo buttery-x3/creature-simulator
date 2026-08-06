@@ -1,0 +1,52 @@
+import { describe, expect, it } from 'vitest';
+import type { Creature } from '$lib/simulation';
+import { createCreaturePresentationResources, reconcileCreatures } from './creature-presentation';
+
+function creature(id: string, x: number, y: number, facing = 0): Creature {
+	return {
+		id,
+		position: { x, y },
+		facing,
+		movementSpeed: 1,
+		wanderTarget: { x: x + 1, y },
+		wanderDecisionIndex: 0
+	};
+}
+
+describe('reconcileCreatures', () => {
+	it('creates meshes for new creatures and updates transforms without structural churn', () => {
+		const resources = createCreaturePresentationResources();
+		const first = [creature('creature-0', 1, 2, 0.5), creature('creature-1', -1, 0, 1)];
+		reconcileCreatures(resources, first);
+		expect(resources.byId.size).toBe(2);
+		const versionAfterCreate = resources.structureVersion;
+		expect(versionAfterCreate).toBeGreaterThan(0);
+
+		const group0 = resources.byId.get('creature-0')!;
+		expect(group0.position.x).toBeCloseTo(1);
+		expect(group0.position.y).toBeCloseTo(2);
+		expect(group0.rotation.z).toBeCloseTo(0.5);
+
+		// Move only — structure version must not change.
+		reconcileCreatures(resources, [
+			creature('creature-0', 3, 4, -0.25),
+			creature('creature-1', -1, 0, 1)
+		]);
+		expect(resources.structureVersion).toBe(versionAfterCreate);
+		expect(group0.position.x).toBeCloseTo(3);
+		expect(group0.position.y).toBeCloseTo(4);
+		expect(group0.rotation.z).toBeCloseTo(-0.25);
+
+		// Remove one creature — structure changes once.
+		reconcileCreatures(resources, [creature('creature-0', 3, 4, -0.25)]);
+		expect(resources.byId.size).toBe(1);
+		expect(resources.structureVersion).toBe(versionAfterCreate + 1);
+		expect(resources.byId.has('creature-1')).toBe(false);
+
+		// Dispose shared resources used by the test harness.
+		resources.bodyGeometry.dispose();
+		resources.noseGeometry.dispose();
+		resources.bodyMaterial.dispose();
+		resources.noseMaterial.dispose();
+	});
+});

@@ -92,6 +92,16 @@ Threshold increases or exceptions require repository-owner approval and a respon
 
 ## Current repository application
 
+### Determinism subsystem
+
+`src/lib/determinism/` owns shared seeded pseudo-random generation and pure seed derivation.
+
+- `seeded-rng.ts` — Mulberry32 PRNG and seed hashing;
+- `seed-derivation.ts` — independent stream seeds from a base seed + channel parts;
+- `index.ts` — explicit public exports only.
+
+Do not store closure-owned RNG state on authoritative simulation or habitat models.
+
 ### Habitat subsystem
 
 `src/lib/habitat/` owns the authoritative bounded habitat model and deterministic generation.
@@ -99,27 +109,42 @@ Threshold increases or exceptions require repository-owner approval and a respon
 Current responsibilities are separated as follows:
 
 - `types.ts` — serialisable habitat, feature and generation configuration types;
-- `seeded-rng.ts` — deterministic pseudo-random number generation;
 - `geometry.ts` — ground-plane footprint and spacing calculations;
 - `generate-habitat.ts` — configuration validation and seeded feature placement;
 - `diagnostics.ts` — human-readable and structured habitat evidence;
 - `index.ts` — explicit public exports only.
 
-Do not move Three.js objects, Svelte state or browser APIs into this subsystem.
+Do not move Three.js objects, Svelte state, creatures or browser APIs into this subsystem.
+
+### Simulation subsystem
+
+`src/lib/simulation/` owns authoritative simulation state and creature movement.
+
+- `types.ts` — `SimulationState`, `Creature` and configuration types;
+- `create-simulation.ts` — deterministic habitat + creature population creation;
+- `step-simulation.ts` — fixed-step advance and bounded catch-up;
+- `creature-movement.ts` — turn, translate, clamp and retarget;
+- `diagnostics.ts` — simulation diagnostic text;
+- `index.ts` — explicit public exports only.
+
+Do not move Three.js objects or Svelte components into this subsystem. Creatures must not live on `Habitat`.
 
 ### Presentation
 
-Three.js presentation currently lives in `ThreeViewport.svelte`, with camera calculations in `habitat-camera.ts`.
+Three.js presentation is split:
 
-The current static habitat implementation is acceptable. A decomposition check becomes mandatory when new work adds another independently changing presentation responsibility—for example dynamic creature reconciliation, animation scheduling, selection overlays or interaction picking.
+- `habitat-presentation.ts` — static habitat mesh construction and disposal;
+- `creature-presentation.ts` — dynamic creature mesh reconcile by id;
+- `ThreeViewport.svelte` — scene lifecycle, camera framing orchestration, prop wiring;
+- `habitat-camera.ts` — pure framing and visibility calculations.
 
-The appropriate response is not predetermined. Extract only the concrete responsibility introduced by active work.
+A further decomposition check becomes mandatory when new work adds another independently changing presentation responsibility—for example animation scheduling, selection overlays or interaction picking.
 
 ### Workbench and route
 
-`HabitatWorkbench.svelte` owns habitat controls and displayed diagnostics.
+`HabitatWorkbench.svelte` owns seed/simulation controls and displayed habitat + creature diagnostics.
 
-`src/routes/+page.svelte` currently owns page-level state and composes the habitat workbench with the viewport. It may remain a small application orchestrator, but domain algorithms and Three.js resource management must not migrate into it.
+`src/routes/+page.svelte` owns page-level simulation session state, rAF fixed-step catch-up, and composition of the workbench with the viewport. It may remain a small application orchestrator, but domain algorithms and Three.js resource management must not migrate into it.
 
 ## Extraction rules
 

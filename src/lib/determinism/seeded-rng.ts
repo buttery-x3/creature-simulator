@@ -1,6 +1,6 @@
 /**
- * Deterministic pseudo-random number generator for habitat generation.
- * Never use Math.random() on the generation path.
+ * Deterministic pseudo-random number generator for simulation and generation.
+ * Never use Math.random() on those paths.
  */
 
 /**

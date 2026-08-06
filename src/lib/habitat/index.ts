@@ -27,8 +27,6 @@ export {
 
 export { formatHabitatDiagnostics, habitatDiagnosticRecord } from './diagnostics';
 
-export { createSeededRng, hashSeed } from './seeded-rng';
-
 export {
 	expandRect,
 	featureRect,

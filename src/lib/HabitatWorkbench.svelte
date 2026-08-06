@@ -1,32 +1,48 @@
 <script lang="ts">
+	import { formatHabitatDiagnostics, type Habitat } from '$lib/habitat';
 	import {
-		formatHabitatDiagnostics,
-		type Habitat,
-		type HabitatGenerationConfig
-	} from '$lib/habitat';
+		formatSimulationDiagnostics,
+		type SimulationConfig,
+		type SimulationState
+	} from '$lib/simulation';
 
 	type Props = {
-		habitat: Habitat;
+		simulation: SimulationState;
 		seedInput: string;
 		errorMessage: string | null;
-		config: Omit<HabitatGenerationConfig, 'seed'>;
+		config: SimulationConfig;
+		paused: boolean;
 		onSeedInput: (value: string) => void;
 		onRegenerate: () => void;
 		onRandomSeed: () => void;
+		onTogglePause: () => void;
+		onReset: () => void;
 	};
 
-	let { habitat, seedInput, errorMessage, config, onSeedInput, onRegenerate, onRandomSeed }: Props =
-		$props();
+	let {
+		simulation,
+		seedInput,
+		errorMessage,
+		config,
+		paused,
+		onSeedInput,
+		onRegenerate,
+		onRandomSeed,
+		onTogglePause,
+		onReset
+	}: Props = $props();
 
-	const diagnostics = $derived(formatHabitatDiagnostics(habitat));
+	const habitat: Habitat = $derived(simulation.habitat);
+	const habitatDiagnostics = $derived(formatHabitatDiagnostics(habitat));
+	const simulationDiagnostics = $derived(formatSimulationDiagnostics(simulation, { paused }));
 </script>
 
-<aside class="workbench" data-testid="habitat-workbench" aria-label="Habitat controls">
+<aside class="workbench" data-testid="habitat-workbench" aria-label="Simulation controls">
 	<section class="panel">
-		<h2>Habitat</h2>
-		<p class="summary" data-testid="habitat-summary">
-			World {habitat.bounds.width}×{habitat.bounds.height} · home 1 · water {habitat.water.length} · food
-			{habitat.food.length}
+		<h2>Simulation</h2>
+		<p class="summary" data-testid="simulation-summary">
+			{paused ? 'Paused' : 'Running'} · t={simulation.timeSeconds.toFixed(2)}s · creatures
+			{simulation.creatures.length}
 		</p>
 
 		<label class="field" for="habitat-seed">
@@ -46,6 +62,13 @@
 		</label>
 
 		<div class="actions">
+			<button type="button" data-testid="simulation-pause-resume" onclick={onTogglePause}>
+				{paused ? 'Resume' : 'Pause'}
+			</button>
+			<button type="button" data-testid="simulation-reset" onclick={onReset}>Reset</button>
+		</div>
+
+		<div class="actions">
 			<button type="button" data-testid="habitat-regenerate" onclick={onRegenerate}>
 				Regenerate
 			</button>
@@ -58,29 +81,42 @@
 			<p class="error" data-testid="habitat-error" role="alert">{errorMessage}</p>
 		{/if}
 
-		<dl class="meta" data-testid="habitat-meta">
+		<dl class="meta" data-testid="simulation-meta">
 			<div>
 				<dt>Active seed</dt>
-				<dd data-testid="habitat-active-seed">{habitat.seed}</dd>
+				<dd data-testid="habitat-active-seed">{simulation.seed}</dd>
+			</div>
+			<div>
+				<dt>Status</dt>
+				<dd data-testid="simulation-status">{paused ? 'paused' : 'running'}</dd>
+			</div>
+			<div>
+				<dt>Sim time</dt>
+				<dd data-testid="simulation-time">{simulation.timeSeconds.toFixed(3)} s</dd>
+			</div>
+			<div>
+				<dt>Creatures</dt>
+				<dd data-testid="simulation-creature-count">{simulation.creatures.length}</dd>
 			</div>
 			<div>
 				<dt>World</dt>
-				<dd>{config.worldWidth} × {config.worldHeight}</dd>
+				<dd>{config.habitat.worldWidth} × {config.habitat.worldHeight}</dd>
 			</div>
 			<div>
-				<dt>Food sources</dt>
-				<dd>{habitat.food.length}</dd>
-			</div>
-			<div>
-				<dt>Water regions</dt>
-				<dd>{habitat.water.length}</dd>
+				<dt>Food / water</dt>
+				<dd>{habitat.food.length} / {habitat.water.length}</dd>
 			</div>
 		</dl>
 	</section>
 
 	<section class="panel diagnostics">
-		<h2>Diagnostics</h2>
-		<pre data-testid="habitat-diagnostics">{diagnostics}</pre>
+		<h2>Creatures</h2>
+		<pre data-testid="simulation-diagnostics">{simulationDiagnostics}</pre>
+	</section>
+
+	<section class="panel diagnostics">
+		<h2>Habitat</h2>
+		<pre data-testid="habitat-diagnostics">{habitatDiagnostics}</pre>
 	</section>
 </aside>
 
@@ -211,7 +247,7 @@
 		line-height: 1.4;
 		white-space: pre-wrap;
 		word-break: break-word;
-		max-height: 18rem;
+		max-height: 14rem;
 		overflow: auto;
 	}
 </style>

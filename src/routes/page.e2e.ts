@@ -1,5 +1,13 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
+function parseSimulationTime(text: string | null): number {
+	if (!text) {
+		return Number.NaN;
+	}
+	// Workbench shows values like "0.123 s".
+	return Number(text.replace(/\s*s\s*$/i, '').trim());
+}
+
 async function expectHabitatFullyVisible(canvas: Locator): Promise<void> {
 	await expect(canvas).toHaveAttribute('data-habitat-fully-visible', 'true');
 	await expect(canvas).toHaveAttribute('data-habitat-camera-mode', 'perspective-near-top-down');
@@ -17,7 +25,7 @@ async function waitForHabitatCanvas(page: Page): Promise<Locator> {
 	return canvas;
 }
 
-test('loads the habitat surface and workbench controls', async ({ page }) => {
+test('loads the habitat surface, creatures and workbench controls', async ({ page }) => {
 	await page.goto('/');
 
 	await expect(page.getByRole('heading', { name: 'Creature Simulator' })).toBeVisible();
@@ -34,8 +42,12 @@ test('loads the habitat surface and workbench controls', async ({ page }) => {
 	await expect(page.getByTestId('habitat-seed-input')).toBeVisible();
 	await expect(page.getByTestId('habitat-regenerate')).toBeVisible();
 	await expect(page.getByTestId('habitat-random-seed')).toBeVisible();
+	await expect(page.getByTestId('simulation-pause-resume')).toBeVisible();
+	await expect(page.getByTestId('simulation-reset')).toBeVisible();
 	await expect(page.getByTestId('habitat-active-seed')).toHaveText('demo');
 	await expect(page.getByTestId('habitat-diagnostics')).toContainText('seed: demo');
+	await expect(page.getByTestId('simulation-creature-count')).toHaveText('12');
+	await expect(canvas).toHaveAttribute('data-creature-count', '12');
 });
 
 test('near-top-down perspective view keeps the entire habitat visible', async ({ page }) => {
@@ -71,6 +83,7 @@ test('regenerating the same seed keeps the active seed and diagnostics stable', 
 
 	const canvas = await waitForHabitatCanvas(page);
 	await expectHabitatFullyVisible(canvas);
+	await expect(canvas).toHaveAttribute('data-creature-count', '12');
 });
 
 test('a new random seed changes the habitat while keeping it fully framed', async ({ page }) => {
@@ -87,4 +100,61 @@ test('a new random seed changes the habitat while keeping it fully framed', asyn
 
 	const canvas = await waitForHabitatCanvas(page);
 	await expectHabitatFullyVisible(canvas);
+});
+
+test('pause, resume and reset controls work', async ({ page }) => {
+	await page.goto('/');
+
+	const canvas = await waitForHabitatCanvas(page);
+	await expect(page.getByTestId('simulation-status')).toHaveText('running');
+
+	// Let the simulation advance a little.
+	await expect
+		.poll(async () => parseSimulationTime(await page.getByTestId('simulation-time').textContent()))
+		.toBeGreaterThan(0.05);
+
+	const creaturesBefore = await page.getByTestId('simulation-diagnostics').textContent();
+
+	await page.getByTestId('simulation-pause-resume').click();
+	await expect(page.getByTestId('simulation-status')).toHaveText('paused');
+	await expect(page.getByTestId('simulation-pause-resume')).toHaveText('Resume');
+
+	// Capture time only after pause is applied so an in-flight frame cannot race.
+	const timeWhilePaused = await page.getByTestId('simulation-time').textContent();
+	await page.waitForTimeout(250);
+	await expect(page.getByTestId('simulation-time')).toHaveText(timeWhilePaused ?? '');
+
+	await page.getByTestId('simulation-pause-resume').click();
+	await expect(page.getByTestId('simulation-status')).toHaveText('running');
+
+	await page.getByTestId('simulation-pause-resume').click();
+	await page.getByTestId('simulation-reset').click();
+
+	await expect(page.getByTestId('habitat-active-seed')).toHaveText('demo');
+	await expect(page.getByTestId('simulation-time')).toHaveText('0.000 s');
+	await expect(page.getByTestId('simulation-creature-count')).toHaveText('12');
+	await expect(canvas).toHaveAttribute('data-creature-count', '12');
+
+	// Reset returns to initial creature state for the seed (decision indices at 0).
+	const afterReset = await page.getByTestId('simulation-diagnostics').textContent();
+	expect(afterReset).toContain('decision=0');
+	// Creature diagnostics text should differ from mid-run paused snapshot in general,
+	// but reset to t=0 is the hard requirement.
+	expect(creaturesBefore).toBeTruthy();
+});
+
+test('creature movement does not rebuild static habitat presentation', async ({ page }) => {
+	await page.goto('/');
+
+	const canvas = await waitForHabitatCanvas(page);
+	await expect(canvas).toHaveAttribute('data-habitat-build-count', '1');
+
+	// Wait for simulation time to advance (creatures moving).
+	await expect
+		.poll(async () => parseSimulationTime(await page.getByTestId('simulation-time').textContent()))
+		.toBeGreaterThan(0.2);
+
+	// Habitat build count must remain 1 while only creatures move.
+	await expect(canvas).toHaveAttribute('data-habitat-build-count', '1');
+	await expect(canvas).toHaveAttribute('data-creature-count', '12');
 });

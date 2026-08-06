@@ -9,6 +9,10 @@ import {
 } from './generate-habitat';
 import type { Habitat, HabitatFeature, HabitatGenerationConfig } from './types';
 
+function snapshotDefaults() {
+	return JSON.parse(JSON.stringify(DEFAULT_HABITAT_CONFIG)) as typeof DEFAULT_HABITAT_CONFIG;
+}
+
 function allFeatures(habitat: Habitat): HabitatFeature[] {
 	return [habitat.home, ...habitat.water, ...habitat.food];
 }
@@ -59,8 +63,7 @@ describe('generateHabitat', () => {
 
 	it('produces the requested food and water counts', () => {
 		const config: HabitatGenerationConfig = {
-			...DEFAULT_HABITAT_CONFIG,
-			seed: 'counts',
+			...defaultHabitatConfig('counts'),
 			foodCount: 4,
 			waterCount: 3
 		};
@@ -80,8 +83,7 @@ describe('generateHabitat', () => {
 
 	it('fails clearly for impossible configurations after bounded attempts', () => {
 		const config: HabitatGenerationConfig = {
-			...DEFAULT_HABITAT_CONFIG,
-			seed: 'impossible',
+			...defaultHabitatConfig('impossible'),
 			worldWidth: 4,
 			worldHeight: 4,
 			foodCount: 20,
@@ -149,5 +151,28 @@ describe('createSeededRng via generation', () => {
 		} finally {
 			Math.random = original;
 		}
+	});
+});
+
+describe('defaultHabitatConfig', () => {
+	it('returns independent nested size ranges that do not share mutation', () => {
+		const before = snapshotDefaults();
+		const a = defaultHabitatConfig('a');
+		const b = defaultHabitatConfig('b');
+
+		a.homeSize.minWidth = 99;
+		a.foodSize.maxHeight = 99;
+		a.waterSize.minHeight = 99;
+		a.foodCount = 99;
+
+		expect(b.homeSize.minWidth).toBe(before.homeSize.minWidth);
+		expect(b.foodSize.maxHeight).toBe(before.foodSize.maxHeight);
+		expect(b.waterSize.minHeight).toBe(before.waterSize.minHeight);
+		expect(b.foodCount).toBe(before.foodCount);
+
+		expect(DEFAULT_HABITAT_CONFIG).toEqual(before);
+		expect(DEFAULT_HABITAT_CONFIG.homeSize.minWidth).not.toBe(99);
+		expect(DEFAULT_HABITAT_CONFIG.foodSize.maxHeight).not.toBe(99);
+		expect(DEFAULT_HABITAT_CONFIG.waterSize.minHeight).not.toBe(99);
 	});
 });

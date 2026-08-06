@@ -14,7 +14,7 @@ rules are not present yet.
 | Habitat model      | `src/lib/habitat/`                   | Types, seeded generation, geometry validation, diagnostics |
 | Habitat workbench  | `src/lib/HabitatWorkbench.svelte`    | Seed controls, counts, diagnostic text                     |
 | WebGL presentation | `src/lib/ThreeViewport.svelte`       | Reads `Habitat` data; never owns authoritative world state |
-| Viewport math      | `src/lib/orthographic-frustum.ts`    | Pure helper; no simulation state                           |
+| Habitat camera     | `src/lib/habitat-camera.ts`          | Near-top-down perspective framing and visibility checks    |
 | Reserved ports     | `src/lib/ports.ts`                   | Shared by Vite, Playwright and docs                        |
 
 ## Habitat coordinate convention
@@ -38,8 +38,8 @@ rules are not present yet.
 ```
 routes  -->  $lib habitat model (authoritative data)
         -->  $lib HabitatWorkbench (controls / diagnostics)
-        -->  $lib ThreeViewport  -->  three (presentation only)
-        -->  $lib orthographic-frustum / ports
+        -->  $lib ThreeViewport  -->  habitat-camera + three (presentation only)
+        -->  $lib ports
 ```
 
 Cross-cutting rules:

@@ -61,17 +61,20 @@ device-specific mobile behaviour are intentionally out of scope.
 
 ## Where application code lives
 
-| Path                              | Role                                                    |
-| --------------------------------- | ------------------------------------------------------- |
-| `src/routes/`                     | SvelteKit pages and layouts                             |
-| `src/lib/ThreeViewport.svelte`    | Minimal Three.js viewport (init, resize, dispose)       |
-| `src/lib/ports.ts`                | Shared reserved-port constants                          |
-| `src/lib/orthographic-frustum.ts` | Small pure helper used by the viewport                  |
-| `static/`                         | Static assets served as-is                              |
-| `docs/`                           | Project workflow, architecture notes and agent guidance |
+| Path                           | Role                                                    |
+| ------------------------------ | ------------------------------------------------------- |
+| `src/routes/`                  | SvelteKit pages and layouts                             |
+| `src/lib/habitat/`             | Authoritative habitat model and seeded generation       |
+| `src/lib/ThreeViewport.svelte` | Three.js habitat presentation (init, resize, dispose)   |
+| `src/lib/habitat-camera.ts`    | Near-top-down perspective framing and visibility checks |
+| `src/lib/ports.ts`             | Shared reserved-port constants                          |
+| `static/`                      | Static assets served as-is                              |
+| `docs/`                        | Project workflow, architecture notes and agent guidance |
 
 ## Further reading
 
 - [Development workflow and quality gate](docs/workflow.md)
 - [Browser testing](docs/browser-testing.md)
 - [Architecture notes](docs/architecture.md)
+- [Module design and growth policy](docs/modularity.md)
+- [Source structure and subsystem boundaries](docs/source-structure.md)

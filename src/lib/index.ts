@@ -1,4 +1,3 @@
-export { orthographicFrustum } from './orthographic-frustum';
 export {
 	HABITAT_CAMERA_ELEVATION_DEGREES,
 	assessHabitatVisibility,

@@ -41,8 +41,19 @@ export const DEFAULT_HABITAT_CONFIG: Omit<HabitatGenerationConfig, 'seed'> = {
 	maxPlacementAttempts: 80
 };
 
+/**
+ * Independent habitat configuration for callers that may mutate size ranges.
+ * Nested `homeSize` / `foodSize` / `waterSize` objects are cloned so mutations
+ * cannot reach {@link DEFAULT_HABITAT_CONFIG} or other factory results.
+ */
 export function defaultHabitatConfig(seed = 'demo'): HabitatGenerationConfig {
-	return { ...DEFAULT_HABITAT_CONFIG, seed };
+	return {
+		...DEFAULT_HABITAT_CONFIG,
+		seed,
+		homeSize: { ...DEFAULT_HABITAT_CONFIG.homeSize },
+		foodSize: { ...DEFAULT_HABITAT_CONFIG.foodSize },
+		waterSize: { ...DEFAULT_HABITAT_CONFIG.waterSize }
+	};
 }
 
 function sampleSize(range: SizeRange, rng: SeededRng): Size2 {

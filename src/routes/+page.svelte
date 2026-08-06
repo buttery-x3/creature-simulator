@@ -2,13 +2,14 @@
 	import HabitatWorkbench from '$lib/HabitatWorkbench.svelte';
 	import ThreeViewport from '$lib/ThreeViewport.svelte';
 	import {
-		DEFAULT_HABITAT_CONFIG,
+		defaultHabitatConfig,
 		generateHabitat,
 		HabitatGenerationError,
 		type Habitat
 	} from '$lib/habitat';
 
-	const generationConfig = { ...DEFAULT_HABITAT_CONFIG };
+	// Independent copy so UI mutations never share nested size-range objects.
+	const generationConfig = defaultHabitatConfig('demo');
 
 	function createHabitat(seed: string): { habitat: Habitat; error: string | null } {
 		try {

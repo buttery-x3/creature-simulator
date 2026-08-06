@@ -50,11 +50,7 @@ describe('reconcileSignals', () => {
 			symbolId: 'glyph-1',
 			senderId: 'creature-0',
 			origin: { x: 4, y: 2 },
-			startedAt: 1,
-			expiresAt: 9,
-			arrived: false,
-			foodEvidenceApplied: false,
-			waterEvidenceApplied: false
+			startedAt: 1
 		};
 		updateInvestigationOverlay(resources, {
 			creaturePosition: { x: 0, y: 0 },

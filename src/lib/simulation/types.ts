@@ -32,7 +32,8 @@ export type {
 export type CreatureGoal = 'seek_food' | 'seek_water' | 'rest' | 'investigate_signal' | 'wander';
 
 /** Current step used to pursue the goal. Distinct from goal. */
-export type CreatureAction = 'move' | 'eat' | 'drink' | 'sleep' | 'wander' | 'search';
+export type CreatureAction =
+	'move' | 'investigate' | 'eat' | 'drink' | 'sleep' | 'wander' | 'search';
 
 /**
  * A single food/water observation (current snapshot or brief tracked pursuit).
@@ -137,6 +138,12 @@ export type Creature = {
 	thirst: number;
 	/** Energy satisfaction in [0, 1]; larger = more rested. */
 	energy: number;
+
+	/**
+	 * Individual curiosity trait sampled at creation (independent seed stream).
+	 * Primary source of unknown-symbol investigation interest.
+	 */
+	curiosity: number;
 
 	goal: CreatureGoal;
 	action: CreatureAction;
@@ -293,14 +300,20 @@ export type SimulationConfig = {
 	pendingSignalLifetimeSeconds: number;
 	/** Max pending investigation candidates per creature. */
 	maxPendingSignalsPerCreature: number;
-	/** Baseline investigation score for unknown (zero-association) symbols. */
-	investigationCuriosityBaseline: number;
-	/** Weight of normalised distance penalty in investigation scoring. */
-	investigationDistanceWeight: number;
+	/**
+	 * Inclusive range for per-creature curiosity sampled at creation
+	 * (independent `deriveSeed(seed, 'curiosity', id)` stream).
+	 */
+	curiosityRange: { min: number; max: number };
+	/** Multiplier applied to creature.curiosity in investigation scoring. */
+	investigationCuriosityWeight: number;
+	/**
+	 * Characteristic length for smooth distance falloff:
+	 * distanceFactor = 1 / (1 + distance / investigationDistanceScale).
+	 */
+	investigationDistanceScale: number;
 	/** Weight of normalised age penalty in investigation scoring. */
 	investigationAgeWeight: number;
-	/** How long an active investigation remains open after commit. */
-	investigationDurationSeconds: number;
 	/** Max distance from signal origin for contextual learning evidence. */
 	learningEvidenceRadius: number;
 	/** Bounded additive reinforcement applied per qualifying food/water evidence. */

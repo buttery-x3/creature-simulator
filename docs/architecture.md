@@ -145,7 +145,7 @@ These concepts are distinct on each creature:
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Need**   | Internal condition: `hunger` and `thirst` are **pressure** (0 = sated/quenched, 1 = maximum); `energy` is **satisfaction** (0 = exhausted, 1 = full). Values stay finite and clamped to `[0, 1]`. |
 | **Goal**   | Outcome pursued: `seek_food`, `seek_water`, `rest`, `investigate_signal`, or `wander`.                                                                                                            |
-| **Action** | Current step: `move`, `eat`, `drink`, `sleep`, `wander`, or `search`.                                                                                                                             |
+| **Action** | Current step: `move`, `investigate` (stop at signal origin), `eat`, `drink`, `sleep`, `wander`, or `search`.                                                                                      |
 | **Target** | Habitat feature id/kind or a free-space point for wandering.                                                                                                                                      |
 
 Need rates, thresholds, reconsideration interval, goal-switch margin and recovery
@@ -203,41 +203,47 @@ authoritative perception.
 Communication is a named subdomain under simulation (`simulation/communication/`).
 It is the first communication substrate: physical emission and local hearing only.
 
-| Concern             | Rule                                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Symbols**         | Small arbitrary inventory (`glyph-0` …). No global meaning; no hard-coded food/water/danger mapping.                           |
-| **Emission**        | Authoritative transient `SignalEmission` on simulation state (id, symbol, sender, origin, times).                              |
-| **Initial trigger** | Resource discovery only: search → move when food/water is first selected while seeking that resource.                          |
-| **Cooldown**        | Configurable per-sender cooldown prevents rediscovery spam.                                                                    |
-| **Symbol choice**   | Deterministic preferred symbol at creature creation (`deriveSeed(..., 'communication', ...)`). Not derived from resource kind. |
-| **Reception**       | Circular hearing radius; omnidirectional; sender excluded; receivers ordered by creature id.                                   |
-| **Heard result**    | Structured `HeardSignal` history only — **no** goal/action/need/target/perception change.                                      |
-| **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                             |
+| Concern             | Rule                                                                                                                                                                                          |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Symbols**         | Small arbitrary inventory (`glyph-0` …). No global meaning; no hard-coded food/water/danger mapping.                                                                                          |
+| **Emission**        | Authoritative transient `SignalEmission` on simulation state (id, symbol, sender, origin, times).                                                                                             |
+| **Initial trigger** | Resource discovery only: search → move when food/water is first selected while seeking that resource.                                                                                         |
+| **Cooldown**        | Configurable per-sender cooldown prevents rediscovery spam.                                                                                                                                   |
+| **Symbol choice**   | Deterministic preferred symbol at creature creation (`deriveSeed(..., 'communication', ...)`). Not derived from resource kind.                                                                |
+| **Reception**       | Finite circular hearing radius (default **12** on the 20×20 habitat — practical population reach, not structural global); omnidirectional; sender excluded; receivers ordered by creature id. |
+| **Heard result**    | Structured `HeardSignal` history only — **no** goal/action/need/target/perception change.                                                                                                     |
+| **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                                                                                            |
 
 ### Personal symbol learning and investigation
 
 Learning is a named subdomain under simulation (`simulation/learning/`). It owns
 receptive meaning only: personal food/water association strengths, pending
-heard-signal candidates, active investigation evidence and bounded learning
+heard-signal candidates, active investigation state and bounded learning
 histories. There is **no** global symbol dictionary and **no** learned production.
 
-| Concern             | Rule                                                                                                                                |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Associations**    | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. Independent arrays (no shared references).        |
-| **Pending signals** | Built from `HeardSignal` only (no `contextDetail`); bounded, deduped by emission id, expire deterministically.                      |
-| **Goal**            | `investigate_signal` travels to the **recorded emission origin** via existing `move` action (goal identity, not a new action enum). |
-| **Scoring**         | Curiosity baseline + needs×associations − age/distance weights; ordinary hysteresis/commitment still apply.                         |
-| **Reinforcement**   | Only resources the listener perceives near the origin within the investigation window strengthen that listener’s associations.      |
-| **No-evidence**     | Conservative: leave associations unchanged by default (optional small reduction via config).                                        |
-| **Production**      | Preferred-symbol emission remains arbitrary and context-insensitive in this layer.                                                  |
+| Concern               | Rule                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Associations**      | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. Independent arrays (no shared references).   |
+| **Curiosity trait**   | Per-creature `curiosity` sampled at creation via `deriveSeed(seed, 'curiosity', id)` and `curiosityRange`. Serialisable state. |
+| **Pending signals**   | Built from `HeardSignal` only (no `contextDetail`); bounded, deduped by emission id, expire deterministically.                 |
+| **Goal / action**     | `investigate_signal` goal: `move` toward recorded origin, then `investigate` (stop, no movement).                              |
+| **Scoring**           | `(curiosity×weight + needs×associations) × distanceFactor − agePenalty` with `distanceFactor = 1/(1+d/scale)`.                 |
+| **Explore exemption** | `wander → investigate_signal` skips `goalSwitchMargin` (min commitment still applies). Survival goals keep full hysteresis.    |
+| **Travel lock**       | Once committed, rising needs do not interrupt the trip; no active travel timeout. Pending unselected signals may still expire. |
+| **Reinforcement**     | Only on **arrival** at the origin: force local perception, qualify food/water within evidence radius, reinforce at most once.  |
+| **Completion**        | Clear active investigation and replan immediately after site inspection (food / water / mixed / no_evidence).                  |
+| **No-evidence**       | Conservative: leave associations unchanged by default (optional small reduction via config).                                   |
+| **Production**        | Preferred-symbol emission remains arbitrary and context-insensitive in this layer.                                             |
 
 Fixed-step order (authoritative):
 
-1. Behaviour for all creatures (needs, perception, **active learning evidence**, decisions including investigation, movement, discovery emission requests).
+1. Behaviour for all creatures (needs, perception, expire pending, decisions including investigation, movement or site inspection+completion, discovery emission requests).
 2. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, write histories, expire active emissions.
-3. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into pending investigation candidates.
+3. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into pending investigation candidates (may prompt wander reconsider).
 
 **Eligibility:** a signal heard in step _N_ becomes pending at the end of step _N_ and is eligible for investigation scoring from step _N+1_. No Svelte/renderer timing.
+
+**Investigation lifecycle:** hear → pending → choose investigate → travel to origin → stop (`investigate`) → sense → update personal association → clear active → replan.
 
 Behaviour may produce an `EmissionRequest` handoff; it must not implement range, receivers or lifetime. Learning never reads emitter `contextDetail`, sender associations or presentation glyph metadata. Three.js and Svelte only present/inspect; they never decide who hears a signal or update associations.
 
@@ -248,8 +254,9 @@ Signal visuals (`signal-presentation.ts`) reconcile meshes from `activeEmissions
 Wandering remains the fallback when no need-driven goal is sufficiently
 important. Ordinary reconsideration is periodic (not every step). Goal switching
 uses hysteresis (`goalSwitchMargin`) and minimum commitment time so tiny score
-differences do not thrash behaviour. Invalid targets and finished eat/drink/sleep
-actions force immediate replan.
+differences do not thrash behaviour, **except** the documented explore exemption
+for `wander → investigate_signal`. Invalid targets and finished eat/drink/sleep/
+investigation actions force immediate replan.
 
 ### Persistence
 

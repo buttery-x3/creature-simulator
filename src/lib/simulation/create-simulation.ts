@@ -67,8 +67,10 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	trackedObservationDurationSeconds: 4,
 
 	// Communication: arbitrary symbols, short-lived local emissions.
+	// hearingRadius 12 is a practical finite default for the 20×20 habitat so
+	// announcements reach a meaningful share of the population without being global.
 	symbolInventory: DEFAULT_SYMBOL_INVENTORY,
-	hearingRadius: 4,
+	hearingRadius: 12,
 	signalLifetimeSeconds: 1.5,
 	emissionCooldownSeconds: 4,
 	recentEmittedHistoryLimit: 8,
@@ -76,13 +78,14 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	recentSimulationEmissionHistoryLimit: 16,
 
 	// Learning: personal associations + signal investigation (no global meanings).
-	// Curiosity slightly above wander baseline so unknown signals are occasionally checked.
-	pendingSignalLifetimeSeconds: 6,
+	// Per-creature curiosity (sampled at creation) drives unknown-symbol investigation.
+	pendingSignalLifetimeSeconds: 10,
 	maxPendingSignalsPerCreature: 4,
-	investigationCuriosityBaseline: 0.4,
-	investigationDistanceWeight: 0.15,
+	curiosityRange: { min: 0.3, max: 0.55 },
+	investigationCuriosityWeight: 1,
+	// Smooth falloff: distanceFactor = 1 / (1 + dist / scale); scale is stable if habitat size changes.
+	investigationDistanceScale: 8,
 	investigationAgeWeight: 0.1,
-	investigationDurationSeconds: 8,
 	learningEvidenceRadius: 3,
 	associationReinforcement: 0.25,
 	noEvidenceConfidenceReduction: 0,
@@ -109,7 +112,8 @@ export function defaultSimulationConfig(seed = 'demo'): SimulationConfig {
 			foodSize: { ...habitat.foodSize },
 			waterSize: { ...habitat.waterSize }
 		},
-		movementSpeed: { ...DEFAULT_SIMULATION_CONFIG.movementSpeed }
+		movementSpeed: { ...DEFAULT_SIMULATION_CONFIG.movementSpeed },
+		curiosityRange: { ...DEFAULT_SIMULATION_CONFIG.curiosityRange }
 	};
 }
 
@@ -227,10 +231,9 @@ function validateSimulationConfig(config: SimulationConfig): void {
 	}
 	for (const key of [
 		'pendingSignalLifetimeSeconds',
-		'investigationDurationSeconds',
 		'learningEvidenceRadius',
-		'investigationCuriosityBaseline',
-		'investigationDistanceWeight',
+		'investigationCuriosityWeight',
+		'investigationDistanceScale',
 		'investigationAgeWeight',
 		'associationReinforcement',
 		'noEvidenceConfidenceReduction'
@@ -245,9 +248,19 @@ function validateSimulationConfig(config: SimulationConfig): void {
 			`pendingSignalLifetimeSeconds must be > 0, received ${config.pendingSignalLifetimeSeconds}`
 		);
 	}
-	if (!(config.investigationDurationSeconds > 0)) {
+	if (!(config.investigationDistanceScale > 0)) {
 		throw new SimulationCreationError(
-			`investigationDurationSeconds must be > 0, received ${config.investigationDurationSeconds}`
+			`investigationDistanceScale must be > 0, received ${config.investigationDistanceScale}`
+		);
+	}
+	if (
+		!config.curiosityRange ||
+		!(config.curiosityRange.min <= config.curiosityRange.max) ||
+		!Number.isFinite(config.curiosityRange.min) ||
+		!Number.isFinite(config.curiosityRange.max)
+	) {
+		throw new SimulationCreationError(
+			'curiosityRange.min must be <= curiosityRange.max and both finite'
 		);
 	}
 	if (
@@ -325,6 +338,11 @@ function createCreatures(
 		);
 
 		const preferredSymbolId = selectPreferredSymbol(config.seed, id, config.symbolInventory);
+		// Independent curiosity stream — not habitat, symbols, or creature spawn order RNG.
+		const curiosity = createSeededRng(deriveSeed(config.seed, 'curiosity', id)).nextRange(
+			config.curiosityRange.min,
+			config.curiosityRange.max
+		);
 
 		const draft: Creature = {
 			id,
@@ -339,6 +357,7 @@ function createCreatures(
 			hunger: config.initialHunger,
 			thirst: config.initialThirst,
 			energy: config.initialEnergy,
+			curiosity,
 			goal: 'wander',
 			action: 'wander',
 			target: pointTarget(wanderTarget),

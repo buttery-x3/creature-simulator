@@ -35,6 +35,7 @@ export type PendingSignal = {
 /**
  * Authoritative record of the signal currently being investigated.
  * Travel target is the recorded emission origin, not the sender's live position.
+ * No travel timeout — investigation completes only after arrival inspection.
  */
 export type ActiveSignalInvestigation = {
 	emissionId: string;
@@ -42,17 +43,10 @@ export type ActiveSignalInvestigation = {
 	senderId: string;
 	origin: Vec2;
 	startedAt: number;
-	expiresAt: number;
-	/** True once the creature has arrived within arrival distance of origin. */
-	arrived: boolean;
-	/** Whether food evidence already reinforced this investigation. */
-	foodEvidenceApplied: boolean;
-	/** Whether water evidence already reinforced this investigation. */
-	waterEvidenceApplied: boolean;
 };
 
 export type LearningOutcome =
-	'food_evidence' | 'water_evidence' | 'mixed_evidence' | 'no_evidence' | 'expired' | 'interrupted';
+	'food_evidence' | 'water_evidence' | 'mixed_evidence' | 'no_evidence' | 'interrupted';
 
 /** Bounded diagnostic history of learning outcomes (newest last). */
 export type LearningHistoryEntry = {

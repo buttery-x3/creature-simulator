@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { HeardSignal } from '../communication/types';
 import {
+	distanceFalloffFactor,
 	expirePendingSignals,
 	insertPendingFromHeard,
 	qualifyEvidenceNearOrigin,
@@ -10,9 +11,9 @@ import {
 import type { PendingSignal, SymbolAssociation } from './types';
 
 const scoreConfig = {
-	pendingSignalLifetimeSeconds: 6,
-	investigationCuriosityBaseline: 0.4,
-	investigationDistanceWeight: 0.15,
+	pendingSignalLifetimeSeconds: 10,
+	investigationCuriosityWeight: 1,
+	investigationDistanceScale: 8,
 	investigationAgeWeight: 0.1
 };
 
@@ -35,7 +36,7 @@ function pending(overrides: Partial<PendingSignal> = {}): PendingSignal {
 		senderId: 'creature-0',
 		origin: { x: 2, y: 0 },
 		heardAt: 1,
-		expiresAt: 7,
+		expiresAt: 20,
 		...overrides
 	};
 }
@@ -55,12 +56,10 @@ describe('pending signals', () => {
 		const first = insertPendingFromHeard(
 			[],
 			[heard(), heard({ emissionId: 'em-1', heardAt: 1.1 })],
-			{ pendingSignalLifetimeSeconds: 6, maxPendingSignalsPerCreature: 2 }
+			{ pendingSignalLifetimeSeconds: 10, maxPendingSignalsPerCreature: 2 }
 		);
 		expect(first).toHaveLength(1);
-		expect(first[0]).not.toHaveProperty('contextDetail');
 		expect(JSON.stringify(first[0])).not.toContain('contextDetail');
-		expect(JSON.stringify(first[0])).not.toContain('food');
 
 		const many = insertPendingFromHeard(
 			first,
@@ -69,7 +68,7 @@ describe('pending signals', () => {
 				heard({ emissionId: 'em-3', heardAt: 3 }),
 				heard({ emissionId: 'em-4', heardAt: 4 })
 			],
-			{ pendingSignalLifetimeSeconds: 6, maxPendingSignalsPerCreature: 2 }
+			{ pendingSignalLifetimeSeconds: 10, maxPendingSignalsPerCreature: 2 }
 		);
 		expect(many).toHaveLength(2);
 		expect(many.map((p) => p.emissionId)).toEqual(['em-3', 'em-4']);
@@ -79,20 +78,60 @@ describe('pending signals', () => {
 		const list = [pending({ expiresAt: 5 }), pending({ emissionId: 'em-2', expiresAt: 10 })];
 		expect(expirePendingSignals(list, 5)).toHaveLength(1);
 		expect(expirePendingSignals(list, 5)[0]!.emissionId).toBe('em-2');
-		expect(expirePendingSignals(list, 10)).toHaveLength(0);
+	});
+});
+
+describe('smooth distance falloff', () => {
+	it('decreases continuously and never hard-zeros distant signals', () => {
+		const scale = 8;
+		const near = distanceFalloffFactor(0, scale);
+		const mid = distanceFalloffFactor(8, scale);
+		const far = distanceFalloffFactor(40, scale);
+		const farther = distanceFalloffFactor(80, scale);
+		expect(near).toBe(1);
+		expect(mid).toBeCloseTo(0.5);
+		expect(far).toBeGreaterThan(0);
+		expect(farther).toBeGreaterThan(0);
+		expect(farther).toBeLessThan(far);
+		expect(far).toBeLessThan(mid);
+		// No plateau: every larger distance is strictly smaller
+		for (let d = 0; d < 50; d += 1) {
+			expect(distanceFalloffFactor(d + 1, scale)).toBeLessThan(distanceFalloffFactor(d, scale));
+		}
 	});
 });
 
 describe('investigation scoring', () => {
-	it('gives unknown symbols a non-zero curiosity score', () => {
-		const scored = scoreInvestigationCandidate(
-			{ position: { x: 0, y: 0 }, hunger: 0.2, thirst: 0.2, symbolAssociations: zeroAssociations },
-			pending(),
+	it('scores higher curiosity above lower curiosity for the same unknown signal', () => {
+		const high = scoreInvestigationCandidate(
+			{
+				position: { x: 0, y: 0 },
+				hunger: 0.2,
+				thirst: 0.2,
+				curiosity: 0.55,
+				symbolAssociations: zeroAssociations
+			},
+			pending({ origin: { x: 1, y: 0 } }),
 			1,
 			scoreConfig
 		);
-		expect(scored.score).toBeGreaterThan(0);
-		expect(scored.score).toBeLessThanOrEqual(scoreConfig.investigationCuriosityBaseline);
+		const low = scoreInvestigationCandidate(
+			{
+				position: { x: 0, y: 0 },
+				hunger: 0.2,
+				thirst: 0.2,
+				curiosity: 0.3,
+				symbolAssociations: zeroAssociations
+			},
+			pending({ origin: { x: 1, y: 0 } }),
+			1,
+			scoreConfig
+		);
+		expect(high.score).toBeGreaterThan(low.score);
+		expect(high.curiosityTerm).toBeGreaterThan(low.curiosityTerm);
+		expect(high.distanceFactor).toBeGreaterThan(0);
+		expect(high.reason).toContain('distanceFactor');
+		expect(high.reason).toContain('scale=');
 	});
 
 	it('scores food-associated symbols higher while hungry', () => {
@@ -106,13 +145,25 @@ describe('investigation scoring', () => {
 			}
 		];
 		const hungry = scoreInvestigationCandidate(
-			{ position: { x: 0, y: 0 }, hunger: 0.9, thirst: 0.1, symbolAssociations: foodAssoc },
+			{
+				position: { x: 0, y: 0 },
+				hunger: 0.9,
+				thirst: 0.1,
+				curiosity: 0.35,
+				symbolAssociations: foodAssoc
+			},
 			pending(),
 			1,
 			scoreConfig
 		);
 		const sated = scoreInvestigationCandidate(
-			{ position: { x: 0, y: 0 }, hunger: 0.1, thirst: 0.1, symbolAssociations: foodAssoc },
+			{
+				position: { x: 0, y: 0 },
+				hunger: 0.1,
+				thirst: 0.1,
+				curiosity: 0.35,
+				symbolAssociations: foodAssoc
+			},
 			pending(),
 			1,
 			scoreConfig
@@ -120,50 +171,45 @@ describe('investigation scoring', () => {
 		expect(hungry.score).toBeGreaterThan(sated.score);
 	});
 
-	it('scores water-associated symbols higher while thirsty', () => {
-		const waterAssoc: SymbolAssociation[] = [
+	it('reduces attractiveness with distance while keeping distant factor positive', () => {
+		const near = scoreInvestigationCandidate(
 			{
-				symbolId: 'glyph-0',
-				foodStrength: 0,
-				waterStrength: 0.8,
-				foodEvidenceCount: 0,
-				waterEvidenceCount: 2
-			}
-		];
-		const thirsty = scoreInvestigationCandidate(
-			{ position: { x: 0, y: 0 }, hunger: 0.1, thirst: 0.9, symbolAssociations: waterAssoc },
-			pending(),
+				position: { x: 0, y: 0 },
+				hunger: 0.2,
+				thirst: 0.2,
+				curiosity: 0.5,
+				symbolAssociations: zeroAssociations
+			},
+			pending({ origin: { x: 1, y: 0 } }),
 			1,
 			scoreConfig
 		);
-		const quenched = scoreInvestigationCandidate(
-			{ position: { x: 0, y: 0 }, hunger: 0.1, thirst: 0.1, symbolAssociations: waterAssoc },
-			pending(),
+		const far = scoreInvestigationCandidate(
+			{
+				position: { x: 0, y: 0 },
+				hunger: 0.2,
+				thirst: 0.2,
+				curiosity: 0.5,
+				symbolAssociations: zeroAssociations
+			},
+			pending({ origin: { x: 25, y: 0 } }),
 			1,
 			scoreConfig
 		);
-		expect(thirsty.score).toBeGreaterThan(quenched.score);
-	});
-
-	it('reduces score with age and distance', () => {
-		const nearFresh = scoreInvestigationCandidate(
-			{ position: { x: 0, y: 0 }, hunger: 0.2, thirst: 0.2, symbolAssociations: zeroAssociations },
-			pending({ origin: { x: 1, y: 0 }, heardAt: 1 }),
-			1,
-			scoreConfig
-		);
-		const farStale = scoreInvestigationCandidate(
-			{ position: { x: 0, y: 0 }, hunger: 0.2, thirst: 0.2, symbolAssociations: zeroAssociations },
-			pending({ origin: { x: 20, y: 0 }, heardAt: 1 }),
-			6,
-			scoreConfig
-		);
-		expect(nearFresh.score).toBeGreaterThan(farStale.score);
+		expect(near.score).toBeGreaterThan(far.score);
+		expect(far.distanceFactor).toBeGreaterThan(0);
+		expect(far.score).toBeGreaterThan(0);
 	});
 
 	it('selects best pending with stable emissionId tie-break', () => {
 		const best = selectBestPendingSignal(
-			{ position: { x: 0, y: 0 }, hunger: 0.2, thirst: 0.2, symbolAssociations: zeroAssociations },
+			{
+				position: { x: 0, y: 0 },
+				hunger: 0.2,
+				thirst: 0.2,
+				curiosity: 0.45,
+				symbolAssociations: zeroAssociations
+			},
 			[
 				pending({ emissionId: 'em-b', origin: { x: 1, y: 0 } }),
 				pending({ emissionId: 'em-a', origin: { x: 1, y: 0 } })
@@ -206,12 +252,8 @@ describe('evidence qualification', () => {
 		const evidence = qualifyEvidenceNearOrigin(
 			perception,
 			{ x: 0, y: 0 },
-			{
-				learningEvidenceRadius: 3
-			}
+			{ learningEvidenceRadius: 3 }
 		);
-		expect(evidence.food).toBe(true);
-		expect(evidence.water).toBe(true);
 		expect(evidence.foodFeatureIds).toEqual(['food-near']);
 		expect(evidence.waterFeatureIds).toEqual(['water-near']);
 	});

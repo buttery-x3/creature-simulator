@@ -4,6 +4,9 @@
  * Deliberately small: no planner, behaviour tree or ML controller.
  * Food/water targets come from local perception/track only; missing targets
  * leave the need goal valid so the action layer can enter search.
+ *
+ * Explore exemption: wander → investigate_signal skips goalSwitchMargin so
+ * unknown signals can displace ordinary wandering on a normal reconsider.
  */
 
 import type { Habitat } from '$lib/habitat';
@@ -48,8 +51,8 @@ export type DecisionConfig = Pick<
 	| 'reconsiderIntervalSeconds'
 	| 'trackedObservationDurationSeconds'
 	| 'pendingSignalLifetimeSeconds'
-	| 'investigationCuriosityBaseline'
-	| 'investigationDistanceWeight'
+	| 'investigationCuriosityWeight'
+	| 'investigationDistanceScale'
 	| 'investigationAgeWeight'
 >;
 
@@ -66,6 +69,7 @@ export function evaluateCandidates(
 		| 'hunger'
 		| 'thirst'
 		| 'energy'
+		| 'curiosity'
 		| 'wanderTarget'
 		| 'perception'
 		| 'pendingSignals'
@@ -105,19 +109,20 @@ export function evaluateCandidates(
 
 	const scoreConfig = {
 		pendingSignalLifetimeSeconds: config.pendingSignalLifetimeSeconds,
-		investigationCuriosityBaseline: config.investigationCuriosityBaseline,
-		investigationDistanceWeight: config.investigationDistanceWeight,
+		investigationCuriosityWeight: config.investigationCuriosityWeight,
+		investigationDistanceScale: config.investigationDistanceScale,
 		investigationAgeWeight: config.investigationAgeWeight
 	};
 
 	// Prefer scoring the active investigation while committed; otherwise best pending.
 	const investigationEval: ReturnType<typeof scoreInvestigationCandidate> | null =
-		creature.activeInvestigation &&
-		creature.activeInvestigation.expiresAt > timeSeconds &&
-		creature.goal === 'investigate_signal'
+		creature.activeInvestigation && creature.goal === 'investigate_signal'
 			? scoreInvestigationCandidate(
 					creature,
-					activeToPendingShape(creature.activeInvestigation),
+					activeToPendingShape(
+						creature.activeInvestigation,
+						creature.activeInvestigation.startedAt
+					),
 					timeSeconds,
 					scoreConfig
 				)
@@ -214,6 +219,7 @@ export type CommitDecisionInput = {
 		| 'hunger'
 		| 'thirst'
 		| 'energy'
+		| 'curiosity'
 		| 'position'
 		| 'wanderTarget'
 		| 'perception'
@@ -228,8 +234,20 @@ export type CommitDecisionInput = {
 };
 
 /**
+ * True when wander may yield to investigation without goalSwitchMargin.
+ * Survival goals retain full hysteresis. Min commitment still applies.
+ */
+export function isExploreExemption(
+	currentGoal: CreatureGoal,
+	challengerGoal: CreatureGoal
+): boolean {
+	return currentGoal === 'wander' && challengerGoal === 'investigate_signal';
+}
+
+/**
  * Evaluate candidates and apply hysteresis / min commitment for ordinary reconsider.
  * Immediate triggers (invalid_target, action_complete, initial) always accept the best goal.
+ * Explore exemption: wander → investigate_signal skips the switch margin.
  */
 export function commitDecision(input: CommitDecisionInput): DecisionRecord {
 	const { creature, habitat, timeSeconds, trigger, config } = input;
@@ -246,11 +264,12 @@ export function commitDecision(input: CommitDecisionInput): DecisionRecord {
 	if (!forceSwitch && currentEval?.valid) {
 		const heldFor = timeSeconds - creature.goalStartedAt;
 		const commitmentMet = heldFor >= config.minGoalCommitmentSeconds;
-		const beatsByMargin = best.score >= currentEval.score + config.goalSwitchMargin;
+		const exploreExemption = isExploreExemption(creature.goal, best.goal);
+		const beatsByMargin =
+			exploreExemption || best.score >= currentEval.score + config.goalSwitchMargin;
 		const sameGoal = best.goal === creature.goal;
 
 		if (sameGoal) {
-			// Refresh evaluation/target for the continuing goal (may gain a perceived resource).
 			selected = currentEval;
 			selectionReason = `continue ${creature.goal} (score ${currentEval.score.toFixed(3)}; ${currentEval.reason})`;
 		} else if (!commitmentMet) {
@@ -261,6 +280,10 @@ export function commitDecision(input: CommitDecisionInput): DecisionRecord {
 			selectionReason =
 				`hold ${creature.goal}: challenger ${best.goal} score ${best.score.toFixed(3)} ` +
 				`does not beat ${currentEval.score.toFixed(3)} + margin ${config.goalSwitchMargin}`;
+		} else if (exploreExemption) {
+			selectionReason =
+				`explore exemption: switch wander → investigate_signal ` +
+				`(score ${best.score.toFixed(3)}; margin waived; ${best.reason})`;
 		} else {
 			selectionReason =
 				`switch to ${best.goal}: score ${best.score.toFixed(3)} beats ` +
@@ -270,7 +293,6 @@ export function commitDecision(input: CommitDecisionInput): DecisionRecord {
 		selectionReason = `${trigger}: select ${best.goal} (score ${best.score.toFixed(3)}; ${best.reason})`;
 	}
 
-	// Annotate rejection reasons on non-selected candidates for inspection.
 	const annotated = candidates.map((c) => {
 		if (c.goal === selected.goal) {
 			const rest = { ...c };

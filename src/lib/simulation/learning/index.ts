@@ -28,10 +28,10 @@ export {
 	activeToPendingShape,
 	appendLearningHistory,
 	beginInvestigation,
+	distanceFalloffFactor,
 	expirePendingSignals,
 	heardToPending,
 	insertPendingFromHeard,
-	INVESTIGATION_DISTANCE_REFERENCE,
 	isNearOrigin,
 	outcomeFromEvidenceFlags,
 	qualifyEvidenceNearOrigin,
@@ -44,6 +44,7 @@ export {
 	advanceActiveLearning,
 	ingestHeardIntoPending,
 	interruptInvestigation,
+	resolveInvestigationAtSite,
 	stepPostReceptionLearning,
 	type LearningStepConfig
 } from './step-signal-learning';

@@ -1,12 +1,13 @@
 /**
- * Fixed-step learning advance hooks: mid-behaviour evidence and post-reception pending insert.
+ * Fixed-step learning advance hooks.
  *
- * Ordering (see step-simulation):
- * - Mid-step (during behaviour, after perception): expire pending, process active investigation evidence,
- *   complete expired investigations.
- * - Post-reception: convert newly heard signals (heardAt === timeSeconds) into pending candidates.
+ * - Mid-step: expire pending only (evidence is resolved on arrival, not while travelling).
+ * - Arrival resolution: force perception, classify evidence, reinforce once, clear investigation.
+ * - Post-reception: convert newly heard signals into pending candidates.
  */
 
+import type { Habitat } from '$lib/habitat';
+import { senseAt } from '../behaviour/perception';
 import type { Creature, SimulationConfig } from '../types';
 import {
 	applyNoEvidenceReduction,
@@ -15,9 +16,8 @@ import {
 } from './signal-associations';
 import {
 	appendLearningHistory,
-	expirePendingSignals,
 	insertPendingFromHeard,
-	isNearOrigin,
+	expirePendingSignals,
 	outcomeFromEvidenceFlags,
 	qualifyEvidenceNearOrigin
 } from './signal-investigation';
@@ -27,7 +27,6 @@ export type LearningStepConfig = Pick<
 	SimulationConfig,
 	| 'pendingSignalLifetimeSeconds'
 	| 'maxPendingSignalsPerCreature'
-	| 'investigationDurationSeconds'
 	| 'learningEvidenceRadius'
 	| 'associationReinforcement'
 	| 'noEvidenceConfidenceReduction'
@@ -35,6 +34,9 @@ export type LearningStepConfig = Pick<
 	| 'associationStrengthMin'
 	| 'associationStrengthMax'
 	| 'arrivalDistance'
+	| 'sensingRadius'
+	| 'perceptionIntervalSeconds'
+	| 'trackedObservationDurationSeconds'
 >;
 
 function snapshotStrengths(
@@ -48,36 +50,92 @@ function snapshotStrengths(
 	};
 }
 
-function completeInvestigation(
+/**
+ * After perception tick: expire pending only.
+ * Does not apply investigation evidence mid-travel.
+ */
+export function advanceActiveLearning(
 	creature: Creature,
 	timeSeconds: number,
-	outcome: LearningOutcome,
-	reason: string,
-	config: LearningStepConfig,
-	options?: { applyNoEvidenceReduction?: boolean }
+	_config?: LearningStepConfig
+): Creature {
+	void _config;
+	return {
+		...creature,
+		pendingSignals: expirePendingSignals(creature.pendingSignals, timeSeconds)
+	};
+}
+
+/**
+ * Resolve investigation at the origin: force local perception, reinforce once, clear active.
+ * Call only when action is `investigate` (creature has stopped at the site).
+ */
+export function resolveInvestigationAtSite(
+	creature: Creature,
+	habitat: Habitat,
+	timeSeconds: number,
+	config: LearningStepConfig
 ): Creature {
 	const active = creature.activeInvestigation;
 	if (!active) {
 		return creature;
 	}
 
+	// Authoritative sensing at arrival — do not depend on a stale perception interval.
+	const perception = senseAt(
+		creature.position,
+		habitat,
+		timeSeconds,
+		config,
+		creature.perception.tracked
+	);
+	const evidence = qualifyEvidenceNearOrigin(perception, active.origin, config);
+
 	const before = snapshotStrengths(creature, active.symbolId);
 	let associations = creature.symbolAssociations;
 	let foodAfter = before.food;
 	let waterAfter = before.water;
+	let reason: string;
 
-	if (options?.applyNoEvidenceReduction && config.noEvidenceConfidenceReduction > 0) {
-		const reduced = applyNoEvidenceReduction(
+	if (evidence.food || evidence.water) {
+		const reinforced = reinforceAssociation(
 			associations,
 			active.symbolId,
-			config.noEvidenceConfidenceReduction,
+			{
+				reinforceFood: evidence.food,
+				reinforceWater: evidence.water,
+				amount: config.associationReinforcement
+			},
 			config
 		);
-		associations = reduced.associations;
-		foodAfter = reduced.foodStrengthAfter;
-		waterAfter = reduced.waterStrengthAfter;
+		associations = reinforced.associations;
+		foodAfter = reinforced.foodStrengthAfter;
+		waterAfter = reinforced.waterStrengthAfter;
+		const bits: string[] = [];
+		if (evidence.food) {
+			bits.push(`food[${evidence.foodFeatureIds.join(',')}]`);
+		}
+		if (evidence.water) {
+			bits.push(`water[${evidence.waterFeatureIds.join(',')}]`);
+		}
+		reason = `arrival inspection: perceived ${bits.join(' + ')} within evidence radius of origin`;
+	} else {
+		if (config.noEvidenceConfidenceReduction > 0) {
+			const reduced = applyNoEvidenceReduction(
+				associations,
+				active.symbolId,
+				config.noEvidenceConfidenceReduction,
+				config
+			);
+			associations = reduced.associations;
+			foodAfter = reduced.foodStrengthAfter;
+			waterAfter = reduced.waterStrengthAfter;
+		}
+		reason =
+			'arrival inspection: no qualifying resource within evidence radius (associations unchanged unless reduction configured)';
 	}
 
+	const outcome: LearningOutcome = outcomeFromEvidenceFlags(evidence.food, evidence.water);
 	const entry: LearningHistoryEntry = {
 		timeSeconds,
 		outcome,
@@ -92,6 +150,7 @@ function completeInvestigation(
 
 	return {
 		...creature,
+		perception,
 		symbolAssociations: associations,
 		activeInvestigation: null,
 		recentLearning: appendLearningHistory(
@@ -103,120 +162,7 @@ function completeInvestigation(
 }
 
 /**
- * After perception: expire pending, apply investigation evidence, complete expired investigations.
- * Does not change goal/action — caller handles interrupts when goal switches.
- */
-export function advanceActiveLearning(
-	creature: Creature,
-	timeSeconds: number,
-	config: LearningStepConfig
-): Creature {
-	let next: Creature = {
-		...creature,
-		pendingSignals: expirePendingSignals(creature.pendingSignals, timeSeconds)
-	};
-
-	const active = next.activeInvestigation;
-	if (!active) {
-		return next;
-	}
-
-	// Mark arrival for diagnostics / optional evidence window.
-	if (!active.arrived && isNearOrigin(next.position, active.origin, config.arrivalDistance)) {
-		next = {
-			...next,
-			activeInvestigation: { ...active, arrived: true }
-		};
-	}
-
-	const current = next.activeInvestigation!;
-	const evidence = qualifyEvidenceNearOrigin(next.perception, current.origin, config);
-
-	const applyFood = evidence.food && !current.foodEvidenceApplied;
-	const applyWater = evidence.water && !current.waterEvidenceApplied;
-
-	if (applyFood || applyWater) {
-		const reinforced = reinforceAssociation(
-			next.symbolAssociations,
-			current.symbolId,
-			{
-				reinforceFood: applyFood,
-				reinforceWater: applyWater,
-				amount: config.associationReinforcement
-			},
-			config
-		);
-
-		const outcome = outcomeFromEvidenceFlags(
-			current.foodEvidenceApplied || applyFood,
-			current.waterEvidenceApplied || applyWater
-		);
-
-		const evidenceBits: string[] = [];
-		if (applyFood) {
-			evidenceBits.push(`food[${evidence.foodFeatureIds.join(',')}]`);
-		}
-		if (applyWater) {
-			evidenceBits.push(`water[${evidence.waterFeatureIds.join(',')}]`);
-		}
-
-		const entry: LearningHistoryEntry = {
-			timeSeconds,
-			outcome,
-			symbolId: current.symbolId,
-			emissionId: current.emissionId,
-			reason: `perceived ${evidenceBits.join(' + ')} within evidence radius of origin`,
-			foodStrengthBefore: reinforced.foodStrengthBefore,
-			foodStrengthAfter: reinforced.foodStrengthAfter,
-			waterStrengthBefore: reinforced.waterStrengthBefore,
-			waterStrengthAfter: reinforced.waterStrengthAfter
-		};
-
-		next = {
-			...next,
-			symbolAssociations: reinforced.associations,
-			activeInvestigation: {
-				...current,
-				foodEvidenceApplied: current.foodEvidenceApplied || applyFood,
-				waterEvidenceApplied: current.waterEvidenceApplied || applyWater
-			},
-			recentLearning: appendLearningHistory(next.recentLearning, entry, config.learningHistoryLimit)
-		};
-	}
-
-	// Temporal window ended: close investigation with conservative outcome.
-	const still = next.activeInvestigation;
-	if (still && timeSeconds >= still.expiresAt) {
-		const hadEvidence = still.foodEvidenceApplied || still.waterEvidenceApplied;
-		if (hadEvidence) {
-			const outcome = outcomeFromEvidenceFlags(
-				still.foodEvidenceApplied,
-				still.waterEvidenceApplied
-			);
-			next = completeInvestigation(
-				next,
-				timeSeconds,
-				outcome,
-				`investigation window ended with ${outcome}`,
-				config
-			);
-		} else {
-			next = completeInvestigation(
-				next,
-				timeSeconds,
-				'no_evidence',
-				'investigation window ended with no qualifying resource evidence (associations unchanged unless reduction configured)',
-				config,
-				{ applyNoEvidenceReduction: true }
-			);
-		}
-	}
-
-	return next;
-}
-
-/**
- * When leaving investigate_signal (or clearing investigation), record interruption if needed.
+ * When abandoning an investigation mid-trip (should be rare under travel lock).
  */
 export function interruptInvestigation(
 	creature: Creature,
@@ -230,23 +176,37 @@ export function interruptInvestigation(
 		| 'associationStrengthMax'
 	>
 ): Creature {
-	if (!creature.activeInvestigation) {
+	const active = creature.activeInvestigation;
+	if (!active) {
 		return creature;
 	}
-	return completeInvestigation(creature, timeSeconds, 'interrupted', reason, {
-		...config,
-		pendingSignalLifetimeSeconds: 0,
-		maxPendingSignalsPerCreature: 0,
-		investigationDurationSeconds: 0,
-		learningEvidenceRadius: 0,
-		associationReinforcement: 0,
-		arrivalDistance: 0
-	} as LearningStepConfig);
+
+	const before = snapshotStrengths(creature, active.symbolId);
+	const entry: LearningHistoryEntry = {
+		timeSeconds,
+		outcome: 'interrupted',
+		symbolId: active.symbolId,
+		emissionId: active.emissionId,
+		reason,
+		foodStrengthBefore: before.food,
+		foodStrengthAfter: before.food,
+		waterStrengthBefore: before.water,
+		waterStrengthAfter: before.water
+	};
+
+	return {
+		...creature,
+		activeInvestigation: null,
+		recentLearning: appendLearningHistory(
+			creature.recentLearning,
+			entry,
+			config.learningHistoryLimit
+		)
+	};
 }
 
 /**
  * Convert signals heard this step into pending investigation candidates.
- * Uses heardAt === timeSeconds so eligibility is fixed-step deterministic (usable from next step).
  */
 export function ingestHeardIntoPending(
 	creature: Creature,
@@ -257,9 +217,22 @@ export function ingestHeardIntoPending(
 	if (newlyHeard.length === 0) {
 		return creature;
 	}
+	const pendingBefore = creature.pendingSignals.length;
+	const pendingSignals = insertPendingFromHeard(creature.pendingSignals, newlyHeard, config);
+	const gained =
+		pendingSignals.length > pendingBefore ||
+		newlyHeard.some((h) => pendingSignals.some((p) => p.emissionId === h.emissionId));
+
+	// Prompt prompt reconsider on next behaviour step while wandering so explore is not delayed.
+	const nextReconsiderAt =
+		gained && creature.goal === 'wander'
+			? Math.min(creature.nextReconsiderAt, timeSeconds)
+			: creature.nextReconsiderAt;
+
 	return {
 		...creature,
-		pendingSignals: insertPendingFromHeard(creature.pendingSignals, newlyHeard, config)
+		pendingSignals,
+		nextReconsiderAt
 	};
 }
 

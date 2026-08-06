@@ -84,8 +84,8 @@ export {
 
 export {
 	createEmptyAssociations,
+	distanceFalloffFactor,
 	findAssociation,
 	scoreInvestigationCandidate,
-	selectBestPendingSignal,
-	INVESTIGATION_DISTANCE_REFERENCE
+	selectBestPendingSignal
 } from './learning';

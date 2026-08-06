@@ -16,7 +16,7 @@ import type {
  * Choose the action for a goal.
  * Need goals without a usable resource/feature target enter `search` (not wander).
  * Rest without home is not expected; if target missing, search is not used for rest.
- * Signal investigation always uses `move` toward the recorded emission origin (never consumptive).
+ * Signal investigation: move to origin, then `investigate` (stop and inspect — no movement).
  */
 export function actionForGoal(
 	goal: CreatureGoal,
@@ -27,8 +27,7 @@ export function actionForGoal(
 		return 'wander';
 	}
 	if (goal === 'investigate_signal') {
-		// Investigation is identified by goal; movement action is sufficient.
-		return 'move';
+		return arrived ? 'investigate' : 'move';
 	}
 	if (goal === 'seek_food' || goal === 'seek_water') {
 		if (!hasUsableFeatureTarget) {
@@ -134,7 +133,7 @@ export function applyDecision(
 }
 
 /**
- * Transition move → consumptive action on arrival without a full replan.
+ * Transition move → consumptive or investigate action on arrival without a full replan.
  */
 export function transitionToConsumptive(
 	creature: Creature,
@@ -166,7 +165,7 @@ export function transitionToConsumptive(
 	return {
 		action: nextAction,
 		actionStartedAt: timeSeconds,
-		// Keep nextReconsiderAt; consumptive completion will force replan.
+		// Keep nextReconsiderAt; consumptive / investigation completion will force replan.
 		recentTransitions
 	};
 }

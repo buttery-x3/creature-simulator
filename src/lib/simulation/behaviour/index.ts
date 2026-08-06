@@ -32,6 +32,7 @@ export {
 	commitDecision,
 	evaluateCandidates,
 	GOAL_TIE_BREAK_ORDER,
+	isExploreExemption,
 	selectBestCandidate,
 	WANDER_BASELINE_SCORE
 } from './decisions';

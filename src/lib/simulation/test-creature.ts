@@ -24,6 +24,7 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		hunger: 0.2,
 		thirst: 0.2,
 		energy: 0.85,
+		curiosity: 0.45,
 		goal: 'wander',
 		action: 'wander',
 		target: { kind: 'point', position: { ...wanderTarget } },

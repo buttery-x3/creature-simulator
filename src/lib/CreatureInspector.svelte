@@ -111,6 +111,13 @@
 				<dd data-testid="inspector-energy">{selectedCreature.energy.toFixed(3)}</dd>
 			</div>
 			<div>
+				<dt>Curiosity</dt>
+				<dd data-testid="inspector-curiosity">
+					{selectedCreature.curiosity.toFixed(3)}
+					<span class="muted">(individual trait)</span>
+				</dd>
+			</div>
+			<div>
 				<dt>Goal</dt>
 				<dd data-testid="inspector-goal">{selectedCreature.goal}</dd>
 			</div>
@@ -295,11 +302,8 @@
 							.activeInvestigation.emissionId}
 						@ ({selectedCreature.activeInvestigation.origin.x.toFixed(2)}, {selectedCreature.activeInvestigation.origin.y.toFixed(
 							2
-						)}) expires@
-						{selectedCreature.activeInvestigation.expiresAt.toFixed(2)}s arrived={selectedCreature
-							.activeInvestigation.arrived}
-						foodEv={selectedCreature.activeInvestigation.foodEvidenceApplied} waterEv={selectedCreature
-							.activeInvestigation.waterEvidenceApplied}
+						)}) started@
+						{selectedCreature.activeInvestigation.startedAt.toFixed(2)}s (no travel timeout)
 					{:else}
 						—
 					{/if}

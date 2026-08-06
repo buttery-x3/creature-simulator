@@ -116,6 +116,7 @@ export function formatCreatureInspection(
 		`hunger: ${creature.hunger.toFixed(3)} (pressure; 0=sated 1=max)`,
 		`thirst: ${creature.thirst.toFixed(3)} (pressure; 0=quenched 1=max)`,
 		`energy: ${creature.energy.toFixed(3)} (satisfaction; 0=exhausted 1=full)`,
+		`curiosity: ${creature.curiosity.toFixed(3)} (individual trait; drives unknown-signal interest)`,
 		`goal: ${creature.goal}`,
 		`action: ${creature.action}`,
 		`target: ${formatTarget(creature.target)}`,
@@ -269,9 +270,8 @@ export function formatCreatureInspection(
 		lines.push(
 			`  active investigation: emission=${inv.emissionId} symbol=${inv.symbolId}` +
 				` origin=(${inv.origin.x.toFixed(3)}, ${inv.origin.y.toFixed(3)})` +
-				` started@${inv.startedAt.toFixed(3)} expires@${inv.expiresAt.toFixed(3)}` +
-				` arrived=${inv.arrived}` +
-				` foodEvidence=${inv.foodEvidenceApplied} waterEvidence=${inv.waterEvidenceApplied}`
+				` started@${inv.startedAt.toFixed(3)}` +
+				` (no travel timeout; completes on arrival inspection)`
 		);
 	} else {
 		lines.push('  active investigation: (none)');

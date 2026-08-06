@@ -16,9 +16,6 @@ import type {
 	SymbolAssociation
 } from './types';
 
-/** Distance reference for normalising investigation distance penalty (simulation units). */
-export const INVESTIGATION_DISTANCE_REFERENCE = 10;
-
 export type PendingConfig = Pick<
 	SimulationConfig,
 	'pendingSignalLifetimeSeconds' | 'maxPendingSignalsPerCreature'
@@ -27,8 +24,8 @@ export type PendingConfig = Pick<
 export type InvestigationScoreConfig = Pick<
 	SimulationConfig,
 	| 'pendingSignalLifetimeSeconds'
-	| 'investigationCuriosityBaseline'
-	| 'investigationDistanceWeight'
+	| 'investigationCuriosityWeight'
+	| 'investigationDistanceScale'
 	| 'investigationAgeWeight'
 >;
 
@@ -82,24 +79,40 @@ export function removePendingByEmissionId(
 	return pending.filter((p) => p.emissionId !== emissionId);
 }
 
+/**
+ * Smooth distance falloff: nearby ≈ 1, distant decreases continuously, never hard-zero.
+ * distanceFactor = 1 / (1 + distance / scale)
+ */
+export function distanceFalloffFactor(distance: number, scale: number): number {
+	const safeScale = scale > 0 && Number.isFinite(scale) ? scale : 1;
+	const safeDistance = Number.isFinite(distance) && distance > 0 ? distance : 0;
+	return 1 / (1 + safeDistance / safeScale);
+}
+
 export type InvestigationScore = {
 	score: number;
 	reason: string;
 	pending: PendingSignal;
+	curiosity: number;
+	curiosityTerm: number;
 	resourceBias: number;
+	distance: number;
+	distanceScale: number;
+	distanceFactor: number;
 	ageNorm: number;
-	distNorm: number;
+	agePenalty: number;
 };
 
 /**
  * Score one pending (or active-as-pending) investigation opportunity.
- * Unknown symbols retain a non-zero curiosity baseline.
+ * Per-creature curiosity is the primary unknown-symbol interest term.
  */
 export function scoreInvestigationCandidate(
 	creature: {
 		position: Vec2;
 		hunger: number;
 		thirst: number;
+		curiosity: number;
 		symbolAssociations: readonly SymbolAssociation[];
 	},
 	pending: PendingSignal,
@@ -110,33 +123,46 @@ export function scoreInvestigationCandidate(
 	const foodStrength = assoc?.foodStrength ?? 0;
 	const waterStrength = assoc?.waterStrength ?? 0;
 	const resourceBias = foodStrength * creature.hunger + waterStrength * creature.thirst;
+	const curiosityTerm = creature.curiosity * config.investigationCuriosityWeight;
 
 	const age = Math.max(0, timeSeconds - pending.heardAt);
 	const lifetime = config.pendingSignalLifetimeSeconds;
 	const ageNorm = lifetime > 0 ? Math.min(1, age / lifetime) : 0;
+	const agePenalty = config.investigationAgeWeight * ageNorm;
 
-	const dist = Math.sqrt(distanceSquared(creature.position, pending.origin));
-	const distNorm = Math.min(1, dist / INVESTIGATION_DISTANCE_REFERENCE);
+	const distance = Math.sqrt(distanceSquared(creature.position, pending.origin));
+	const distanceScale = config.investigationDistanceScale;
+	const distanceFactor = distanceFalloffFactor(distance, distanceScale);
 
-	let score =
-		config.investigationCuriosityBaseline +
-		resourceBias -
-		config.investigationAgeWeight * ageNorm -
-		config.investigationDistanceWeight * distNorm;
+	let score = (curiosityTerm + resourceBias) * distanceFactor - agePenalty;
 	if (!Number.isFinite(score) || score < 0) {
 		score = 0;
 	}
 
 	const reason =
-		`curiosity ${config.investigationCuriosityBaseline.toFixed(3)}` +
+		`curiosity ${creature.curiosity.toFixed(3)}×${config.investigationCuriosityWeight.toFixed(3)}` +
+		`=${curiosityTerm.toFixed(3)}` +
 		` + resourceBias ${resourceBias.toFixed(3)}` +
 		` (food ${foodStrength.toFixed(3)}×hunger ${creature.hunger.toFixed(3)}` +
 		` + water ${waterStrength.toFixed(3)}×thirst ${creature.thirst.toFixed(3)})` +
-		` − age ${ageNorm.toFixed(3)}×${config.investigationAgeWeight}` +
-		` − dist ${distNorm.toFixed(3)}×${config.investigationDistanceWeight}` +
+		` × distanceFactor ${distanceFactor.toFixed(3)}` +
+		` (dist=${distance.toFixed(3)}, scale=${distanceScale.toFixed(3)})` +
+		` − agePenalty ${agePenalty.toFixed(3)}` +
 		` → ${score.toFixed(3)}; symbol=${pending.symbolId} emission=${pending.emissionId}`;
 
-	return { score, reason, pending, resourceBias, ageNorm, distNorm };
+	return {
+		score,
+		reason,
+		pending,
+		curiosity: creature.curiosity,
+		curiosityTerm,
+		resourceBias,
+		distance,
+		distanceScale,
+		distanceFactor,
+		ageNorm,
+		agePenalty
+	};
 }
 
 /**
@@ -147,6 +173,7 @@ export function selectBestPendingSignal(
 		position: Vec2;
 		hunger: number;
 		thirst: number;
+		curiosity: number;
 		symbolAssociations: readonly SymbolAssociation[];
 	},
 	pendingSignals: readonly PendingSignal[],
@@ -158,7 +185,6 @@ export function selectBestPendingSignal(
 		return null;
 	}
 	let best: InvestigationScore | null = null;
-	// Stable order: score desc, then emissionId asc.
 	const ordered = [...live].sort((a, b) =>
 		a.emissionId < b.emissionId ? -1 : a.emissionId > b.emissionId ? 1 : 0
 	);
@@ -175,32 +201,32 @@ export function selectBestPendingSignal(
 	return best;
 }
 
-export function activeToPendingShape(active: ActiveSignalInvestigation): PendingSignal {
+export function activeToPendingShape(
+	active: ActiveSignalInvestigation,
+	heardAtFallback: number
+): PendingSignal {
 	return {
 		emissionId: active.emissionId,
 		symbolId: active.symbolId,
 		senderId: active.senderId,
 		origin: { x: active.origin.x, y: active.origin.y },
-		heardAt: active.startedAt,
-		expiresAt: active.expiresAt
+		// Use startedAt for age while travelling so age does not explode mid-trip.
+		heardAt: heardAtFallback,
+		// Active investigations do not expire; far-future placeholder for scoring filters.
+		expiresAt: Number.POSITIVE_INFINITY
 	};
 }
 
 export function beginInvestigation(
 	pending: PendingSignal,
-	timeSeconds: number,
-	durationSeconds: number
+	timeSeconds: number
 ): ActiveSignalInvestigation {
 	return {
 		emissionId: pending.emissionId,
 		symbolId: pending.symbolId,
 		senderId: pending.senderId,
 		origin: { x: pending.origin.x, y: pending.origin.y },
-		startedAt: timeSeconds,
-		expiresAt: timeSeconds + durationSeconds,
-		arrived: false,
-		foodEvidenceApplied: false,
-		waterEvidenceApplied: false
+		startedAt: timeSeconds
 	};
 }
 

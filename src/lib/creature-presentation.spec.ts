@@ -28,6 +28,7 @@ function creature(
 		hunger: 0.2,
 		thirst: 0.2,
 		energy: 0.85,
+		curiosity: 0.45,
 		goal: action === 'wander' ? 'wander' : action === 'search' ? 'seek_food' : 'seek_food',
 		action,
 		target: { kind: 'point', position: { x: x + 1, y } },

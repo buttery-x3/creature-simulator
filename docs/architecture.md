@@ -11,22 +11,23 @@ selection is presentation state only.
 
 ## Responsibilities present today
 
-| Area                    | Ownership                            | Notes                                                                       |
-| ----------------------- | ------------------------------------ | --------------------------------------------------------------------------- |
-| App shell               | SvelteKit routes under `src/routes/` | Desktop page; session simulation state, rAF stepping, creature selection id |
-| Determinism             | `src/lib/determinism/`               | Seeded PRNG and pure seed derivation for independent streams                |
-| Habitat model           | `src/lib/habitat/`                   | Types, seeded generation, geometry validation, diagnostics                  |
-| Simulation              | `src/lib/simulation/`                | SimulationState, creation, step, needs/decisions/actions                    |
-| Behaviour subdomain     | `src/lib/simulation/behaviour/`      | Needs, decisions, actions, local perception, search, resource targets       |
-| Communication subdomain | `src/lib/simulation/communication/`  | Arbitrary symbols, emission, local reception, histories, expiry             |
-| Learning subdomain      | `src/lib/simulation/learning/`       | Personal symbol associations, pending signals, investigation evidence       |
-| Habitat workbench       | `src/lib/HabitatWorkbench.svelte`    | Seed/controls, diagnostics; composes creature inspector                     |
-| Creature inspector      | `src/lib/CreatureInspector.svelte`   | Selection chips, needs/perception/communication fields, candidates          |
-| WebGL presentation      | `src/lib/ThreeViewport.svelte`       | Scene lifecycle, pick ray; never owns authoritative creature state          |
-| Habitat presentation    | `src/lib/habitat-presentation.ts`    | Static habitat mesh build/dispose                                           |
-| Creature presentation   | `src/lib/creature-presentation.ts`   | Dynamic mesh reconcile + action-derived visuals                             |
-| Habitat camera          | `src/lib/habitat-camera.ts`          | Near-top-down perspective framing and visibility checks                     |
-| Reserved ports          | `src/lib/ports.ts`                   | Shared by Vite, Playwright and docs                                         |
+| Area                    | Ownership                                             | Notes                                                                       |
+| ----------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| App shell               | SvelteKit routes under `src/routes/`                  | Desktop page; session simulation state, rAF stepping, creature selection id |
+| Determinism             | `src/lib/determinism/`                                | Seeded PRNG and pure seed derivation for independent streams                |
+| Habitat model           | `src/lib/habitat/`                                    | Types, seeded generation, geometry validation, diagnostics                  |
+| Simulation              | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                    |
+| Behaviour subdomain     | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets       |
+| Communication subdomain | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry |
+| Learning subdomain      | `src/lib/simulation/learning/`                        | Personal symbol associations, pending signals, investigation evidence       |
+| Population diagnostics  | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational association/emission convergence summaries (pure)             |
+| Habitat workbench       | `src/lib/HabitatWorkbench.svelte`                     | Seed/controls, diagnostics; composes inspector + population symbol panel    |
+| Creature inspector      | `src/lib/CreatureInspector.svelte`                    | Selection chips, needs/perception/communication fields, candidates          |
+| WebGL presentation      | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state          |
+| Habitat presentation    | `src/lib/habitat-presentation.ts`                     | Static habitat mesh build/dispose                                           |
+| Creature presentation   | `src/lib/creature-presentation.ts`                    | Dynamic mesh reconcile + action-derived visuals                             |
+| Habitat camera          | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                     |
+| Reserved ports          | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                         |
 
 ## Habitat coordinate convention
 
@@ -110,27 +111,29 @@ silently reduced.
 
 ## Simulation ownership
 
-| Concern                       | Module                                                    |
-| ----------------------------- | --------------------------------------------------------- |
-| Serializable types            | `src/lib/simulation/types.ts`                             |
-| Create habitat + creatures    | `src/lib/simulation/create-simulation.ts`                 |
-| Fixed-step / catch-up advance | `src/lib/simulation/step-simulation.ts`                   |
-| Turn, move, bound, retarget   | `src/lib/simulation/creature-movement.ts`                 |
-| Need progression              | `src/lib/simulation/behaviour/needs.ts`                   |
-| Goal evaluation / commitment  | `src/lib/simulation/behaviour/decisions.ts`               |
-| Action transitions            | `src/lib/simulation/behaviour/actions.ts`                 |
-| Habitat feature spatial query | `src/lib/simulation/behaviour/habitat-feature-query.ts`   |
-| Local perception + tracking   | `src/lib/simulation/behaviour/perception.ts`              |
-| Resource target lookup        | `src/lib/simulation/behaviour/resource-awareness.ts`      |
-| Per-creature behaviour step   | `src/lib/simulation/behaviour/step-creature-behaviour.ts` |
-| Symbol inventory + emission   | `src/lib/simulation/communication/emission.ts`            |
-| Local reception               | `src/lib/simulation/communication/reception.ts`           |
-| Communication fixed-step      | `src/lib/simulation/communication/step-communication.ts`  |
-| Association init / reinforce  | `src/lib/simulation/learning/signal-associations.ts`      |
-| Pending / investigation score | `src/lib/simulation/learning/signal-investigation.ts`     |
-| Learning fixed-step hooks     | `src/lib/simulation/learning/step-signal-learning.ts`     |
-| Diagnostic formatting         | `src/lib/simulation/diagnostics.ts`                       |
-| Public barrel                 | `src/lib/simulation/index.ts`                             |
+| Concern                             | Module                                                    |
+| ----------------------------------- | --------------------------------------------------------- |
+| Serializable types                  | `src/lib/simulation/types.ts`                             |
+| Create habitat + creatures          | `src/lib/simulation/create-simulation.ts`                 |
+| Fixed-step / catch-up advance       | `src/lib/simulation/step-simulation.ts`                   |
+| Turn, move, bound, retarget         | `src/lib/simulation/creature-movement.ts`                 |
+| Need progression                    | `src/lib/simulation/behaviour/needs.ts`                   |
+| Goal evaluation / commitment        | `src/lib/simulation/behaviour/decisions.ts`               |
+| Action transitions                  | `src/lib/simulation/behaviour/actions.ts`                 |
+| Habitat feature spatial query       | `src/lib/simulation/behaviour/habitat-feature-query.ts`   |
+| Local perception + tracking         | `src/lib/simulation/behaviour/perception.ts`              |
+| Resource target lookup              | `src/lib/simulation/behaviour/resource-awareness.ts`      |
+| Per-creature behaviour step         | `src/lib/simulation/behaviour/step-creature-behaviour.ts` |
+| Symbol inventory + emission helpers | `src/lib/simulation/communication/emission.ts`            |
+| Context-sensitive symbol selection  | `src/lib/simulation/communication/symbol-selection.ts`    |
+| Local reception                     | `src/lib/simulation/communication/reception.ts`           |
+| Communication fixed-step            | `src/lib/simulation/communication/step-communication.ts`  |
+| Association init / reinforce        | `src/lib/simulation/learning/signal-associations.ts`      |
+| Pending / investigation score       | `src/lib/simulation/learning/signal-investigation.ts`     |
+| Learning fixed-step hooks           | `src/lib/simulation/learning/step-signal-learning.ts`     |
+| Population symbol diagnostics       | `src/lib/simulation/population-symbol-diagnostics.ts`     |
+| Diagnostic formatting               | `src/lib/simulation/diagnostics.ts`                       |
+| Public barrel                       | `src/lib/simulation/index.ts`                             |
 
 Simulation advances with a **fixed timestep** (default 30 Hz). The browser
 session may use `requestAnimationFrame` with an accumulator; elapsed wall time
@@ -203,37 +206,39 @@ authoritative perception.
 Communication is a named subdomain under simulation (`simulation/communication/`).
 It is the first communication substrate: physical emission and local hearing only.
 
-| Concern             | Rule                                                                                                                                                                                          |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Symbols**         | Small arbitrary inventory (`glyph-0` …). No global meaning; no hard-coded food/water/danger mapping.                                                                                          |
-| **Emission**        | Authoritative transient `SignalEmission` on simulation state (id, symbol, sender, origin, times).                                                                                             |
-| **Initial trigger** | Resource discovery only: search → move when food/water is first selected while seeking that resource.                                                                                         |
-| **Cooldown**        | Configurable per-sender cooldown prevents rediscovery spam.                                                                                                                                   |
-| **Symbol choice**   | Deterministic preferred symbol at creature creation (`deriveSeed(..., 'communication', ...)`). Not derived from resource kind.                                                                |
-| **Reception**       | Finite circular hearing radius (default **12** on the 20×20 habitat — practical population reach, not structural global); omnidirectional; sender excluded; receivers ordered by creature id. |
-| **Heard result**    | Structured `HeardSignal` history only — **no** goal/action/need/target/perception change.                                                                                                     |
-| **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                                                                                            |
+| Concern             | Rule                                                                                                                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Symbols**         | Small arbitrary inventory (`glyph-0` …). No global meaning; no hard-coded food/water/danger mapping.                                                                                                                                            |
+| **Emission**        | Authoritative transient `SignalEmission` on simulation state (id, symbol, sender, origin, times).                                                                                                                                               |
+| **Initial trigger** | Resource discovery only: search → move when food/water is first selected while seeking that resource.                                                                                                                                           |
+| **Cooldown**        | Configurable per-sender cooldown prevents rediscovery spam.                                                                                                                                                                                     |
+| **Symbol choice**   | Context-sensitive weighted selection from the emitter’s personal associations for the discovered resource (`food` → foodStrength, `water` → waterStrength) plus a configurable exploration floor. Preferred symbol is cold-start fallback only. |
+| **Reception**       | Finite circular hearing radius (default **12** on the 20×20 habitat — practical population reach, not structural global); omnidirectional; sender excluded; receivers ordered by creature id.                                                   |
+| **Heard result**    | Structured `HeardSignal` history only — **no** goal/action/need/target/perception change.                                                                                                                                                       |
+| **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                                                                                                                                              |
 
 ### Personal symbol learning and investigation
 
 Learning is a named subdomain under simulation (`simulation/learning/`). It owns
 receptive meaning only: personal food/water association strengths, pending
 heard-signal candidates, active investigation state and bounded learning
-histories. There is **no** global symbol dictionary and **no** learned production.
+histories. There is **no** global symbol dictionary. Association **mutation**
+remains listening/investigation only; emission reuses those same strengths as
+production bias (no separate production table, no speaker success feedback).
 
-| Concern               | Rule                                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Associations**      | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. Independent arrays (no shared references).   |
-| **Curiosity trait**   | Per-creature `curiosity` sampled at creation via `deriveSeed(seed, 'curiosity', id)` and `curiosityRange`. Serialisable state. |
-| **Pending signals**   | Built from `HeardSignal` only (no `contextDetail`); bounded, deduped by emission id, expire deterministically.                 |
-| **Goal / action**     | `investigate_signal` goal: `move` toward recorded origin, then `investigate` (stop, no movement).                              |
-| **Scoring**           | `(curiosity×weight + needs×associations) × distanceFactor − agePenalty` with `distanceFactor = 1/(1+d/scale)`.                 |
-| **Explore exemption** | `wander → investigate_signal` skips `goalSwitchMargin` (min commitment still applies). Survival goals keep full hysteresis.    |
-| **Travel lock**       | Once committed, rising needs do not interrupt the trip; no active travel timeout. Pending unselected signals may still expire. |
-| **Reinforcement**     | Only on **arrival** at the origin: force local perception, qualify food/water within evidence radius, reinforce at most once.  |
-| **Completion**        | Clear active investigation and replan immediately after site inspection (food / water / mixed / no_evidence).                  |
-| **No-evidence**       | Conservative: leave associations unchanged by default (optional small reduction via config).                                   |
-| **Production**        | Preferred-symbol emission remains arbitrary and context-insensitive in this layer.                                             |
+| Concern               | Rule                                                                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Associations**      | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. Independent arrays (no shared references).                                                               |
+| **Curiosity trait**   | Per-creature `curiosity` sampled at creation via `deriveSeed(seed, 'curiosity', id)` and `curiosityRange`. Serialisable state.                                                             |
+| **Pending signals**   | Built from `HeardSignal` only (no `contextDetail`); bounded, deduped by emission id, expire deterministically.                                                                             |
+| **Goal / action**     | `investigate_signal` goal: `move` toward recorded origin, then `investigate` (stop, no movement).                                                                                          |
+| **Scoring**           | `(curiosity×weight + needs×associations) × distanceFactor − agePenalty` with `distanceFactor = 1/(1+d/scale)`.                                                                             |
+| **Explore exemption** | `wander → investigate_signal` skips `goalSwitchMargin` (min commitment still applies). Survival goals keep full hysteresis.                                                                |
+| **Travel lock**       | Once committed, rising needs do not interrupt the trip; no active travel timeout. Pending unselected signals may still expire.                                                             |
+| **Reinforcement**     | Only on **arrival** at the origin: force local perception, qualify food/water within evidence radius, reinforce at most once.                                                              |
+| **Completion**        | Clear active investigation and replan immediately after site inspection (food / water / mixed / no_evidence).                                                                              |
+| **No-evidence**       | Conservative: leave associations unchanged by default (optional small reduction via config).                                                                                               |
+| **Production bias**   | Communication selects emit symbols from the same personal associations (context-sensitive) + exploration floor; learning never mutates associations because someone heard or investigated. |
 
 Fixed-step order (authoritative):
 
@@ -246,6 +251,23 @@ Fixed-step order (authoritative):
 **Investigation lifecycle:** hear → pending → choose investigate → travel to origin → stop (`investigate`) → sense → update personal association → clear active → replan.
 
 Behaviour may produce an `EmissionRequest` handoff; it must not implement range, receivers or lifetime. Learning never reads emitter `contextDetail`, sender associations or presentation glyph metadata. Three.js and Svelte only present/inspect; they never decide who hears a signal or update associations.
+
+### Context-sensitive emission and population diagnostics
+
+Communication owns deterministic weighted symbol selection
+(`communication/symbol-selection.ts`):
+
+- `effectiveWeight = explorationFloor + multiplier × learnedStrength(context)`
+- Seed stream: `deriveSeed(seed, 'communication', 'context-symbol', creatureId, emissionCount, contextDetail)`
+- Inventory order is the stable candidate order; fallback is `preferredSymbolId` when all weights are invalid/zero
+- Each `SignalEmission` stores structured `selectionEvidence` (weights, sample, fallback); `HeardSignal` stays free of context and weights
+
+Population-level convergence metrics (`population-symbol-diagnostics.ts`) are
+**pure derived observations** (mean/median association, evidence contributors,
+recent emission shares, concentration/entropy). They never alter associations,
+selection, or create a shared dictionary. Workbench panels and text diagnostics
+must use observational language (“highest mean food association”, “most emitted
+in window”), never “the food symbol.”
 
 Signal visuals (`signal-presentation.ts`) reconcile meshes from `activeEmissions` and dispose when emissions leave that list. A selected-creature investigation line/marker is presentation-only.
 

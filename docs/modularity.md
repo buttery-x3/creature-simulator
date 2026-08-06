@@ -127,6 +127,7 @@ Top-level modules:
 - `step-simulation.ts` — fixed-step advance and bounded catch-up;
 - `creature-movement.ts` — pure turn, translate, clamp and wander retarget helpers;
 - `diagnostics.ts` — simulation and creature inspection text from structured evidence;
+- `population-symbol-diagnostics.ts` — pure population association/emission summaries (observational only);
 - `index.ts` — explicit public exports only.
 
 Internal behaviour subdomain (`simulation/behaviour/`), introduced for the
@@ -146,19 +147,22 @@ tests). Further growth should restate ownership rather than add thin helpers.
 Do not move Three.js objects or Svelte components into this subsystem. Creatures must not live on `Habitat`.
 
 Internal communication subdomain (`simulation/communication/`), introduced for
-transient arbitrary signals and local reception (no symbol semantics):
+transient arbitrary signals and local reception:
 
-- `types.ts` — symbol ids, emissions, heard records, emission requests;
-- `emission.ts` — preferred-symbol selection, cooldown, ids, bounded history helpers;
+- `types.ts` — symbol ids, emissions, heard records, emission requests, selection evidence;
+- `emission.ts` — preferred-symbol cold-start helper, cooldown, ids, bounded history helpers;
+- `symbol-selection.ts` — context-sensitive weighted selection from association strengths + exploration floor;
 - `reception.ts` — circular hearing radius, sender exclusion, deterministic receiver order;
-- `step-communication.ts` — apply requests, reception, expiry within the fixed step;
+- `step-communication.ts` — apply requests, selection, reception, expiry within the fixed step;
 - `index.ts` — exports for simulation siblings.
 
 Behaviour may request an emission; communication owns transmission, reception,
-lifetime and histories. Do not add learned associations or listener behaviour here.
+lifetime, histories and emit-time symbol selection. Communication must not import
+learning implementation modules; it only reads association **values** already on
+the creature. Do not add speaker-success feedback or association mutation here.
 
 Internal learning subdomain (`simulation/learning/`), introduced for personal
-symbol associations and signal-guided investigation (receptive only):
+symbol associations and signal-guided investigation (receptive mutation only):
 
 - `types.ts` — associations, pending signals, active investigation, learning history;
 - `signal-associations.ts` — empty init, clamp, reinforce, optional no-evidence reduction;
@@ -166,10 +170,12 @@ symbol associations and signal-guided investigation (receptive only):
 - `step-signal-learning.ts` — mid-behaviour evidence advance and post-reception pending insert;
 - `index.ts` — exports for simulation siblings.
 
-Communication remains semantics-free. Behaviour owns whether to select
-`investigate_signal` and movement toward the origin; learning owns association
-updates and investigation evidence. Do not add learned production or population
-convention metrics here unless a dedicated issue requires it.
+Behaviour owns whether to select `investigate_signal` and movement toward the
+origin; learning owns association **updates** and investigation evidence.
+Emission reuses association strengths as production bias inside communication
+(no separate production-weight table). Population convention metrics are pure
+diagnostics under simulation root (`population-symbol-diagnostics.ts`), not
+authoritative state.
 
 ### Presentation
 
@@ -187,11 +193,14 @@ Selection overlays or heavier interaction should extract further if
 ### Workbench and route
 
 `HabitatWorkbench.svelte` owns seed/simulation controls and diagnostic panels;
-it composes `CreatureInspector.svelte` for the selected-creature surface.
+it composes `CreatureInspector.svelte` for the selected-creature surface and
+`PopulationCommunicationPanel.svelte` for observational population symbol metrics.
 
 `CreatureInspector.svelte` owns creature selection chips, needs/perception/
 communication/learning fields, candidates, and inspector-specific formatting/styling.
-It reads structured simulation evidence only and must not own domain algorithms.
+Emission weight display is extracted to `CreatureEmissionWeights.svelte` to keep
+inspector growth within modularity headroom. Components read structured simulation
+evidence only and must not own domain algorithms.
 
 `src/routes/+page.svelte` owns page-level simulation session state, rAF fixed-step
 catch-up, selected creature id (presentation only), and composition of the

@@ -20,16 +20,23 @@ export type EmissionContext = 'resource_discovered';
 
 export type ResourceDiscoveryDetail = 'food' | 'water';
 
+/** How the emitter chose its symbol (developer diagnostics only). */
+export type SymbolSelectionMode =
+	| 'learned_lexicon'
+	| 'exploratory'
+	| 'fallback_preferred'
+	| 'fallback_inventory';
+
 /**
- * Per-candidate weights used when selecting an emission symbol.
+ * Per-candidate notes used when selecting an emission symbol.
  * Developer diagnostics only — never part of listener-facing HeardSignal.
  */
 export type SymbolSelectionCandidateEvidence = {
 	symbolId: SymbolId;
-	/** Context-relevant learned association strength (foodStrength or waterStrength). */
-	learnedStrength: number;
-	explorationFloor: number;
-	effectiveWeight: number;
+	/** Whether this symbol was eligible in the selection pool. */
+	eligible: boolean;
+	/** Short reason: assigned_context | assigned_other | unassigned | selected | … */
+	note: string;
 };
 
 /**
@@ -37,14 +44,17 @@ export type SymbolSelectionCandidateEvidence = {
  * Authoritative developer diagnostics; not a global dictionary entry.
  */
 export type SymbolSelectionEvidence = {
-	/** Resource context that drove weight choice (food vs water associations). */
+	/** Resource context that drove selection (food vs water lexicon slot). */
 	emissionContext: ResourceDiscoveryDetail;
 	selectedSymbolId: SymbolId;
+	/** Learned lexicon assignment for this context at emit time (null if unassigned). */
+	assignedSymbolId: SymbolId | null;
+	mode: SymbolSelectionMode;
 	candidates: SymbolSelectionCandidateEvidence[];
-	/** Uniform sample in [0, 1) used for weighted pick; null when fallback was used. */
+	/** Uniform sample in [0, 1) for exploratory multi-symbol pick; null otherwise. */
 	sample: number | null;
 	usedFallback: boolean;
-	/** Machine-readable reason: weighted_association | fallback_preferred | fallback_inventory */
+	/** Machine-readable reason string. */
 	reason: string;
 };
 
@@ -64,7 +74,7 @@ export type SignalEmission = {
 	contextDetail: ResourceDiscoveryDetail;
 	/** Concise human-readable selection summary for lists/diagnostics. */
 	symbolSelectionReason: string;
-	/** Full candidate weights and sample for inspection; never heard by listeners. */
+	/** Full selection evidence for inspection; never heard by listeners. */
 	selectionEvidence: SymbolSelectionEvidence;
 };
 

@@ -13,7 +13,9 @@ import type { Habitat, HabitatFeatureKind, HabitatGenerationConfig, Vec2 } from 
 import type { HeardSignal, SignalEmission, SymbolId } from './communication/types';
 import type {
 	ActiveSignalInvestigation,
+	CreatureLexicon,
 	LearningHistoryEntry,
+	LexiconChangeEntry,
 	PendingSignal,
 	SymbolAssociation
 } from './learning/types';
@@ -23,16 +25,21 @@ export type {
 	SignalEmission,
 	SymbolId,
 	SymbolSelectionCandidateEvidence,
-	SymbolSelectionEvidence
+	SymbolSelectionEvidence,
+	SymbolSelectionMode
 } from './communication/types';
 export { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 export type {
 	ActiveSignalInvestigation,
+	CreatureLexicon,
 	LearningHistoryEntry,
 	LearningOutcome,
+	LexiconChangeEntry,
+	LexiconMeaning,
 	PendingSignal,
 	SymbolAssociation
 } from './learning/types';
+export { LEXICON_MEANINGS } from './learning/types';
 
 /** Outcome the creature is currently pursuing. */
 export type CreatureGoal = 'seek_food' | 'seek_water' | 'rest' | 'investigate_signal' | 'wander';
@@ -182,10 +189,17 @@ export type Creature = {
 	recentHeard: HeardSignal[];
 
 	/**
-	 * Personal food/water association strengths per symbol.
+	 * Personal raw food/water evidence per symbol (may be ambiguous/overlapping).
 	 * Independent per creature; starts with no semantic knowledge.
 	 */
 	symbolAssociations: SymbolAssociation[];
+	/**
+	 * Exclusive personal lexicon derived from evidence (one symbol per meaning).
+	 * Null assignment = unassigned; not a global dictionary entry.
+	 */
+	lexicon: CreatureLexicon;
+	/** Recent exclusive-lexicon reassignments, newest last, length-capped. */
+	recentLexiconChanges: LexiconChangeEntry[];
 	/** Short-lived heard-signal investigation candidates (bounded, deduped). */
 	pendingSignals: PendingSignal[];
 	/** Active signal investigation evidence, if any. */
@@ -302,20 +316,20 @@ export type SimulationConfig = {
 	/** Max length of simulation recentEmissions (oldest dropped). */
 	recentSimulationEmissionHistoryLimit: number;
 	/**
-	 * Base weight added to every symbol during context-sensitive emission selection.
-	 * Ensures cold-start creatures can still emit before learning (exploration floor).
-	 */
-	emissionExplorationFloor: number;
-	/**
-	 * Multiplier applied to context-relevant learned association strength when building
-	 * emission weights. Reuses personal associations; not a separate production table.
-	 */
-	emissionAssociationWeightMultiplier: number;
-	/**
 	 * Simulated-time window for population “recent emission” diagnostics (seconds).
 	 * Pure observation only — does not affect emission behaviour.
 	 */
 	recentEmissionDiagnosticsWindowSeconds: number;
+	/**
+	 * Minimum raw evidence strength for a meaning to claim a symbol in the exclusive lexicon.
+	 */
+	lexiconAssignmentMinStrength: number;
+	/**
+	 * Minimum evidence count for a meaning to claim a symbol in the exclusive lexicon.
+	 */
+	lexiconAssignmentMinEvidenceCount: number;
+	/** Max length of recentLexiconChanges (oldest dropped). */
+	lexiconHistoryLimit: number;
 
 	/** How long a pending heard signal remains an investigation candidate. */
 	pendingSignalLifetimeSeconds: number;

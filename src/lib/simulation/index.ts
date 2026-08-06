@@ -13,6 +13,7 @@ export type {
 	Creature,
 	CreatureAction,
 	CreatureGoal,
+	CreatureLexicon,
 	CreaturePerception,
 	CreatureTarget,
 	DecisionRecord,
@@ -20,6 +21,8 @@ export type {
 	HeardSignal,
 	LearningHistoryEntry,
 	LearningOutcome,
+	LexiconChangeEntry,
+	LexiconMeaning,
 	PendingSignal,
 	ResourceObservation,
 	SignalEmission,
@@ -29,10 +32,11 @@ export type {
 	SymbolAssociation,
 	SymbolId,
 	SymbolSelectionCandidateEvidence,
-	SymbolSelectionEvidence
+	SymbolSelectionEvidence,
+	SymbolSelectionMode
 } from './types';
 
-export { DEFAULT_SYMBOL_INVENTORY } from './types';
+export { DEFAULT_SYMBOL_INVENTORY, LEXICON_MEANINGS } from './types';
 
 export {
 	DEFAULT_SIMULATION_CONFIG,
@@ -86,7 +90,6 @@ export {
 } from './behaviour';
 
 export {
-	buildEmissionWeights,
 	expireEmissions,
 	selectContextSymbol,
 	selectPreferredSymbol,
@@ -98,7 +101,9 @@ export {
 export {
 	createEmptyAssociations,
 	distanceFalloffFactor,
+	emptyLexicon,
 	findAssociation,
+	resolveCreatureLexicon,
 	scoreInvestigationCandidate,
 	selectBestPendingSignal
 } from './learning';

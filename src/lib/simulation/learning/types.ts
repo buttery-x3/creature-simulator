@@ -1,15 +1,24 @@
 /**
- * Learning subdomain types: personal symbol associations and signal investigation.
+ * Learning subdomain types: personal symbol evidence, exclusive lexicon, investigation.
  * Meaning is per-creature and observational only — never global or copied from emitters.
+ *
+ * `SymbolAssociation` is raw experiential evidence (may overlap across meanings).
+ * `CreatureLexicon` is the creature's current exclusive one-to-one interpretation.
  */
 
 import type { Vec2 } from '$lib/habitat';
 import type { SymbolId } from '../communication/types';
 
+/** Controlled semantic meanings currently resolved into the personal lexicon. */
+export type LexiconMeaning = 'food' | 'water';
+
+export const LEXICON_MEANINGS: readonly LexiconMeaning[] = ['food', 'water'] as const;
+
 /**
- * Per-symbol food/water association for one creature.
+ * Per-symbol raw food/water evidence for one creature.
  * Strengths are finite and clamped to the configured range (default [0, 1]).
- * Zero strength means no learned semantic knowledge.
+ * Zero strength means no learned semantic knowledge. Evidence may be ambiguous;
+ * exclusive interpretation lives on {@link CreatureLexicon}.
  */
 export type SymbolAssociation = {
 	symbolId: SymbolId;
@@ -17,6 +26,26 @@ export type SymbolAssociation = {
 	waterStrength: number;
 	foodEvidenceCount: number;
 	waterEvidenceCount: number;
+};
+
+/**
+ * Exclusive per-creature vocabulary: at most one symbol per meaning and one
+ * meaning per symbol. Null means unassigned (insufficient evidence or lost competition).
+ */
+export type CreatureLexicon = {
+	food: SymbolId | null;
+	water: SymbolId | null;
+};
+
+/** Bounded diagnostic history of exclusive lexicon reassignments (newest last). */
+export type LexiconChangeEntry = {
+	timeSeconds: number;
+	meaning: LexiconMeaning;
+	previousSymbolId: SymbolId | null;
+	newSymbolId: SymbolId | null;
+	assignmentScore: number;
+	reason: string;
+	evidenceNote: string;
 };
 
 /**

@@ -17,21 +17,16 @@ function emission(id: string, symbolId: SignalEmission['symbolId'] = 'glyph-0'):
 		expiresAt: 2.5,
 		context: 'resource_discovered',
 		contextDetail: 'food',
-		symbolSelectionReason: 'weighted_association',
+		symbolSelectionReason: 'exploratory',
 		selectionEvidence: {
 			emissionContext: 'food',
 			selectedSymbolId: symbolId,
-			candidates: [
-				{
-					symbolId,
-					learnedStrength: 0,
-					explorationFloor: 0.15,
-					effectiveWeight: 0.15
-				}
-			],
+			assignedSymbolId: null,
+			mode: 'exploratory',
+			candidates: [{ symbolId, eligible: true, note: 'selected_exploratory' }],
 			sample: 0.5,
 			usedFallback: false,
-			reason: 'weighted_association'
+			reason: 'exploratory_prefer_unassigned'
 		}
 	};
 }

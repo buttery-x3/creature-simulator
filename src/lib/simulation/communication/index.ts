@@ -11,7 +11,8 @@ export type {
 	SignalEmission,
 	SymbolId,
 	SymbolSelectionCandidateEvidence,
-	SymbolSelectionEvidence
+	SymbolSelectionEvidence,
+	SymbolSelectionMode
 } from './types';
 
 export { DEFAULT_SYMBOL_INVENTORY } from './types';
@@ -28,12 +29,10 @@ export {
 export { selectReceivers, type ReceiverCandidate } from './reception';
 
 export {
-	buildEmissionWeights,
 	selectContextSymbol,
-	type AssociationStrengthRow,
+	type LexiconAssignmentRow,
 	type SelectContextSymbolInput,
-	type SelectContextSymbolResult,
-	type SymbolSelectionConfig
+	type SelectContextSymbolResult
 } from './symbol-selection';
 
 export {

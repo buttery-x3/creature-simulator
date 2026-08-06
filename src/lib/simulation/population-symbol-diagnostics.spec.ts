@@ -11,20 +11,22 @@ import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 
 function emptySelectionEvidence(
 	symbolId: SignalEmission['symbolId'],
-	context: 'food' | 'water'
+	context: 'food' | 'water',
+	mode: SignalEmission['selectionEvidence']['mode'] = 'exploratory'
 ): SignalEmission['selectionEvidence'] {
 	return {
 		emissionContext: context,
 		selectedSymbolId: symbolId,
+		assignedSymbolId: mode === 'learned_lexicon' ? symbolId : null,
+		mode,
 		candidates: DEFAULT_SYMBOL_INVENTORY.map((id) => ({
 			symbolId: id,
-			learnedStrength: 0,
-			explorationFloor: 0.15,
-			effectiveWeight: 0.15
+			eligible: true,
+			note: mode === 'learned_lexicon' ? 'selected_learned' : 'exploratory_eligible'
 		})),
-		sample: 0.5,
+		sample: mode === 'exploratory' ? 0.5 : null,
 		usedFallback: false,
-		reason: 'weighted_association'
+		reason: mode
 	};
 }
 
@@ -62,24 +64,27 @@ function assoc(
 }
 
 describe('buildPopulationSymbolDiagnostics', () => {
-	it('matches known fixture populations for mean and evidence counts', () => {
+	it('matches known fixture populations for mean evidence and lexicon assignments', () => {
 		const inventory = DEFAULT_SYMBOL_INVENTORY;
 		const creatures = [
 			testCreature({
 				id: 'a',
 				symbolAssociations: inventory.map((id) =>
 					id === 'glyph-1' ? assoc(id, 0.8, 0) : assoc(id, 0, 0)
-				)
+				),
+				lexicon: { food: 'glyph-1', water: null }
 			}),
 			testCreature({
 				id: 'b',
 				symbolAssociations: inventory.map((id) =>
 					id === 'glyph-1' ? assoc(id, 0.4, 0) : assoc(id, 0, 0)
-				)
+				),
+				lexicon: { food: 'glyph-1', water: null }
 			}),
 			testCreature({
 				id: 'c',
-				symbolAssociations: inventory.map((id) => assoc(id, 0, 0))
+				symbolAssociations: inventory.map((id) => assoc(id, 0, 0)),
+				lexicon: { food: null, water: null }
 			})
 		];
 		const base = createSimulation({ ...defaultSimulationConfig('pop-fix'), creatureCount: 0 });
@@ -99,7 +104,10 @@ describe('buildPopulationSymbolDiagnostics', () => {
 		expect(g1.creaturesWithEvidence).toBe(2);
 		expect(g1.proportionWithEvidence).toBeCloseTo(2 / 3);
 		expect(g1.creaturesStrongest).toBe(2);
+		expect(g1.creaturesAssigned).toBe(2);
 		expect(diag.food.highestMeanAssociationSymbolId).toBe('glyph-1');
+		expect(diag.food.mostAssignedSymbolId).toBe('glyph-1');
+		expect(diag.food.creaturesUnassigned).toBe(1);
 		expect(diag.food.creaturesContributingEvidence).toBe(2);
 	});
 
@@ -196,8 +204,38 @@ describe('buildPopulationSymbolDiagnostics', () => {
 		});
 		const text = formatPopulationSymbolDiagnostics(diag);
 		expect(text).toContain('observational');
-		expect(text).toContain('highest mean association');
+		expect(text).toContain('highest mean evidence');
+		expect(text).toContain('most assigned in lexicon');
 		expect(text).not.toMatch(/the food symbol/i);
 		expect(text).not.toMatch(/the water symbol/i);
+	});
+
+	it('counts learned versus exploratory emissions in the diagnostics window', () => {
+		const base = createSimulation({ ...defaultSimulationConfig('pop-modes'), creatureCount: 0 });
+		const learned: SignalEmission = {
+			...emission({ id: 'l1', symbolId: 'glyph-1', contextDetail: 'food', emittedAt: 9 }),
+			selectionEvidence: emptySelectionEvidence('glyph-1', 'food', 'learned_lexicon'),
+			symbolSelectionReason: 'learned_lexicon'
+		};
+		const exploratory = emission({
+			id: 'x1',
+			symbolId: 'glyph-0',
+			contextDetail: 'food',
+			emittedAt: 9.5
+		});
+		const diag = buildPopulationSymbolDiagnostics(
+			{
+				...base,
+				timeSeconds: 10,
+				creatures: [testCreature({ id: 'a' })],
+				recentEmissions: [learned, exploratory]
+			},
+			{
+				symbolInventory: DEFAULT_SYMBOL_INVENTORY,
+				recentEmissionDiagnosticsWindowSeconds: 30
+			}
+		);
+		expect(diag.food.recentLearnedEmissions).toBe(1);
+		expect(diag.food.recentExploratoryEmissions).toBe(1);
 	});
 });

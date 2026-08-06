@@ -1,18 +1,23 @@
 /**
- * Learning subdomain: personal symbol associations and signal-guided investigation.
+ * Learning subdomain: personal symbol evidence, exclusive lexicon, signal investigation.
  * Consumed by simulation siblings; presentation imports via $lib/simulation only.
  *
  * Does not own emission, reception or goal selection — only pending candidates,
- * association updates, investigation evidence and learning histories.
+ * evidence updates, lexicon resolution, investigation and learning histories.
  */
 
 export type {
 	ActiveSignalInvestigation,
+	CreatureLexicon,
 	LearningHistoryEntry,
 	LearningOutcome,
+	LexiconChangeEntry,
+	LexiconMeaning,
 	PendingSignal,
 	SymbolAssociation
 } from './types';
+
+export { LEXICON_MEANINGS } from './types';
 
 export {
 	applyNoEvidenceReduction,
@@ -23,6 +28,16 @@ export {
 	getOrCreateAssociation,
 	reinforceAssociation
 } from './signal-associations';
+
+export {
+	appendLexiconHistory,
+	applyLexiconResolution,
+	diffLexiconChanges,
+	emptyLexicon,
+	resolveCreatureLexicon,
+	type LexiconResolveConfig,
+	type LexiconResolveResult
+} from './lexicon-resolution';
 
 export {
 	activeToPendingShape,

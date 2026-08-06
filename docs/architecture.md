@@ -19,8 +19,8 @@ selection is presentation state only.
 | Simulation              | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                    |
 | Behaviour subdomain     | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets       |
 | Communication subdomain | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry |
-| Learning subdomain      | `src/lib/simulation/learning/`                        | Personal symbol associations, pending signals, investigation evidence       |
-| Population diagnostics  | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational association/emission convergence summaries (pure)             |
+| Learning subdomain      | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation            |
+| Population diagnostics  | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                    |
 | Habitat workbench       | `src/lib/HabitatWorkbench.svelte`                     | Seed/controls, diagnostics; composes inspector + population symbol panel    |
 | Creature inspector      | `src/lib/CreatureInspector.svelte`                    | Selection chips, needs/perception/communication fields, candidates          |
 | WebGL presentation      | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state          |
@@ -125,10 +125,11 @@ silently reduced.
 | Resource target lookup              | `src/lib/simulation/behaviour/resource-awareness.ts`      |
 | Per-creature behaviour step         | `src/lib/simulation/behaviour/step-creature-behaviour.ts` |
 | Symbol inventory + emission helpers | `src/lib/simulation/communication/emission.ts`            |
-| Context-sensitive symbol selection  | `src/lib/simulation/communication/symbol-selection.ts`    |
+| Lexicon / exploratory symbol select | `src/lib/simulation/communication/symbol-selection.ts`    |
 | Local reception                     | `src/lib/simulation/communication/reception.ts`           |
 | Communication fixed-step            | `src/lib/simulation/communication/step-communication.ts`  |
-| Association init / reinforce        | `src/lib/simulation/learning/signal-associations.ts`      |
+| Evidence init / reinforce           | `src/lib/simulation/learning/signal-associations.ts`      |
+| Exclusive lexicon resolution        | `src/lib/simulation/learning/lexicon-resolution.ts`       |
 | Pending / investigation score       | `src/lib/simulation/learning/signal-investigation.ts`     |
 | Learning fixed-step hooks           | `src/lib/simulation/learning/step-signal-learning.ts`     |
 | Population symbol diagnostics       | `src/lib/simulation/population-symbol-diagnostics.ts`     |
@@ -220,25 +221,28 @@ It is the first communication substrate: physical emission and local hearing onl
 ### Personal symbol learning and investigation
 
 Learning is a named subdomain under simulation (`simulation/learning/`). It owns
-receptive meaning only: personal food/water association strengths, pending
-heard-signal candidates, active investigation state and bounded learning
-histories. There is **no** global symbol dictionary. Association **mutation**
-remains listening/investigation only; emission reuses those same strengths as
-production bias (no separate production table, no speaker success feedback).
+receptive meaning only: raw personal food/water evidence, exclusive lexicon
+resolution, pending heard-signal candidates, active investigation state and
+bounded learning / lexicon-change histories. There is **no** global symbol
+dictionary. Evidence **mutation** remains listening/investigation only.
+Emission uses the creature’s resolved exclusive lexicon (learned path) or
+deterministic exploratory selection when unassigned — never independent
+multi-context weighted sampling, and never speaker-success feedback.
 
 | Concern               | Rule                                                                                                                                                                                       |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Associations**      | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. Independent arrays (no shared references).                                                               |
+| **Evidence**          | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. May be ambiguous/overlapping across meanings. Independent arrays (no shared references).                 |
+| **Lexicon**           | Exclusive one-to-one assignment (`food` / `water` → symbol or null). Deterministic max-total-evidence non-duplicating resolve after evidence updates.                                      |
 | **Curiosity trait**   | Per-creature `curiosity` sampled at creation via `deriveSeed(seed, 'curiosity', id)` and `curiosityRange`. Serialisable state.                                                             |
 | **Pending signals**   | Built from `HeardSignal` only (no `contextDetail`); bounded, deduped by emission id, expire deterministically.                                                                             |
 | **Goal / action**     | `investigate_signal` goal: `move` toward recorded origin, then `investigate` (stop, no movement).                                                                                          |
-| **Scoring**           | `(curiosity×weight + needs×associations) × distanceFactor − agePenalty` with `distanceFactor = 1/(1+d/scale)`.                                                                             |
+| **Scoring**           | `(curiosity×weight + needs×evidence) × distanceFactor − agePenalty` with `distanceFactor = 1/(1+d/scale)`. Uses raw evidence, not exclusive lexicon.                                        |
 | **Explore exemption** | `wander → investigate_signal` skips `goalSwitchMargin` (min commitment still applies). Survival goals keep full hysteresis.                                                                |
 | **Travel lock**       | Once committed, rising needs do not interrupt the trip; no active travel timeout. Pending unselected signals may still expire.                                                             |
-| **Reinforcement**     | Only on **arrival** at the origin: force local perception, qualify food/water within evidence radius, reinforce at most once.                                                              |
+| **Reinforcement**     | Only on **arrival** at the origin: force local perception, qualify food/water within evidence radius, reinforce at most once, then recompute lexicon.                                      |
 | **Completion**        | Clear active investigation and replan immediately after site inspection (food / water / mixed / no_evidence).                                                                              |
-| **No-evidence**       | Conservative: leave associations unchanged by default (optional small reduction via config).                                                                                               |
-| **Production bias**   | Communication selects emit symbols from the same personal associations (context-sensitive) + exploration floor; learning never mutates associations because someone heard or investigated. |
+| **No-evidence**       | Conservative: leave evidence unchanged by default (optional small reduction via config); still recompute lexicon.                                                                          |
+| **Production**        | Communication emits `lexicon[context]` when assigned; otherwise exploratory among symbols not assigned to another meaning. Learning never mutates evidence because someone heard a signal. |
 
 Fixed-step order (authoritative):
 
@@ -248,26 +252,27 @@ Fixed-step order (authoritative):
 
 **Eligibility:** a signal heard in step _N_ becomes pending at the end of step _N_ and is eligible for investigation scoring from step _N+1_. No Svelte/renderer timing.
 
-**Investigation lifecycle:** hear → pending → choose investigate → travel to origin → stop (`investigate`) → sense → update personal association → clear active → replan.
+**Investigation lifecycle:** hear → pending → choose investigate → travel to origin → stop (`investigate`) → sense → update evidence → resolve exclusive lexicon → clear active → replan.
 
-Behaviour may produce an `EmissionRequest` handoff; it must not implement range, receivers or lifetime. Learning never reads emitter `contextDetail`, sender associations or presentation glyph metadata. Three.js and Svelte only present/inspect; they never decide who hears a signal or update associations.
+Behaviour may produce an `EmissionRequest` handoff; it must not implement range, receivers or lifetime. Learning never reads emitter `contextDetail`, sender lexicons or presentation glyph metadata. Three.js and Svelte only present/inspect; they never decide who hears a signal or update evidence/lexicon.
 
 ### Context-sensitive emission and population diagnostics
 
-Communication owns deterministic weighted symbol selection
+Communication owns deterministic symbol selection
 (`communication/symbol-selection.ts`):
 
-- `effectiveWeight = explorationFloor + multiplier × learnedStrength(context)`
-- Seed stream: `deriveSeed(seed, 'communication', 'context-symbol', creatureId, emissionCount, contextDetail)`
-- Inventory order is the stable candidate order; fallback is `preferredSymbolId` when all weights are invalid/zero
-- Each `SignalEmission` stores structured `selectionEvidence` (weights, sample, fallback); `HeardSignal` stays free of context and weights
+- **Learned path:** if `creature.lexicon[context]` is assigned and in inventory, emit that symbol (`mode: learned_lexicon`)
+- **Exploratory path:** when unassigned, seeded uniform pick among inventory symbols not assigned to another meaning (if none remain, full inventory); `mode: exploratory`
+- Seed stream (exploratory only): `deriveSeed(seed, 'communication', 'context-symbol', creatureId, emissionCount, contextDetail)`
+- Each `SignalEmission` stores structured `selectionEvidence` (mode, assigned symbol, candidates, sample); `HeardSignal` stays free of context and selection evidence
 
-Population-level convergence metrics (`population-symbol-diagnostics.ts`) are
-**pure derived observations** (mean/median association, evidence contributors,
-recent emission shares, concentration/entropy). They never alter associations,
-selection, or create a shared dictionary. Workbench panels and text diagnostics
-must use observational language (“highest mean food association”, “most emitted
-in window”), never “the food symbol.”
+Population-level metrics (`population-symbol-diagnostics.ts`) are **pure
+derived observations** (raw evidence means, exclusive lexicon assignment
+shares, unassigned counts, learned vs exploratory emission counts, emission
+concentration/entropy). They never alter evidence, lexicons, selection, or
+create a shared dictionary. Workbench panels and text diagnostics must use
+observational language (“most assigned for food in lexicon”, “highest mean food
+evidence”, “most emitted in window”), never “the food symbol.”
 
 Signal visuals (`signal-presentation.ts`) reconcile meshes from `activeEmissions` and dispose when emissions leave that list. A selected-creature investigation line/marker is presentation-only.
 

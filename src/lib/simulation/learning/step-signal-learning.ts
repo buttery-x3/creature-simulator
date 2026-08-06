@@ -9,6 +9,7 @@
 import type { Habitat } from '$lib/habitat';
 import { senseAt } from '../behaviour/perception';
 import type { Creature, SimulationConfig } from '../types';
+import { applyLexiconResolution } from './lexicon-resolution';
 import {
 	applyNoEvidenceReduction,
 	findAssociation,
@@ -37,6 +38,10 @@ export type LearningStepConfig = Pick<
 	| 'sensingRadius'
 	| 'perceptionIntervalSeconds'
 	| 'trackedObservationDurationSeconds'
+	| 'symbolInventory'
+	| 'lexiconAssignmentMinStrength'
+	| 'lexiconAssignmentMinEvidenceCount'
+	| 'lexiconHistoryLimit'
 >;
 
 function snapshotStrengths(
@@ -148,10 +153,23 @@ export function resolveInvestigationAtSite(
 		waterStrengthAfter: waterAfter
 	};
 
+	// Recompute exclusive lexicon from updated evidence only (no population input).
+	const lexiconApplied = applyLexiconResolution(
+		creature.lexicon,
+		creature.recentLexiconChanges,
+		associations,
+		config.symbolInventory,
+		timeSeconds,
+		config,
+		`after investigation ${active.emissionId} symbol=${active.symbolId} outcome=${outcome}`
+	);
+
 	return {
 		...creature,
 		perception,
 		symbolAssociations: associations,
+		lexicon: lexiconApplied.lexicon,
+		recentLexiconChanges: lexiconApplied.recentLexiconChanges,
 		activeInvestigation: null,
 		recentLearning: appendLearningHistory(
 			creature.recentLearning,

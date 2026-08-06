@@ -78,6 +78,10 @@ export type BehaviourStepConfig = Pick<
 	| 'learningHistoryLimit'
 	| 'associationStrengthMin'
 	| 'associationStrengthMax'
+	| 'symbolInventory'
+	| 'lexiconAssignmentMinStrength'
+	| 'lexiconAssignmentMinEvidenceCount'
+	| 'lexiconHistoryLimit'
 >;
 
 /** True while committed to travel/inspect a signal origin — ordinary replan must not interrupt. */

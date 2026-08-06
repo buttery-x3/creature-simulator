@@ -5,7 +5,7 @@
 		type SimulationConfig,
 		type SimulationState
 	} from '$lib/simulation';
-	import CreatureEmissionWeights from './CreatureEmissionWeights.svelte';
+	import CreatureLexiconPanel from './CreatureLexiconPanel.svelte';
 
 	type Props = {
 		simulation: SimulationState;
@@ -25,8 +25,6 @@
 					sensingRadius: config.sensingRadius,
 					trackedObservationDurationSeconds: config.trackedObservationDurationSeconds,
 					hearingRadius: config.hearingRadius,
-					emissionExplorationFloor: config.emissionExplorationFloor,
-					emissionAssociationWeightMultiplier: config.emissionAssociationWeightMultiplier,
 					symbolInventory: config.symbolInventory
 				})
 			: null
@@ -225,9 +223,9 @@
 				<dd data-testid="inspector-active-emissions">{simulation.activeEmissions.length}</dd>
 			</div>
 			<div class="full-width">
-				<dt class="sr-only">Emission weights</dt>
+				<dt class="sr-only">Lexicon and evidence</dt>
 				<dd>
-					<CreatureEmissionWeights creature={selectedCreature} {config} />
+					<CreatureLexiconPanel creature={selectedCreature} />
 				</dd>
 			</div>
 			<div>
@@ -266,23 +264,6 @@
 							{/each}
 						</ul>
 					{/if}
-				</dd>
-			</div>
-			<div>
-				<dt>Symbol associations</dt>
-				<dd data-testid="inspector-symbol-associations">
-					<ul class="signal-list">
-						{#each selectedCreature.symbolAssociations as assoc (assoc.symbolId)}
-							<li data-testid={`inspector-assoc-${assoc.symbolId}`}>
-								{assoc.symbolId}: food={assoc.foodStrength.toFixed(3)} (n={assoc.foodEvidenceCount}),
-								water={assoc.waterStrength.toFixed(3)} (n={assoc.waterEvidenceCount}), bias={(
-									assoc.foodStrength * selectedCreature.hunger +
-									assoc.waterStrength * selectedCreature.thirst
-								).toFixed(3)}
-							</li>
-						{/each}
-					</ul>
-					<span class="muted">Personal learned strengths — not a global dictionary</span>
 				</dd>
 			</div>
 			<div>

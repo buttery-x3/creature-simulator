@@ -12,16 +12,16 @@ const emission = (origin: { x: number; y: number }): SignalEmission => ({
 	expiresAt: 2.5,
 	context: 'resource_discovered',
 	contextDetail: 'food',
-	symbolSelectionReason: 'weighted_association',
+	symbolSelectionReason: 'exploratory',
 	selectionEvidence: {
 		emissionContext: 'food',
 		selectedSymbolId: 'glyph-0',
-		candidates: [
-			{ symbolId: 'glyph-0', learnedStrength: 0, explorationFloor: 0.15, effectiveWeight: 0.15 }
-		],
+		assignedSymbolId: null,
+		mode: 'exploratory',
+		candidates: [{ symbolId: 'glyph-0', eligible: true, note: 'selected_exploratory' }],
 		sample: 0.5,
 		usedFallback: false,
-		reason: 'weighted_association'
+		reason: 'exploratory_prefer_unassigned'
 	}
 });
 

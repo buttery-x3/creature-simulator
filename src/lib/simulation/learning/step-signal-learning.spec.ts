@@ -26,7 +26,11 @@ const learningConfig = {
 	arrivalDistance: 0.35,
 	sensingRadius: 3,
 	perceptionIntervalSeconds: 0.25,
-	trackedObservationDurationSeconds: 4
+	trackedObservationDurationSeconds: 4,
+	symbolInventory: DEFAULT_SIMULATION_CONFIG.symbolInventory,
+	lexiconAssignmentMinStrength: 0.15,
+	lexiconAssignmentMinEvidenceCount: 1,
+	lexiconHistoryLimit: 12
 };
 
 describe('step signal learning', () => {
@@ -117,6 +121,12 @@ describe('step signal learning', () => {
 		expect(assoc.foodEvidenceCount).toBe(1);
 		expect(next.recentLearning).toHaveLength(1);
 		expect(next.recentLearning[0]!.outcome).toBe('food_evidence');
+		// Exclusive lexicon assigns food only; water remains unassigned.
+		expect(next.lexicon.food).toBe('glyph-2');
+		expect(next.lexicon.water).toBeNull();
+		expect(next.recentLexiconChanges.some((c) => c.meaning === 'food' && c.newSymbolId === 'glyph-2')).toBe(
+			true
+		);
 		// At most once: second resolve with no active is no-op
 		const again = resolveInvestigationAtSite(next, habitat, 3, learningConfig);
 		expect(again.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!.foodEvidenceCount).toBe(

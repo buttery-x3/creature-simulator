@@ -193,8 +193,9 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	await expect(page.getByTestId('inspector-preferred-symbol')).toBeVisible();
 	await expect(page.getByTestId('inspector-preferred-symbol')).toContainText('glyph-');
 	await expect(page.getByTestId('inspector-hearing-radius')).toBeVisible();
-	await expect(page.getByTestId('inspector-emission-weights')).toBeVisible();
-	await expect(page.getByTestId('inspector-emit-weight-glyph-0')).toContainText('foodW=');
+	await expect(page.getByTestId('inspector-lexicon-panel')).toBeVisible();
+	await expect(page.getByTestId('inspector-lexicon-food')).toContainText('unassigned');
+	await expect(page.getByTestId('inspector-lexicon-water')).toContainText('unassigned');
 	await expect(page.getByTestId('inspector-last-selection')).toBeVisible();
 	await expect(page.getByTestId('inspector-recent-emitted')).toBeVisible();
 	await expect(page.getByTestId('inspector-recent-heard')).toBeVisible();
@@ -211,6 +212,7 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	await expect(page.getByTestId('population-context-food')).toBeVisible();
 	await expect(page.getByTestId('population-context-water')).toBeVisible();
 	await expect(page.getByTestId('population-food-row-glyph-0')).toBeVisible();
+	await expect(page.getByTestId('population-food-most-assigned')).toBeVisible();
 	await expect(page.getByTestId('population-food-highest-mean')).toBeVisible();
 	await expect(page.getByTestId('population-food-most-emitted')).toBeVisible();
 

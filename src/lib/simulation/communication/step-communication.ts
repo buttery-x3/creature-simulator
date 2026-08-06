@@ -2,8 +2,8 @@
  * Fixed-step communication advance: create emissions, receive, expire.
  * Invoked after behaviour within the same fixed simulation step.
  *
- * Symbol choice uses the emitter's personal associations for the discovery context
- * (see symbol-selection.ts). Listeners never receive context or selection weights.
+ * Symbol choice uses the emitter's exclusive lexicon for the discovery context
+ * (see symbol-selection.ts). Listeners never receive context or selection evidence.
  */
 
 import type { Creature, SimulationConfig, SimulationState } from '../types';
@@ -21,8 +21,6 @@ export type CommunicationStepConfig = Pick<
 	| 'recentHeardHistoryLimit'
 	| 'recentSimulationEmissionHistoryLimit'
 	| 'symbolInventory'
-	| 'emissionExplorationFloor'
-	| 'emissionAssociationWeightMultiplier'
 >;
 
 /**
@@ -30,12 +28,12 @@ export type CommunicationStepConfig = Pick<
  *
  * Ordering (authoritative):
  * 1. Process requests in given order (caller sorts by sender id).
- * 2. For each accepted request: select symbol from associations, build emission,
+ * 2. For each accepted request: select symbol from lexicon, build emission,
  *    select receivers at post-behaviour positions, update histories.
  * 3. Drop active emissions with expiresAt <= timeSeconds.
  *
  * Hearing does not alter goals, actions, needs, targets or perception.
- * Selection never mutates associations or routes listener outcomes to the emitter.
+ * Selection never mutates evidence/lexicon or routes listener outcomes to the emitter.
  */
 export function stepCommunication(
 	state: SimulationState,
@@ -65,12 +63,8 @@ export function stepCommunication(
 			emissionCount,
 			contextDetail: request.contextDetail,
 			inventory: config.symbolInventory,
-			associations: sender.symbolAssociations,
-			preferredSymbolId: sender.preferredSymbolId,
-			config: {
-				emissionExplorationFloor: config.emissionExplorationFloor,
-				emissionAssociationWeightMultiplier: config.emissionAssociationWeightMultiplier
-			}
+			lexicon: sender.lexicon,
+			preferredSymbolId: sender.preferredSymbolId
 		});
 
 		const emission = buildEmission({

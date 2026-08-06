@@ -1,20 +1,14 @@
 /**
  * Context-sensitive deterministic symbol selection for emission.
  *
- * Uses the emitter's existing personal association strengths for the discovered
- * resource context (food → foodStrength, water → waterStrength) plus a configurable
- * exploration floor. There is no separate production-weight table and no speaker
- * success feedback.
+ * Learned production uses the creature's exclusive lexicon assignment for the
+ * discovered resource context. Unassigned contexts use deterministic exploratory
+ * selection among symbols not currently assigned to another meaning.
  *
- * Algorithm (stable inventory order):
- * 1. For each symbol in inventory order:
- *    learnedStrength = association row strength for context (missing/non-finite → 0)
- *    effectiveWeight = max(0, explorationFloor + multiplier * learnedStrength)
- * 2. If sum(effectiveWeight) is not finite or ≤ 0 → fallback preferred (else first inventory)
- * 3. Else sample u ∈ [0,1) from seeded RNG and pick first candidate whose cumulative
- *    weight ≥ u * sum (inventory order breaks ties)
+ * There is no independent multi-context weighted sampling path and no speaker
+ * success feedback. Communication only reads serialisable lexicon values.
  *
- * Seed stream:
+ * Seed stream (exploratory only):
  *   deriveSeed(simulationSeed, 'communication', 'context-symbol', creatureId,
  *              String(emissionCount), contextDetail)
  */
@@ -24,19 +18,14 @@ import type {
 	ResourceDiscoveryDetail,
 	SymbolId,
 	SymbolSelectionCandidateEvidence,
-	SymbolSelectionEvidence
+	SymbolSelectionEvidence,
+	SymbolSelectionMode
 } from './types';
 
-/** Minimal association row — data only; no learning module import. */
-export type AssociationStrengthRow = {
-	symbolId: SymbolId;
-	foodStrength: number;
-	waterStrength: number;
-};
-
-export type SymbolSelectionConfig = {
-	emissionExplorationFloor: number;
-	emissionAssociationWeightMultiplier: number;
+/** Minimal lexicon row — data only; no learning module import. */
+export type LexiconAssignmentRow = {
+	food: SymbolId | null;
+	water: SymbolId | null;
 };
 
 export type SelectContextSymbolInput = {
@@ -45,9 +34,8 @@ export type SelectContextSymbolInput = {
 	emissionCount: number;
 	contextDetail: ResourceDiscoveryDetail;
 	inventory: readonly SymbolId[];
-	associations: readonly AssociationStrengthRow[];
+	lexicon: LexiconAssignmentRow;
 	preferredSymbolId: SymbolId;
-	config: SymbolSelectionConfig;
 };
 
 export type SelectContextSymbolResult = {
@@ -57,56 +45,70 @@ export type SelectContextSymbolResult = {
 	reasonText: string;
 };
 
-function learnedStrengthForContext(
-	row: AssociationStrengthRow | undefined,
-	contextDetail: ResourceDiscoveryDetail
-): number {
-	if (!row) {
-		return 0;
+function assignedSymbols(lexicon: LexiconAssignmentRow): Set<SymbolId> {
+	const set = new Set<SymbolId>();
+	if (lexicon.food !== null) {
+		set.add(lexicon.food);
 	}
-	const raw = contextDetail === 'food' ? row.foodStrength : row.waterStrength;
-	if (!Number.isFinite(raw) || raw < 0) {
-		return 0;
+	if (lexicon.water !== null) {
+		set.add(lexicon.water);
 	}
-	return raw;
+	return set;
 }
 
-/**
- * Build effective emission weights for a context from association strengths.
- * Reuses association values directly (no separate production table).
- */
-export function buildEmissionWeights(
+function formatReasonText(evidence: SymbolSelectionEvidence): string {
+	if (evidence.mode === 'learned_lexicon') {
+		return `learned_lexicon context=${evidence.emissionContext} symbol=${evidence.selectedSymbolId}`;
+	}
+	if (evidence.mode === 'exploratory') {
+		return `exploratory context=${evidence.emissionContext} symbol=${evidence.selectedSymbolId} sample=${evidence.sample?.toFixed(4) ?? 'n/a'}`;
+	}
+	return `${evidence.reason} (${evidence.selectedSymbolId}, context=${evidence.emissionContext})`;
+}
+
+function buildCandidateNotes(
 	inventory: readonly SymbolId[],
-	associations: readonly AssociationStrengthRow[],
 	contextDetail: ResourceDiscoveryDetail,
-	config: SymbolSelectionConfig
+	lexicon: LexiconAssignmentRow,
+	selectedSymbolId: SymbolId,
+	pool: readonly SymbolId[],
+	mode: SymbolSelectionMode
 ): SymbolSelectionCandidateEvidence[] {
-	const byId = new Map(associations.map((a) => [a.symbolId, a]));
-	const floor = config.emissionExplorationFloor;
-	const multiplier = config.emissionAssociationWeightMultiplier;
+	const otherMeaning: ResourceDiscoveryDetail = contextDetail === 'food' ? 'water' : 'food';
+	const assignedHere = lexicon[contextDetail];
+	const assignedOther = lexicon[otherMeaning];
+	const poolSet = new Set(pool);
 
 	return inventory.map((symbolId) => {
-		const learnedStrength = learnedStrengthForContext(byId.get(symbolId), contextDetail);
-		const raw = floor + multiplier * learnedStrength;
-		const effectiveWeight = Number.isFinite(raw) && raw > 0 ? raw : 0;
+		let note: string;
+		if (symbolId === selectedSymbolId) {
+			note = mode === 'learned_lexicon' ? 'selected_learned' : 'selected_exploratory';
+		} else if (symbolId === assignedHere) {
+			note = 'assigned_context';
+		} else if (symbolId === assignedOther) {
+			note = 'assigned_other_meaning';
+		} else if (poolSet.has(symbolId)) {
+			note = 'exploratory_eligible';
+		} else {
+			note = 'not_in_pool';
+		}
 		return {
 			symbolId,
-			learnedStrength,
-			explorationFloor: floor,
-			effectiveWeight
+			eligible: poolSet.has(symbolId) || symbolId === selectedSymbolId,
+			note
 		};
 	});
 }
 
-function formatReasonText(evidence: SymbolSelectionEvidence): string {
-	if (evidence.usedFallback) {
-		return `${evidence.reason} (${evidence.selectedSymbolId}, context=${evidence.emissionContext})`;
-	}
-	return `weighted_association context=${evidence.emissionContext} sample=${evidence.sample?.toFixed(4) ?? 'n/a'}`;
-}
-
 /**
- * Deterministic weighted symbol selection for a resource-discovery emission.
+ * Deterministic symbol selection for a resource-discovery emission.
+ *
+ * 1. If lexicon[context] is set and present in inventory → learned_lexicon.
+ * 2. Else exploratory among inventory symbols not assigned to any meaning
+ *    (if that pool is empty, use full inventory).
+ * 3. Seeded uniform sample over the exploratory pool.
+ * 4. Fallback to preferred / first inventory only if inventory is non-empty but
+ *    sampling cannot proceed (should not occur with non-empty inventory).
  */
 export function selectContextSymbol(input: SelectContextSymbolInput): SelectContextSymbolResult {
 	const {
@@ -115,34 +117,46 @@ export function selectContextSymbol(input: SelectContextSymbolInput): SelectCont
 		emissionCount,
 		contextDetail,
 		inventory,
-		associations,
-		preferredSymbolId,
-		config
+		lexicon,
+		preferredSymbolId
 	} = input;
 
 	if (inventory.length === 0) {
 		throw new Error('symbol inventory must be non-empty for context-sensitive emission');
 	}
 
-	const candidates = buildEmissionWeights(inventory, associations, contextDetail, config);
-	const totalWeight = candidates.reduce((sum, c) => sum + c.effectiveWeight, 0);
-
-	if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
-		const fallbackInInventory = inventory.includes(preferredSymbolId);
-		const selectedSymbolId = fallbackInInventory ? preferredSymbolId : inventory[0]!;
+	const assignedForContext = lexicon[contextDetail];
+	if (assignedForContext !== null && inventory.includes(assignedForContext)) {
 		const evidence: SymbolSelectionEvidence = {
 			emissionContext: contextDetail,
-			selectedSymbolId,
-			candidates,
+			selectedSymbolId: assignedForContext,
+			assignedSymbolId: assignedForContext,
+			mode: 'learned_lexicon',
+			candidates: buildCandidateNotes(
+				inventory,
+				contextDetail,
+				lexicon,
+				assignedForContext,
+				[assignedForContext],
+				'learned_lexicon'
+			),
 			sample: null,
-			usedFallback: true,
-			reason: fallbackInInventory ? 'fallback_preferred' : 'fallback_inventory'
+			usedFallback: false,
+			reason: 'learned_lexicon'
 		};
 		return {
-			symbolId: selectedSymbolId,
+			symbolId: assignedForContext,
 			evidence,
 			reasonText: formatReasonText(evidence)
 		};
+	}
+
+	const taken = assignedSymbols(lexicon);
+	let pool = inventory.filter((symbolId) => !taken.has(symbolId));
+	let poolNote = 'prefer_unassigned';
+	if (pool.length === 0) {
+		pool = [...inventory];
+		poolNote = 'all_assigned_use_inventory';
 	}
 
 	const stream = deriveSeed(
@@ -155,26 +169,57 @@ export function selectContextSymbol(input: SelectContextSymbolInput): SelectCont
 	);
 	const rng = createSeededRng(stream);
 	const sample = rng.next();
-	const target = sample * totalWeight;
-
-	let cumulative = 0;
-	let selectedSymbolId = candidates[candidates.length - 1]!.symbolId;
-	for (const candidate of candidates) {
-		cumulative += candidate.effectiveWeight;
-		if (cumulative >= target) {
-			selectedSymbolId = candidate.symbolId;
-			break;
-		}
-	}
+	const index = Math.min(pool.length - 1, Math.floor(sample * pool.length));
+	const selectedSymbolId = pool[index]!;
 
 	const evidence: SymbolSelectionEvidence = {
 		emissionContext: contextDetail,
 		selectedSymbolId,
-		candidates,
+		assignedSymbolId: assignedForContext,
+		mode: 'exploratory',
+		candidates: buildCandidateNotes(
+			inventory,
+			contextDetail,
+			lexicon,
+			selectedSymbolId,
+			pool,
+			'exploratory'
+		),
 		sample,
 		usedFallback: false,
-		reason: 'weighted_association'
+		reason: `exploratory_${poolNote}`
 	};
+
+	// Defensive: if selection somehow invalid, fall back explicitly.
+	if (!inventory.includes(selectedSymbolId)) {
+		const fallbackInInventory = inventory.includes(preferredSymbolId);
+		const fallbackId = fallbackInInventory ? preferredSymbolId : inventory[0]!;
+		const fallbackMode: SymbolSelectionMode = fallbackInInventory
+			? 'fallback_preferred'
+			: 'fallback_inventory';
+		const fallbackEvidence: SymbolSelectionEvidence = {
+			emissionContext: contextDetail,
+			selectedSymbolId: fallbackId,
+			assignedSymbolId: assignedForContext,
+			mode: fallbackMode,
+			candidates: buildCandidateNotes(
+				inventory,
+				contextDetail,
+				lexicon,
+				fallbackId,
+				pool,
+				fallbackMode
+			),
+			sample: null,
+			usedFallback: true,
+			reason: fallbackMode
+		};
+		return {
+			symbolId: fallbackId,
+			evidence: fallbackEvidence,
+			reasonText: formatReasonText(fallbackEvidence)
+		};
+	}
 
 	return {
 		symbolId: selectedSymbolId,

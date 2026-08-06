@@ -7,7 +7,6 @@
 
 import type { Creature, CreatureTarget, SimulationConfig, SimulationState } from './types';
 import type { HeardSignal, SignalEmission } from './communication/types';
-import { buildEmissionWeights } from './communication/symbol-selection';
 import {
 	buildPopulationSymbolDiagnostics,
 	formatPopulationSymbolDiagnostics
@@ -48,16 +47,16 @@ function formatCreature(creature: Creature): string {
 
 function formatEmissionLine(emission: SignalEmission): string {
 	const evidence = emission.selectionEvidence;
-	const weightSummary = evidence.candidates
-		.map((c) => `${c.symbolId}:w=${c.effectiveWeight.toFixed(3)}`)
+	const candidateSummary = evidence.candidates
+		.map((c) => `${c.symbolId}:${c.note}`)
 		.join(' ');
 	return (
 		`${emission.id} symbol=${emission.symbolId} sender=${emission.senderId} ` +
 		`origin=(${emission.origin.x.toFixed(3)}, ${emission.origin.y.toFixed(3)}) ` +
 		`emitted@${emission.emittedAt.toFixed(3)} expires@${emission.expiresAt.toFixed(3)} ` +
 		`context=${emission.context}/${emission.contextDetail} ` +
-		`symbolReason=${emission.symbolSelectionReason} ` +
-		`fallback=${evidence.usedFallback} weights=[${weightSummary}]`
+		`mode=${evidence.mode} symbolReason=${emission.symbolSelectionReason} ` +
+		`fallback=${evidence.usedFallback} candidates=[${candidateSummary}]`
 	);
 }
 
@@ -112,12 +111,7 @@ export function formatSimulationDiagnostics(
 
 export type InspectionConfig = Pick<
 	SimulationConfig,
-	| 'sensingRadius'
-	| 'trackedObservationDurationSeconds'
-	| 'hearingRadius'
-	| 'emissionExplorationFloor'
-	| 'emissionAssociationWeightMultiplier'
-	| 'symbolInventory'
+	'sensingRadius' | 'trackedObservationDurationSeconds' | 'hearingRadius' | 'symbolInventory'
 >;
 
 /**
@@ -248,35 +242,18 @@ export function formatCreatureInspection(
 		`  last emission: ${creature.lastEmissionAt >= 0 ? `${creature.lastEmissionAt.toFixed(3)} s` : 'never'}`
 	);
 
-	// Derived output weights (not stored; reuse personal associations directly).
-	if (
-		config?.symbolInventory &&
-		typeof config.emissionExplorationFloor === 'number' &&
-		typeof config.emissionAssociationWeightMultiplier === 'number'
-	) {
-		const weightConfig = {
-			emissionExplorationFloor: config.emissionExplorationFloor,
-			emissionAssociationWeightMultiplier: config.emissionAssociationWeightMultiplier
-		};
-		const foodWeights = buildEmissionWeights(
-			config.symbolInventory,
-			creature.symbolAssociations,
-			'food',
-			weightConfig
-		);
-		const waterWeights = buildEmissionWeights(
-			config.symbolInventory,
-			creature.symbolAssociations,
-			'water',
-			weightConfig
-		);
-		lines.push('  effective emission weights (derived; not a production table):');
-		for (let i = 0; i < config.symbolInventory.length; i += 1) {
-			const food = foodWeights[i]!;
-			const water = waterWeights[i]!;
+	lines.push(
+		'  exclusive lexicon (one symbol per meaning; not a global dictionary):',
+		`    food → ${creature.lexicon.food ?? 'unassigned'}`,
+		`    water → ${creature.lexicon.water ?? 'unassigned'}`
+	);
+	if (creature.recentLexiconChanges.length > 0) {
+		lines.push('  recent lexicon changes:');
+		for (const change of creature.recentLexiconChanges) {
 			lines.push(
-				`    ${food.symbolId}: foodWeight=${food.effectiveWeight.toFixed(3)} (str=${food.learnedStrength.toFixed(3)})` +
-					` waterWeight=${water.effectiveWeight.toFixed(3)} (str=${water.learnedStrength.toFixed(3)})`
+				`    t=${change.timeSeconds.toFixed(3)} ${change.meaning}: ` +
+					`${change.previousSymbolId ?? 'null'}→${change.newSymbolId ?? 'null'}` +
+					` score=${change.assignmentScore.toFixed(3)} — ${change.reason}`
 			);
 		}
 	}
@@ -292,6 +269,7 @@ export function formatCreatureInspection(
 		lines.push(
 			`  last selection: context=${last.selectionEvidence.emissionContext}` +
 				` symbol=${last.selectionEvidence.selectedSymbolId}` +
+				` mode=${last.selectionEvidence.mode}` +
 				` reason=${last.selectionEvidence.reason}` +
 				` fallback=${last.selectionEvidence.usedFallback}`
 		);
@@ -305,9 +283,9 @@ export function formatCreatureInspection(
 		}
 	}
 
-	lines.push('', 'learning (personal associations; no global symbol meaning):');
+	lines.push('', 'learning (raw evidence; no global symbol meaning):');
 	if (creature.symbolAssociations.length === 0) {
-		lines.push('  associations: (none)');
+		lines.push('  evidence: (none)');
 	} else {
 		for (const assoc of creature.symbolAssociations) {
 			lines.push(

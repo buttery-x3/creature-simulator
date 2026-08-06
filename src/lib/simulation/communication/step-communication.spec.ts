@@ -20,15 +20,16 @@ function testSelectionEvidence(
 	return {
 		emissionContext: context,
 		selectedSymbolId: symbolId,
+		assignedSymbolId: null,
+		mode: 'exploratory',
 		candidates: DEFAULT_SYMBOL_INVENTORY.map((id) => ({
 			symbolId: id,
-			learnedStrength: 0,
-			explorationFloor: 0.15,
-			effectiveWeight: 0.15
+			eligible: true,
+			note: 'exploratory_eligible'
 		})),
 		sample: 0.5,
 		usedFallback: false,
-		reason: 'weighted_association'
+		reason: 'exploratory_prefer_unassigned'
 	};
 }
 
@@ -128,7 +129,7 @@ describe('expireEmissions', () => {
 				expiresAt: 2.5,
 				context: 'resource_discovered',
 				contextDetail: 'food',
-				symbolSelectionReason: 'weighted_association',
+				symbolSelectionReason: 'exploratory',
 				selectionEvidence: testSelectionEvidence('glyph-0', 'food')
 			},
 			{
@@ -140,7 +141,7 @@ describe('expireEmissions', () => {
 				expiresAt: 3,
 				context: 'resource_discovered',
 				contextDetail: 'water',
-				symbolSelectionReason: 'weighted_association',
+				symbolSelectionReason: 'exploratory',
 				selectionEvidence: testSelectionEvidence('glyph-1', 'water')
 			}
 		];
@@ -250,20 +251,13 @@ describe('stepCommunication', () => {
 		expect(next.creatures[0]!.emissionCount).toBe(1);
 	});
 
-	it('uses context-specific associations so food and water emission may diverge', () => {
+	it('uses exclusive lexicon so food and water emission may diverge', () => {
 		const config = commConfig('context-symbol');
-		const associations = DEFAULT_SYMBOL_INVENTORY.map((symbolId) => ({
-			symbolId,
-			foodStrength: symbolId === 'glyph-0' ? 10 : 0,
-			waterStrength: symbolId === 'glyph-3' ? 10 : 0,
-			foodEvidenceCount: symbolId === 'glyph-0' ? 1 : 0,
-			waterEvidenceCount: symbolId === 'glyph-3' ? 1 : 0
-		}));
 		const sender = testCreature({
 			id: 'creature-0',
 			position: { x: 0, y: 0 },
 			preferredSymbolId: 'glyph-1',
-			symbolAssociations: associations,
+			lexicon: { food: 'glyph-0', water: 'glyph-3' },
 			lastEmissionAt: -1
 		});
 		let state = bareState({ creatures: [sender], timeSeconds: 1, seed: 'context-symbol' });
@@ -281,12 +275,13 @@ describe('stepCommunication', () => {
 			config
 		);
 		expect(state.activeEmissions[0]!.selectionEvidence.emissionContext).toBe('food');
+		expect(state.activeEmissions[0]!.selectionEvidence.mode).toBe('learned_lexicon');
 		expect(state.activeEmissions[0]!.symbolId).toBe('glyph-0');
 
 		const senderAfter = {
 			...state.creatures[0]!,
 			lastEmissionAt: -1,
-			symbolAssociations: associations
+			lexicon: { food: 'glyph-0', water: 'glyph-3' }
 		};
 		state = {
 			...state,
@@ -309,6 +304,7 @@ describe('stepCommunication', () => {
 		);
 		expect(state.activeEmissions[0]!.contextDetail).toBe('water');
 		expect(state.activeEmissions[0]!.selectionEvidence.emissionContext).toBe('water');
+		expect(state.activeEmissions[0]!.selectionEvidence.mode).toBe('learned_lexicon');
 		expect(state.activeEmissions[0]!.symbolId).toBe('glyph-3');
 	});
 
@@ -473,22 +469,15 @@ describe('discovery integration via stepSimulation', () => {
 		expect(state.recentEmissions).toHaveLength(1);
 	});
 
-	it('selects symbol from food associations rather than preferred only', () => {
-		const config = commConfig('assoc-emit');
-		const associations = DEFAULT_SYMBOL_INVENTORY.map((symbolId) => ({
-			symbolId,
-			foodStrength: symbolId === 'glyph-3' ? 10 : 0,
-			waterStrength: 0,
-			foodEvidenceCount: symbolId === 'glyph-3' ? 1 : 0,
-			waterEvidenceCount: 0
-		}));
+	it('selects symbol from exclusive food lexicon rather than preferred only', () => {
+		const config = commConfig('lexicon-emit');
 		const sender = testCreature({
 			id: 'creature-0',
 			position: { x: 0, y: 0 },
 			preferredSymbolId: 'glyph-0',
-			symbolAssociations: associations
+			lexicon: { food: 'glyph-3', water: null }
 		});
-		const state = bareState({ creatures: [sender], timeSeconds: 1, seed: 'assoc-emit' });
+		const state = bareState({ creatures: [sender], timeSeconds: 1, seed: 'lexicon-emit' });
 		const next = stepCommunication(
 			state,
 			[
@@ -502,7 +491,9 @@ describe('discovery integration via stepSimulation', () => {
 			1,
 			config
 		);
-		// With extreme food strength, glyph-3 should dominate food emission selections
+		expect(next.activeEmissions[0]!.symbolId).toBe('glyph-3');
+		expect(next.activeEmissions[0]!.selectionEvidence.mode).toBe('learned_lexicon');
+		// Always the lexicon assignment across repeated emissions.
 		let glyph3 = 0;
 		let current = state;
 		for (let i = 0; i < 20; i += 1) {
@@ -514,7 +505,7 @@ describe('discovery integration via stepSimulation', () => {
 							? {
 									...c,
 									lastEmissionAt: -1,
-									symbolAssociations: associations,
+									lexicon: { food: 'glyph-3', water: null },
 									preferredSymbolId: 'glyph-0'
 								}
 							: c
@@ -537,14 +528,10 @@ describe('discovery integration via stepSimulation', () => {
 			}
 			current = stepped;
 		}
-		expect(glyph3).toBeGreaterThan(10);
-		expect(
-			next.activeEmissions[0]!.selectionEvidence.candidates.find((c) => c.symbolId === 'glyph-3')!
-				.learnedStrength
-		).toBe(10);
+		expect(glyph3).toBe(20);
 	});
 
-	it('does not mutate emitter associations when delivering to listeners', () => {
+	it('does not mutate emitter evidence or lexicon when delivering to listeners', () => {
 		const config = commConfig('no-emitter-feedback');
 		const associations = DEFAULT_SYMBOL_INVENTORY.map((symbolId) => ({
 			symbolId,
@@ -553,16 +540,19 @@ describe('discovery integration via stepSimulation', () => {
 			foodEvidenceCount: 1,
 			waterEvidenceCount: 1
 		}));
+		const lexicon = { food: 'glyph-0' as const, water: 'glyph-1' as const };
 		const sender = testCreature({
 			id: 'creature-0',
 			position: { x: 0, y: 0 },
-			symbolAssociations: associations
+			symbolAssociations: associations,
+			lexicon
 		});
 		const listener = testCreature({
 			id: 'creature-1',
 			position: { x: 1, y: 0 }
 		});
-		const before = JSON.stringify(associations);
+		const beforeAssoc = JSON.stringify(associations);
+		const beforeLexicon = JSON.stringify(lexicon);
 		const next = stepCommunication(
 			bareState({ creatures: [sender, listener], timeSeconds: 1 }),
 			[
@@ -577,7 +567,8 @@ describe('discovery integration via stepSimulation', () => {
 			config
 		);
 		const senderNext = next.creatures.find((c) => c.id === 'creature-0')!;
-		expect(JSON.stringify(senderNext.symbolAssociations)).toBe(before);
+		expect(JSON.stringify(senderNext.symbolAssociations)).toBe(beforeAssoc);
+		expect(JSON.stringify(senderNext.lexicon)).toBe(beforeLexicon);
 		expect(next.creatures.find((c) => c.id === 'creature-1')!.recentHeard).toHaveLength(1);
 	});
 

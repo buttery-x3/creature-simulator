@@ -151,31 +151,33 @@ transient arbitrary signals and local reception:
 
 - `types.ts` — symbol ids, emissions, heard records, emission requests, selection evidence;
 - `emission.ts` — preferred-symbol cold-start helper, cooldown, ids, bounded history helpers;
-- `symbol-selection.ts` — context-sensitive weighted selection from association strengths + exploration floor;
+- `symbol-selection.ts` — learned-lexicon emission or exploratory selection from serialisable lexicon values;
 - `reception.ts` — circular hearing radius, sender exclusion, deterministic receiver order;
 - `step-communication.ts` — apply requests, selection, reception, expiry within the fixed step;
 - `index.ts` — exports for simulation siblings.
 
 Behaviour may request an emission; communication owns transmission, reception,
 lifetime, histories and emit-time symbol selection. Communication must not import
-learning implementation modules; it only reads association **values** already on
-the creature. Do not add speaker-success feedback or association mutation here.
+learning implementation modules; it only reads lexicon **values** already on
+the creature. Do not add speaker-success feedback or evidence mutation here.
 
 Internal learning subdomain (`simulation/learning/`), introduced for personal
-symbol associations and signal-guided investigation (receptive mutation only):
+symbol evidence, exclusive lexicon resolution and signal-guided investigation
+(receptive mutation only):
 
-- `types.ts` — associations, pending signals, active investigation, learning history;
+- `types.ts` — evidence rows, lexicon, pending signals, active investigation, learning / lexicon history;
 - `signal-associations.ts` — empty init, clamp, reinforce, optional no-evidence reduction;
-- `signal-investigation.ts` — pending lifecycle, investigation scoring, evidence qualification;
-- `step-signal-learning.ts` — mid-behaviour evidence advance and post-reception pending insert;
+- `lexicon-resolution.ts` — pure exclusive one-to-one meaning↔symbol assignment from evidence;
+- `signal-investigation.ts` — pending lifecycle, investigation scoring (raw evidence), evidence qualification;
+- `step-signal-learning.ts` — mid-behaviour advance, arrival reinforce + lexicon resolve, post-reception pending insert;
 - `index.ts` — exports for simulation siblings.
 
 Behaviour owns whether to select `investigate_signal` and movement toward the
-origin; learning owns association **updates** and investigation evidence.
-Emission reuses association strengths as production bias inside communication
-(no separate production-weight table). Population convention metrics are pure
-diagnostics under simulation root (`population-symbol-diagnostics.ts`), not
-authoritative state.
+origin; learning owns evidence **updates**, lexicon resolution and investigation
+evidence. Emission uses resolved lexicon assignments (or exploratory when
+unassigned) inside communication — not independent multi-context weight
+sampling. Population convention metrics are pure diagnostics under simulation
+root (`population-symbol-diagnostics.ts`), not authoritative state.
 
 ### Presentation
 
@@ -195,6 +197,9 @@ Selection overlays or heavier interaction should extract further if
 `HabitatWorkbench.svelte` owns seed/simulation controls and diagnostic panels;
 it composes `CreatureInspector.svelte` for the selected-creature surface and
 `PopulationCommunicationPanel.svelte` for observational population symbol metrics.
+
+`CreatureLexiconPanel.svelte` owns selected-creature evidence, exclusive lexicon
+and last-selection presentation (composed by the inspector).
 
 `CreatureInspector.svelte` owns creature selection chips, needs/perception/
 communication/learning fields, candidates, and inspector-specific formatting/styling.

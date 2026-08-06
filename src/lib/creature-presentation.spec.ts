@@ -73,6 +73,8 @@ function creature(
 				waterEvidenceCount: 0
 			}
 		],
+		lexicon: { food: null, water: null },
+		recentLexiconChanges: [],
 		pendingSignals: [],
 		activeInvestigation: null,
 		recentLearning: []

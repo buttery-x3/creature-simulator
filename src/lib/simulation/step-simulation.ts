@@ -47,8 +47,6 @@ export type StepSimulationConfig = Pick<
 	| 'recentHeardHistoryLimit'
 	| 'recentSimulationEmissionHistoryLimit'
 	| 'symbolInventory'
-	| 'emissionExplorationFloor'
-	| 'emissionAssociationWeightMultiplier'
 	| 'pendingSignalLifetimeSeconds'
 	| 'maxPendingSignalsPerCreature'
 	| 'investigationCuriosityWeight'
@@ -60,6 +58,9 @@ export type StepSimulationConfig = Pick<
 	| 'learningHistoryLimit'
 	| 'associationStrengthMin'
 	| 'associationStrengthMax'
+	| 'lexiconAssignmentMinStrength'
+	| 'lexiconAssignmentMinEvidenceCount'
+	| 'lexiconHistoryLimit'
 >;
 
 /**

@@ -16,6 +16,7 @@ import { pointTarget } from './behaviour/resource-awareness';
 import { selectPreferredSymbol } from './communication/emission';
 import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 import { sampleSearchTarget, sampleWanderTarget } from './creature-movement';
+import { emptyLexicon } from './learning/lexicon-resolution';
 import { createEmptyAssociations } from './learning/signal-associations';
 import type { Creature, SimulationConfig, SimulationState } from './types';
 
@@ -76,14 +77,10 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	recentEmittedHistoryLimit: 8,
 	recentHeardHistoryLimit: 8,
 	recentSimulationEmissionHistoryLimit: 24,
-	// Context-sensitive emission: exploration floor keeps all symbols selectable;
-	// learned association strengths increasingly dominate as evidence accumulates.
-	emissionExplorationFloor: 0.15,
-	emissionAssociationWeightMultiplier: 1,
 	// Population diagnostics only — does not affect selection behaviour.
 	recentEmissionDiagnosticsWindowSeconds: 30,
 
-	// Learning: personal associations + signal investigation (no global meanings).
+	// Learning: personal evidence + exclusive lexicon + signal investigation (no global meanings).
 	// Per-creature curiosity (sampled at creation) drives unknown-symbol investigation.
 	pendingSignalLifetimeSeconds: 10,
 	maxPendingSignalsPerCreature: 4,
@@ -98,6 +95,10 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	learningHistoryLimit: 8,
 	associationStrengthMin: 0,
 	associationStrengthMax: 1,
+	// Exclusive lexicon: one investigation at default reinforcement (0.25) clears the strength gate.
+	lexiconAssignmentMinStrength: 0.15,
+	lexiconAssignmentMinEvidenceCount: 1,
+	lexiconHistoryLimit: 12,
 
 	initialHunger: 0.2,
 	initialThirst: 0.2,
@@ -228,7 +229,9 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'recentHeardHistoryLimit',
 		'recentSimulationEmissionHistoryLimit',
 		'learningHistoryLimit',
-		'maxPendingSignalsPerCreature'
+		'maxPendingSignalsPerCreature',
+		'lexiconHistoryLimit',
+		'lexiconAssignmentMinEvidenceCount'
 	] as const) {
 		const value = config[key];
 		if (!Number.isInteger(value) || value < 1) {
@@ -243,9 +246,8 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'investigationAgeWeight',
 		'associationReinforcement',
 		'noEvidenceConfidenceReduction',
-		'emissionExplorationFloor',
-		'emissionAssociationWeightMultiplier',
-		'recentEmissionDiagnosticsWindowSeconds'
+		'recentEmissionDiagnosticsWindowSeconds',
+		'lexiconAssignmentMinStrength'
 	] as const) {
 		const value = config[key];
 		if (typeof value !== 'number' || !(value >= 0) || !Number.isFinite(value)) {
@@ -386,8 +388,10 @@ function createCreatures(
 			lastEmissionAt: -1,
 			recentEmitted: [],
 			recentHeard: [],
-			// Independent association array per creature — never share references.
+			// Independent evidence array and lexicon per creature — never share references.
 			symbolAssociations: createEmptyAssociations(config.symbolInventory),
+			lexicon: emptyLexicon(),
+			recentLexiconChanges: [],
 			pendingSignals: [],
 			activeInvestigation: null,
 			recentLearning: []

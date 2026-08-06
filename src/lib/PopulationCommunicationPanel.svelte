@@ -24,7 +24,8 @@
 <section class="panel" data-testid="population-communication-panel">
 	<h2>Population symbols</h2>
 	<p class="hint" data-testid="population-communication-hint">
-		Observational summaries only — not a global dictionary or “correct” food/water symbol.
+		Observational summaries only — exclusive lexicons and raw evidence are personal, not a global
+		dictionary or “correct” food/water symbol.
 	</p>
 	<p class="summary" data-testid="population-communication-window">
 		t={diagnostics.timeSeconds.toFixed(2)}s · window={diagnostics.windowSeconds.toFixed(0)}s ·
@@ -36,10 +37,30 @@
 			<h3 class="subhead">{ctx.context} context</h3>
 			<dl class="meta">
 				<div>
-					<dt>Highest mean association</dt>
+					<dt>Most assigned (lexicon)</dt>
+					<dd data-testid={`population-${ctx.context}-most-assigned`}>
+						{ctx.mostAssignedSymbolId ?? 'none'}
+						<span class="muted">(observational)</span>
+					</dd>
+				</div>
+				<div>
+					<dt>Unassigned creatures</dt>
+					<dd data-testid={`population-${ctx.context}-unassigned`}>
+						{ctx.creaturesUnassigned}/{diagnostics.creatureCount}
+						({ctx.proportionUnassigned.toFixed(3)})
+					</dd>
+				</div>
+				<div>
+					<dt>Assignment concentration</dt>
+					<dd data-testid={`population-${ctx.context}-assignment-concentration`}>
+						{ctx.assignmentConcentrationMaxShare.toFixed(3)}
+					</dd>
+				</div>
+				<div>
+					<dt>Highest mean evidence</dt>
 					<dd data-testid={`population-${ctx.context}-highest-mean`}>
 						{ctx.highestMeanAssociationSymbolId ?? 'none'}
-						<span class="muted">(observational)</span>
+						<span class="muted">(raw evidence)</span>
 					</dd>
 				</div>
 				<div>
@@ -50,7 +71,13 @@
 					</dd>
 				</div>
 				<div>
-					<dt>Concentration max-share</dt>
+					<dt>Learned vs exploratory emit</dt>
+					<dd data-testid={`population-${ctx.context}-emission-modes`}>
+						learned={ctx.recentLearnedEmissions} · exploratory={ctx.recentExploratoryEmissions}
+					</dd>
+				</div>
+				<div>
+					<dt>Emission concentration</dt>
 					<dd data-testid={`population-${ctx.context}-concentration`}>
 						{ctx.emissionConcentrationMaxShare.toFixed(3)}
 					</dd>
@@ -73,9 +100,10 @@
 					{@const emit = ctx.emissions.find((e) => e.symbolId === assoc.symbolId)}
 					<li data-testid={`population-${ctx.context}-row-${assoc.symbolId}`}>
 						<strong>{assoc.symbolId}</strong>
-						mean={assoc.meanStrength.toFixed(3)} median={assoc.medianStrength.toFixed(3)}
+						assigned={assoc.creaturesAssigned}/{diagnostics.creatureCount}
+						meanEvidence={assoc.meanStrength.toFixed(3)}
 						evidence={assoc.creaturesWithEvidence}/{diagnostics.creatureCount}
-						strongest={assoc.creaturesStrongest}
+						strongestEvidence={assoc.creaturesStrongest}
 						recentEmit={emit?.recentCount ?? 0}
 						share={(emit?.recentShare ?? 0).toFixed(3)}
 					</li>
@@ -131,7 +159,7 @@
 
 	.meta div {
 		display: grid;
-		grid-template-columns: 8.5rem 1fr;
+		grid-template-columns: 9.5rem 1fr;
 		gap: 0.35rem;
 	}
 

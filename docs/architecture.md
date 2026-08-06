@@ -25,10 +25,12 @@ rules are not present yet.
 - Feature `position` is the centre of an axis-aligned footprint (`size.width` ×
   `size.height`).
 - Three.js maps simulation `(x, y)` onto its **XY plane**. Vertical extent
-  (Three.js `z`) is presentation-only (for example bush height) and must not
-  affect the habitat model.
-- The orthographic camera looks along **-Z** so the full habitat is visible from
-  a desktop viewport.
+  (Three.js `z`) is presentation-only (for example bush height, future creature
+  capsules) and must not affect the habitat model.
+- The presentation camera is a **perspective** view on an elevated offset, with
+  world-up **+Z**, so upright volumes read as 3D. Framing (`habitat-camera.ts`)
+  pulls the camera back until every habitat corner (ground + presentation
+  height) stays inside the viewport with a small NDC margin.
 
 ## Dependency direction (current)
 

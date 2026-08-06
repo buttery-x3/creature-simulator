@@ -1,4 +1,16 @@
 export { orthographicFrustum } from './orthographic-frustum';
+export {
+	assessHabitatVisibility,
+	frameHabitatPerspectiveCamera,
+	habitatGroundCorners,
+	isNdcVisible,
+	projectWorldToNdc
+} from './habitat-camera';
+export type {
+	HabitatCameraOptions,
+	HabitatVisibilityReport,
+	ProjectedCorner
+} from './habitat-camera';
 export { ports } from './ports';
 export {
 	DEFAULT_HABITAT_CONFIG,

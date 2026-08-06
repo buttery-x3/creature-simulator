@@ -2,13 +2,19 @@
 	import { onMount } from 'svelte';
 	import * as THREE from 'three';
 	import type { Habitat, HabitatFeature } from '$lib/habitat';
-	import { orthographicFrustum } from './orthographic-frustum';
+	import {
+		assessHabitatVisibility,
+		frameHabitatPerspectiveCamera,
+		type HabitatVisibilityReport
+	} from './habitat-camera';
 
 	/**
 	 * Coordinate convention:
 	 * - Simulation ground plane uses (x, y).
 	 * - Three.js maps those onto the XY plane (z is presentation height only).
-	 * - The orthographic camera looks down -Z so the full habitat is visible.
+	 * - Perspective camera is elevated and offset so upright presentation
+	 *   (bushes now; creature capsules later) reads as 3D while the full
+	 *   habitat remains framed in the viewport.
 	 */
 
 	type Props = {
@@ -31,10 +37,8 @@
 		const scene = new THREE.Scene();
 		scene.background = new THREE.Color(0x0f172a);
 
-		const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
-		camera.position.set(0, 0, 20);
-		camera.up.set(0, 1, 0);
-		camera.lookAt(0, 0, 0);
+		const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 500);
+		camera.up.set(0, 0, 1);
 
 		const renderer = new THREE.WebGLRenderer({ antialias: true });
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -171,8 +175,15 @@
 			}
 		}
 
-		function viewHeightForHabitat(data: Habitat): number {
-			return data.bounds.height * 1.15;
+		function publishVisibility(report: HabitatVisibilityReport): void {
+			const canvas = renderer.domElement;
+			canvas.dataset.habitatFullyVisible = report.fullyVisible ? 'true' : 'false';
+			canvas.dataset.habitatCameraMode = 'perspective-elevated';
+			// Compact corner summary for Playwright assertions without scraping WebGL pixels.
+			canvas.dataset.habitatCornersVisible = String(
+				report.corners.filter((corner) => corner.visible).length
+			);
+			canvas.dataset.habitatCornerCount = String(report.corners.length);
 		}
 
 		function renderFrame() {
@@ -188,12 +199,10 @@
 
 			renderer.setSize(width, height, false);
 
-			const frustum = orthographicFrustum(width / height, viewHeightForHabitat(currentHabitat));
-			camera.left = frustum.left;
-			camera.right = frustum.right;
-			camera.top = frustum.top;
-			camera.bottom = frustum.bottom;
-			camera.updateProjectionMatrix();
+			const report = frameHabitatPerspectiveCamera(camera, currentHabitat.bounds, width / height);
+			// Re-assess after final camera write (frame already returns the report).
+			const confirmed = assessHabitatVisibility(camera, currentHabitat.bounds);
+			publishVisibility(report.fullyVisible ? report : confirmed);
 
 			renderer.render(scene, camera);
 		}

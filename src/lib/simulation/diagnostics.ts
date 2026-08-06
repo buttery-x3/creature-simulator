@@ -2,10 +2,16 @@
  * Lightweight simulation diagnostics for the workbench.
  * Decision, perception and communication reasons come from structured simulation records only.
  * Symbols are arbitrary at emission — listener associations are personal learned evidence only.
+ * Population convergence metrics are pure derived observations (never feed back into behaviour).
  */
 
 import type { Creature, CreatureTarget, SimulationConfig, SimulationState } from './types';
 import type { HeardSignal, SignalEmission } from './communication/types';
+import { buildEmissionWeights } from './communication/symbol-selection';
+import {
+	buildPopulationSymbolDiagnostics,
+	formatPopulationSymbolDiagnostics
+} from './population-symbol-diagnostics';
 
 function formatTarget(target: CreatureTarget | null): string {
 	if (!target) {
@@ -41,12 +47,17 @@ function formatCreature(creature: Creature): string {
 }
 
 function formatEmissionLine(emission: SignalEmission): string {
+	const evidence = emission.selectionEvidence;
+	const weightSummary = evidence.candidates
+		.map((c) => `${c.symbolId}:w=${c.effectiveWeight.toFixed(3)}`)
+		.join(' ');
 	return (
 		`${emission.id} symbol=${emission.symbolId} sender=${emission.senderId} ` +
 		`origin=(${emission.origin.x.toFixed(3)}, ${emission.origin.y.toFixed(3)}) ` +
 		`emitted@${emission.emittedAt.toFixed(3)} expires@${emission.expiresAt.toFixed(3)} ` +
 		`context=${emission.context}/${emission.contextDetail} ` +
-		`symbolReason=${emission.symbolSelectionReason}`
+		`symbolReason=${emission.symbolSelectionReason} ` +
+		`fallback=${evidence.usedFallback} weights=[${weightSummary}]`
 	);
 }
 
@@ -60,10 +71,14 @@ function formatHeardLine(heard: HeardSignal): string {
 
 /**
  * Human-readable simulation summary plus per-creature lines.
+ * Optional config enables population symbol diagnostics (pure, observational).
  */
 export function formatSimulationDiagnostics(
 	state: SimulationState,
-	options?: { paused?: boolean }
+	options?: {
+		paused?: boolean;
+		config?: Pick<SimulationConfig, 'symbolInventory' | 'recentEmissionDiagnosticsWindowSeconds'>;
+	}
 ): string {
 	const paused = options?.paused ?? false;
 	const lines: string[] = [
@@ -87,12 +102,22 @@ export function formatSimulationDiagnostics(
 		}
 	}
 
+	if (options?.config) {
+		const population = buildPopulationSymbolDiagnostics(state, options.config);
+		lines.push('', formatPopulationSymbolDiagnostics(population));
+	}
+
 	return lines.join('\n');
 }
 
 export type InspectionConfig = Pick<
 	SimulationConfig,
-	'sensingRadius' | 'trackedObservationDurationSeconds' | 'hearingRadius'
+	| 'sensingRadius'
+	| 'trackedObservationDurationSeconds'
+	| 'hearingRadius'
+	| 'emissionExplorationFloor'
+	| 'emissionAssociationWeightMultiplier'
+	| 'symbolInventory'
 >;
 
 /**
@@ -212,7 +237,9 @@ export function formatCreatureInspection(
 
 	const hearingRadius = config?.hearingRadius;
 	lines.push('', 'communication:');
-	lines.push(`  preferred symbol: ${creature.preferredSymbolId} (arbitrary; no global meaning)`);
+	lines.push(
+		`  preferred symbol: ${creature.preferredSymbolId} (cold-start fallback / initial arbitrary preference)`
+	);
 	if (hearingRadius !== undefined) {
 		lines.push(`  hearing radius: ${hearingRadius.toFixed(3)}`);
 	}
@@ -220,6 +247,40 @@ export function formatCreatureInspection(
 		`  emission count: ${creature.emissionCount}`,
 		`  last emission: ${creature.lastEmissionAt >= 0 ? `${creature.lastEmissionAt.toFixed(3)} s` : 'never'}`
 	);
+
+	// Derived output weights (not stored; reuse personal associations directly).
+	if (
+		config?.symbolInventory &&
+		typeof config.emissionExplorationFloor === 'number' &&
+		typeof config.emissionAssociationWeightMultiplier === 'number'
+	) {
+		const weightConfig = {
+			emissionExplorationFloor: config.emissionExplorationFloor,
+			emissionAssociationWeightMultiplier: config.emissionAssociationWeightMultiplier
+		};
+		const foodWeights = buildEmissionWeights(
+			config.symbolInventory,
+			creature.symbolAssociations,
+			'food',
+			weightConfig
+		);
+		const waterWeights = buildEmissionWeights(
+			config.symbolInventory,
+			creature.symbolAssociations,
+			'water',
+			weightConfig
+		);
+		lines.push('  effective emission weights (derived; not a production table):');
+		for (let i = 0; i < config.symbolInventory.length; i += 1) {
+			const food = foodWeights[i]!;
+			const water = waterWeights[i]!;
+			lines.push(
+				`    ${food.symbolId}: foodWeight=${food.effectiveWeight.toFixed(3)} (str=${food.learnedStrength.toFixed(3)})` +
+					` waterWeight=${water.effectiveWeight.toFixed(3)} (str=${water.learnedStrength.toFixed(3)})`
+			);
+		}
+	}
+
 	if (creature.recentEmitted.length === 0) {
 		lines.push('  recent emitted: (none)');
 	} else {
@@ -227,6 +288,13 @@ export function formatCreatureInspection(
 		for (const emission of creature.recentEmitted) {
 			lines.push(`    ${formatEmissionLine(emission)}`);
 		}
+		const last = creature.recentEmitted[creature.recentEmitted.length - 1]!;
+		lines.push(
+			`  last selection: context=${last.selectionEvidence.emissionContext}` +
+				` symbol=${last.selectionEvidence.selectedSymbolId}` +
+				` reason=${last.selectionEvidence.reason}` +
+				` fallback=${last.selectionEvidence.usedFallback}`
+		);
 	}
 	if (creature.recentHeard.length === 0) {
 		lines.push('  recent heard: (none)');

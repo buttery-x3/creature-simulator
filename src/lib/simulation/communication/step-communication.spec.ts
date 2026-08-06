@@ -33,7 +33,6 @@ function bareState(overrides: Partial<SimulationState> = {}): SimulationState {
 		creatures: [],
 		activeEmissions: [],
 		recentEmissions: [],
-		nextEmissionSeq: 0,
 		...overrides
 	};
 }
@@ -410,8 +409,7 @@ describe('discovery integration via stepSimulation', () => {
 			...base,
 			creatures: [sender, listener],
 			activeEmissions: [],
-			recentEmissions: [],
-			nextEmissionSeq: 0
+			recentEmissions: []
 		};
 
 		state = stepSimulation(state, config);

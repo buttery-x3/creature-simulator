@@ -173,8 +173,12 @@ Selection overlays or heavier interaction should extract further if
 
 ### Workbench and route
 
-`HabitatWorkbench.svelte` owns seed/simulation controls, diagnostics and the
-creature inspector presentation (formats structured simulation evidence).
+`HabitatWorkbench.svelte` owns seed/simulation controls and diagnostic panels;
+it composes `CreatureInspector.svelte` for the selected-creature surface.
+
+`CreatureInspector.svelte` owns creature selection chips, needs/perception/
+communication fields, candidates, and inspector-specific formatting/styling.
+It reads structured simulation evidence only and must not own domain algorithms.
 
 `src/routes/+page.svelte` owns page-level simulation session state, rAF fixed-step
 catch-up, selected creature id (presentation only), and composition of the

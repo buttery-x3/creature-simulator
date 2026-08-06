@@ -66,6 +66,7 @@ src/
                 *.spec.ts
 
         HabitatWorkbench.svelte
+        CreatureInspector.svelte
         ThreeViewport.svelte
         habitat-presentation.ts
         creature-presentation.ts
@@ -98,7 +99,8 @@ Obsolete files should not remain in this topology merely because they were creat
 | `signal-presentation.ts`    | Dynamic signal mesh reconcile by emission id (glyph marker + ring)                                                             | Authoritative reception, emission lifetime decisions                |
 | `ThreeViewport.svelte`      | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal presentation                        | Authoritative habitat or creature state                             |
 | `habitat-camera.ts`         | Pure camera-framing and visibility calculations                                                                                | Scene construction, simulation state or UI controls                 |
-| `HabitatWorkbench.svelte`   | Seed/simulation controls, diagnostics, creature inspector presentation                                                         | Domain algorithms or renderer lifecycle                             |
+| `HabitatWorkbench.svelte`   | Seed/simulation controls, diagnostics panels; composes creature inspector                                                      | Domain algorithms, inspector field layout, renderer lifecycle       |
+| `CreatureInspector.svelte`  | Creature selection chips, needs/perception/communication fields, candidates, inspector formatting                              | Domain algorithms, simulation stepping, Three.js                    |
 | `src/routes/+page.svelte`   | Page composition, session simulation state, rAF catch-up, pause/reset, selected creature id                                    | Domain algorithms, geometry rules or Three.js resource ownership    |
 | `ports.ts`                  | Reserved application and test ports                                                                                            | Runtime simulation configuration                                    |
 | `src/lib/index.ts`          | Deliberate app-level public exports                                                                                            | Private implementation logic or universal re-export of every module |

@@ -351,8 +351,7 @@ export function createSimulation(config: SimulationConfig): SimulationState {
 		habitat,
 		creatures,
 		activeEmissions: [],
-		recentEmissions: [],
-		nextEmissionSeq: 0
+		recentEmissions: []
 	};
 }
 

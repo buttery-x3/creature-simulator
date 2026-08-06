@@ -18,7 +18,8 @@ selection is presentation state only.
 | Simulation              | `src/lib/simulation/`                | SimulationState, creation, step, needs/decisions/actions                    |
 | Behaviour subdomain     | `src/lib/simulation/behaviour/`      | Needs, decisions, actions, local perception, search, resource targets       |
 | Communication subdomain | `src/lib/simulation/communication/`  | Arbitrary symbols, emission, local reception, histories, expiry             |
-| Habitat workbench       | `src/lib/HabitatWorkbench.svelte`    | Seed/controls, diagnostics, creature inspector                              |
+| Habitat workbench       | `src/lib/HabitatWorkbench.svelte`    | Seed/controls, diagnostics; composes creature inspector                     |
+| Creature inspector      | `src/lib/CreatureInspector.svelte`   | Selection chips, needs/perception/communication fields, candidates          |
 | WebGL presentation      | `src/lib/ThreeViewport.svelte`       | Scene lifecycle, pick ray; never owns authoritative creature state          |
 | Habitat presentation    | `src/lib/habitat-presentation.ts`    | Static habitat mesh build/dispose                                           |
 | Creature presentation   | `src/lib/creature-presentation.ts`   | Dynamic mesh reconcile + action-derived visuals                             |

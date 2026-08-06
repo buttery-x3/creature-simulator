@@ -179,6 +179,28 @@ test('selecting a creature shows needs, goal, action and candidate scores', asyn
 	await expect(page.getByTestId('creature-inspector-empty')).toHaveText('No creature selected.');
 });
 
+test('creature inspector and canvas expose communication wiring', async ({ page }) => {
+	await page.goto('/');
+
+	const canvas = await waitForHabitatCanvas(page);
+
+	// Pause so selection is stable while asserting presentation metadata.
+	await page.getByTestId('simulation-pause-resume').click();
+	await expect(page.getByTestId('simulation-status')).toHaveText('paused');
+
+	await page.getByTestId('creature-select-creature-0').click();
+
+	await expect(page.getByTestId('inspector-preferred-symbol')).toBeVisible();
+	await expect(page.getByTestId('inspector-preferred-symbol')).toContainText('glyph-');
+	await expect(page.getByTestId('inspector-hearing-radius')).toBeVisible();
+	await expect(page.getByTestId('inspector-recent-emitted')).toBeVisible();
+	await expect(page.getByTestId('inspector-recent-heard')).toBeVisible();
+
+	// Canvas metadata is presentation-only; no need to wait for a natural discovery.
+	await expect(canvas).toHaveAttribute('data-active-emission-count', /\d+/);
+	await expect(canvas).toHaveAttribute('data-signal-structure-version', /\d+/);
+});
+
 test('creature movement does not rebuild static habitat presentation', async ({ page }) => {
 	await page.goto('/');
 

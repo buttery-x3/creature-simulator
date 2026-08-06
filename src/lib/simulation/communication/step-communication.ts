@@ -36,7 +36,6 @@ export function stepCommunication(
 	config: CommunicationStepConfig
 ): SimulationState {
 	let creatures = state.creatures;
-	let nextEmissionSeq = state.nextEmissionSeq;
 	let activeEmissions = [...state.activeEmissions];
 	let recentEmissions = [...state.recentEmissions];
 
@@ -63,9 +62,6 @@ export function stepCommunication(
 			contextDetail: request.contextDetail,
 			symbolSelectionReason: 'creature preferred symbol'
 		});
-
-		// Global seq is reserved for future multi-source ids; emissionCount drives ids.
-		nextEmissionSeq += 1;
 
 		const receivers = selectReceivers(
 			emission,
@@ -111,8 +107,7 @@ export function stepCommunication(
 		...state,
 		creatures: creatures.map((c) => byId.get(c.id) ?? c),
 		activeEmissions,
-		recentEmissions,
-		nextEmissionSeq
+		recentEmissions
 	};
 }
 

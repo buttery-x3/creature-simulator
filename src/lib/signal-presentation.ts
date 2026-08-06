@@ -94,8 +94,6 @@ function applySignalTransform(
 	if (ring) {
 		ring.scale.set(scale, scale, 1);
 	}
-	const materials = group.userData as { opacitySync?: boolean };
-	void materials;
 	const ringMesh = ring as THREE.Mesh | undefined;
 	if (ringMesh && ringMesh.material instanceof THREE.MeshBasicMaterial) {
 		ringMesh.material.opacity = 0.5 * (1 - t);

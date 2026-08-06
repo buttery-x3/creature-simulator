@@ -166,8 +166,6 @@ export type SimulationState = {
 	activeEmissions: SignalEmission[];
 	/** Bounded recent emission history for diagnostics, newest last. */
 	recentEmissions: SignalEmission[];
-	/** Monotonic counter reserved for emission sequencing diagnostics. */
-	nextEmissionSeq: number;
 };
 
 /** Inclusive movement-speed range sampled at creature creation. */

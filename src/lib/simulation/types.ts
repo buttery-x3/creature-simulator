@@ -11,12 +11,25 @@
 
 import type { Habitat, HabitatFeatureKind, HabitatGenerationConfig, Vec2 } from '$lib/habitat';
 import type { HeardSignal, SignalEmission, SymbolId } from './communication/types';
+import type {
+	ActiveSignalInvestigation,
+	LearningHistoryEntry,
+	PendingSignal,
+	SymbolAssociation
+} from './learning/types';
 
 export type { HeardSignal, SignalEmission, SymbolId } from './communication/types';
 export { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
+export type {
+	ActiveSignalInvestigation,
+	LearningHistoryEntry,
+	LearningOutcome,
+	PendingSignal,
+	SymbolAssociation
+} from './learning/types';
 
 /** Outcome the creature is currently pursuing. */
-export type CreatureGoal = 'seek_food' | 'seek_water' | 'rest' | 'wander';
+export type CreatureGoal = 'seek_food' | 'seek_water' | 'rest' | 'investigate_signal' | 'wander';
 
 /** Current step used to pursue the goal. Distinct from goal. */
 export type CreatureAction = 'move' | 'eat' | 'drink' | 'sleep' | 'wander' | 'search';
@@ -154,6 +167,18 @@ export type Creature = {
 	recentEmitted: SignalEmission[];
 	/** Recent signals heard by this creature, newest last, length-capped. */
 	recentHeard: HeardSignal[];
+
+	/**
+	 * Personal food/water association strengths per symbol.
+	 * Independent per creature; starts with no semantic knowledge.
+	 */
+	symbolAssociations: SymbolAssociation[];
+	/** Short-lived heard-signal investigation candidates (bounded, deduped). */
+	pendingSignals: PendingSignal[];
+	/** Active signal investigation evidence, if any. */
+	activeInvestigation: ActiveSignalInvestigation | null;
+	/** Recent learning outcomes, newest last, length-capped. */
+	recentLearning: LearningHistoryEntry[];
 };
 
 export type SimulationState = {
@@ -263,6 +288,34 @@ export type SimulationConfig = {
 	recentHeardHistoryLimit: number;
 	/** Max length of simulation recentEmissions (oldest dropped). */
 	recentSimulationEmissionHistoryLimit: number;
+
+	/** How long a pending heard signal remains an investigation candidate. */
+	pendingSignalLifetimeSeconds: number;
+	/** Max pending investigation candidates per creature. */
+	maxPendingSignalsPerCreature: number;
+	/** Baseline investigation score for unknown (zero-association) symbols. */
+	investigationCuriosityBaseline: number;
+	/** Weight of normalised distance penalty in investigation scoring. */
+	investigationDistanceWeight: number;
+	/** Weight of normalised age penalty in investigation scoring. */
+	investigationAgeWeight: number;
+	/** How long an active investigation remains open after commit. */
+	investigationDurationSeconds: number;
+	/** Max distance from signal origin for contextual learning evidence. */
+	learningEvidenceRadius: number;
+	/** Bounded additive reinforcement applied per qualifying food/water evidence. */
+	associationReinforcement: number;
+	/**
+	 * Optional mild confidence reduction on no-evidence outcomes.
+	 * 0 leaves associations unchanged (default conservative rule).
+	 */
+	noEvidenceConfidenceReduction: number;
+	/** Max length of recentLearning (oldest dropped). */
+	learningHistoryLimit: number;
+	/** Inclusive lower clamp for association strengths. */
+	associationStrengthMin: number;
+	/** Inclusive upper clamp for association strengths. */
+	associationStrengthMax: number;
 
 	/** Initial hunger pressure at creation (fixed for determinism). */
 	initialHunger: number;

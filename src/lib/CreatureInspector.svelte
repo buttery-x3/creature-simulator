@@ -244,6 +244,83 @@
 									{heard.symbolId} from {heard.senderId} @ ({heard.origin.x.toFixed(2)}, {heard.origin.y.toFixed(
 										2
 									)}) heard t={heard.heardAt.toFixed(2)}s
+									<span class="muted">(listener-only; no emitter context)</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</dd>
+			</div>
+			<div>
+				<dt>Symbol associations</dt>
+				<dd data-testid="inspector-symbol-associations">
+					<ul class="signal-list">
+						{#each selectedCreature.symbolAssociations as assoc (assoc.symbolId)}
+							<li data-testid={`inspector-assoc-${assoc.symbolId}`}>
+								{assoc.symbolId}: food={assoc.foodStrength.toFixed(3)} (n={assoc.foodEvidenceCount}),
+								water={assoc.waterStrength.toFixed(3)} (n={assoc.waterEvidenceCount}), bias={(
+									assoc.foodStrength * selectedCreature.hunger +
+									assoc.waterStrength * selectedCreature.thirst
+								).toFixed(3)}
+							</li>
+						{/each}
+					</ul>
+					<span class="muted">Personal learned strengths — not a global dictionary</span>
+				</dd>
+			</div>
+			<div>
+				<dt>Pending signals</dt>
+				<dd data-testid="inspector-pending-signals">
+					{#if selectedCreature.pendingSignals.length === 0}
+						—
+					{:else}
+						<ul class="signal-list">
+							{#each selectedCreature.pendingSignals as pending (pending.emissionId)}
+								<li>
+									{pending.symbolId} from {pending.senderId} @ ({pending.origin.x.toFixed(2)}, {pending.origin.y.toFixed(
+										2
+									)}) age={(simulation.timeSeconds - pending.heardAt).toFixed(2)}s expires@
+									{pending.expiresAt.toFixed(2)}s
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</dd>
+			</div>
+			<div>
+				<dt>Active investigation</dt>
+				<dd data-testid="inspector-active-investigation">
+					{#if selectedCreature.activeInvestigation}
+						{selectedCreature.activeInvestigation.symbolId} emission={selectedCreature
+							.activeInvestigation.emissionId}
+						@ ({selectedCreature.activeInvestigation.origin.x.toFixed(2)}, {selectedCreature.activeInvestigation.origin.y.toFixed(
+							2
+						)}) expires@
+						{selectedCreature.activeInvestigation.expiresAt.toFixed(2)}s arrived={selectedCreature
+							.activeInvestigation.arrived}
+						foodEv={selectedCreature.activeInvestigation.foodEvidenceApplied} waterEv={selectedCreature
+							.activeInvestigation.waterEvidenceApplied}
+					{:else}
+						—
+					{/if}
+				</dd>
+			</div>
+			<div>
+				<dt>Recent learning</dt>
+				<dd data-testid="inspector-recent-learning">
+					{#if selectedCreature.recentLearning.length === 0}
+						—
+					{:else}
+						<ul class="signal-list">
+							{#each selectedCreature.recentLearning as entry (entry.timeSeconds + entry.emissionId + entry.outcome)}
+								<li>
+									t={entry.timeSeconds.toFixed(2)}
+									{entry.outcome}
+									{entry.symbolId}: food {entry.foodStrengthBefore.toFixed(
+										2
+									)}→{entry.foodStrengthAfter.toFixed(2)} water {entry.waterStrengthBefore.toFixed(
+										2
+									)}→{entry.waterStrengthAfter.toFixed(2)} — {entry.reason}
 								</li>
 							{/each}
 						</ul>

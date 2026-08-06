@@ -155,8 +155,21 @@ transient arbitrary signals and local reception (no symbol semantics):
 - `index.ts` — exports for simulation siblings.
 
 Behaviour may request an emission; communication owns transmission, reception,
-lifetime and histories. Do not add learned associations or listener behaviour here
-unless a dedicated issue requires it.
+lifetime and histories. Do not add learned associations or listener behaviour here.
+
+Internal learning subdomain (`simulation/learning/`), introduced for personal
+symbol associations and signal-guided investigation (receptive only):
+
+- `types.ts` — associations, pending signals, active investigation, learning history;
+- `signal-associations.ts` — empty init, clamp, reinforce, optional no-evidence reduction;
+- `signal-investigation.ts` — pending lifecycle, investigation scoring, evidence qualification;
+- `step-signal-learning.ts` — mid-behaviour evidence advance and post-reception pending insert;
+- `index.ts` — exports for simulation siblings.
+
+Communication remains semantics-free. Behaviour owns whether to select
+`investigate_signal` and movement toward the origin; learning owns association
+updates and investigation evidence. Do not add learned production or population
+convention metrics here unless a dedicated issue requires it.
 
 ### Presentation
 
@@ -164,7 +177,7 @@ Three.js presentation is split:
 
 - `habitat-presentation.ts` — static habitat mesh construction and disposal;
 - `creature-presentation.ts` — dynamic creature mesh reconcile by id and action visuals;
-- `signal-presentation.ts` — dynamic signal mesh reconcile by emission id (glyph + ring);
+- `signal-presentation.ts` — dynamic signal mesh reconcile by emission id (glyph + ring) and selected investigation overlay;
 - `ThreeViewport.svelte` — scene lifecycle, camera framing, pick ray, prop wiring;
 - `habitat-camera.ts` — pure framing and visibility calculations.
 
@@ -177,7 +190,7 @@ Selection overlays or heavier interaction should extract further if
 it composes `CreatureInspector.svelte` for the selected-creature surface.
 
 `CreatureInspector.svelte` owns creature selection chips, needs/perception/
-communication fields, candidates, and inspector-specific formatting/styling.
+communication/learning fields, candidates, and inspector-specific formatting/styling.
 It reads structured simulation evidence only and must not own domain algorithms.
 
 `src/routes/+page.svelte` owns page-level simulation session state, rAF fixed-step

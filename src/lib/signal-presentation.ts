@@ -4,13 +4,18 @@
  * Visuals derive only from authoritative active emissions. Presentation does not
  * determine reception or lifetime — when an emission leaves activeEmissions, its
  * mesh is removed.
+ *
+ * Selected-creature investigation overlay is presentation-only (line + origin marker).
  */
 
 import * as THREE from 'three';
-import type { SignalEmission, SymbolId } from '$lib/simulation';
+import type { Vec2 } from '$lib/habitat';
+import type { ActiveSignalInvestigation, SignalEmission, SymbolId } from '$lib/simulation';
 
 const MARKER_HEIGHT = 0.85;
 const MARKER_RADIUS = 0.12;
+const INVESTIGATION_MARKER_RADIUS = 0.18;
+const INVESTIGATION_LINE_Z = 0.06;
 
 const SYMBOL_COLORS: Record<SymbolId, number> = {
 	'glyph-0': 0xfbbf24,
@@ -26,6 +31,12 @@ export type SignalPresentationResources = {
 	byId: Map<string, THREE.Group>;
 	materialsById: Map<string, { marker: THREE.MeshBasicMaterial; ring: THREE.MeshBasicMaterial }>;
 	structureVersion: number;
+	/** Presentation-only investigation target for the selected creature. */
+	investigationOverlay: THREE.Group | null;
+	investigationLine: THREE.Line | null;
+	investigationMarker: THREE.Mesh | null;
+	investigationMaterial: THREE.LineBasicMaterial | null;
+	investigationMarkerMaterial: THREE.MeshBasicMaterial | null;
 };
 
 export function createSignalPresentationResources(): SignalPresentationResources {
@@ -41,7 +52,12 @@ export function createSignalPresentationResources(): SignalPresentationResources
 		ringGeometry,
 		byId: new Map(),
 		materialsById: new Map(),
-		structureVersion: 0
+		structureVersion: 0,
+		investigationOverlay: null,
+		investigationLine: null,
+		investigationMarker: null,
+		investigationMaterial: null,
+		investigationMarkerMaterial: null
 	};
 }
 
@@ -139,6 +155,84 @@ export function reconcileSignals(
 	}
 }
 
+/**
+ * Show or hide a presentation-only line from the selected creature to its active
+ * investigation origin. Does not mutate simulation state.
+ */
+export function updateInvestigationOverlay(
+	resources: SignalPresentationResources,
+	options: {
+		creaturePosition: Vec2 | null;
+		investigation: ActiveSignalInvestigation | null;
+	}
+): void {
+	const { creaturePosition, investigation } = options;
+	const show = creaturePosition !== null && investigation !== null;
+
+	if (!show) {
+		if (resources.investigationOverlay) {
+			resources.investigationOverlay.visible = false;
+		}
+		return;
+	}
+
+	if (!resources.investigationOverlay) {
+		const overlay = new THREE.Group();
+		overlay.name = 'investigation-overlay';
+		overlay.userData.presentationOnly = true;
+
+		const lineMaterial = new THREE.LineBasicMaterial({
+			color: 0xfbbf24,
+			transparent: true,
+			opacity: 0.85,
+			depthWrite: false
+		});
+		const points = [
+			new THREE.Vector3(0, 0, INVESTIGATION_LINE_Z),
+			new THREE.Vector3(1, 0, INVESTIGATION_LINE_Z)
+		];
+		const geometry = new THREE.BufferGeometry().setFromPoints(points);
+		const line = new THREE.Line(geometry, lineMaterial);
+		line.name = 'investigation-line';
+
+		const markerMaterial = new THREE.MeshBasicMaterial({
+			color: 0xfbbf24,
+			transparent: true,
+			opacity: 0.9
+		});
+		const markerGeom = new THREE.SphereGeometry(INVESTIGATION_MARKER_RADIUS, 8, 6);
+		const marker = new THREE.Mesh(markerGeom, markerMaterial);
+		marker.name = 'investigation-origin-marker';
+		marker.position.z = MARKER_HEIGHT * 0.6;
+
+		overlay.add(line);
+		overlay.add(marker);
+		resources.root.add(overlay);
+		resources.investigationOverlay = overlay;
+		resources.investigationLine = line;
+		resources.investigationMarker = marker;
+		resources.investigationMaterial = lineMaterial;
+		resources.investigationMarkerMaterial = markerMaterial;
+		resources.structureVersion += 1;
+	}
+
+	const overlay = resources.investigationOverlay;
+	const line = resources.investigationLine;
+	const marker = resources.investigationMarker;
+	if (!overlay || !line || !marker || !investigation || !creaturePosition) {
+		return;
+	}
+
+	overlay.visible = true;
+	marker.position.set(investigation.origin.x, investigation.origin.y, MARKER_HEIGHT * 0.6);
+
+	const positions = line.geometry.attributes.position as THREE.BufferAttribute;
+	positions.setXYZ(0, creaturePosition.x, creaturePosition.y, INVESTIGATION_LINE_Z);
+	positions.setXYZ(1, investigation.origin.x, investigation.origin.y, INVESTIGATION_LINE_Z);
+	positions.needsUpdate = true;
+	line.geometry.computeBoundingSphere();
+}
+
 export function clearSignalPresentation(resources: SignalPresentationResources): void {
 	for (const [id, group] of resources.byId) {
 		resources.root.remove(group);
@@ -151,6 +245,20 @@ export function clearSignalPresentation(resources: SignalPresentationResources):
 	}
 	resources.byId.clear();
 	resources.materialsById.clear();
+
+	if (resources.investigationOverlay) {
+		resources.root.remove(resources.investigationOverlay);
+		resources.investigationLine?.geometry.dispose();
+		resources.investigationMaterial?.dispose();
+		resources.investigationMarker?.geometry.dispose();
+		resources.investigationMarkerMaterial?.dispose();
+		resources.investigationOverlay = null;
+		resources.investigationLine = null;
+		resources.investigationMarker = null;
+		resources.investigationMaterial = null;
+		resources.investigationMarkerMaterial = null;
+	}
+
 	resources.markerGeometry.dispose();
 	resources.ringGeometry.dispose();
 	resources.structureVersion += 1;

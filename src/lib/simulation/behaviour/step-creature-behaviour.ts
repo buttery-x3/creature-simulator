@@ -13,6 +13,12 @@ import {
 	sampleWanderTarget,
 	shortestAngleDelta
 } from '../creature-movement';
+import {
+	beginInvestigation,
+	removePendingByEmissionId,
+	selectBestPendingSignal
+} from '../learning/signal-investigation';
+import { advanceActiveLearning, interruptInvestigation } from '../learning/step-signal-learning';
 import type { Creature, SimulationConfig } from '../types';
 import { appendTransition, applyDecision, transitionToConsumptive } from './actions';
 import { commitDecision } from './decisions';
@@ -57,6 +63,18 @@ export type BehaviourStepConfig = Pick<
 	| 'sensingRadius'
 	| 'perceptionIntervalSeconds'
 	| 'trackedObservationDurationSeconds'
+	| 'pendingSignalLifetimeSeconds'
+	| 'maxPendingSignalsPerCreature'
+	| 'investigationCuriosityBaseline'
+	| 'investigationDistanceWeight'
+	| 'investigationAgeWeight'
+	| 'investigationDurationSeconds'
+	| 'learningEvidenceRadius'
+	| 'associationReinforcement'
+	| 'noEvidenceConfidenceReduction'
+	| 'learningHistoryLimit'
+	| 'associationStrengthMin'
+	| 'associationStrengthMax'
 >;
 
 function moveToward(
@@ -146,12 +164,68 @@ function replan(
 	let searchTarget = creature.searchTarget;
 	let searchDecisionIndex = creature.searchDecisionIndex;
 	let perception = creature.perception;
+	let pendingSignals = creature.pendingSignals;
+	let activeInvestigation = creature.activeInvestigation;
+	let symbolAssociations = creature.symbolAssociations;
+	let recentLearning = creature.recentLearning;
+
+	// Leaving investigation for another goal interrupts coherent learning state.
+	if (activeInvestigation && applied.goal !== 'investigate_signal') {
+		const interrupted = interruptInvestigation(
+			{
+				...creature,
+				symbolAssociations,
+				pendingSignals,
+				activeInvestigation,
+				recentLearning
+			},
+			timeSeconds,
+			`interrupted: switched to ${applied.goal} (${decision.selectionReason})`,
+			config
+		);
+		activeInvestigation = interrupted.activeInvestigation;
+		symbolAssociations = interrupted.symbolAssociations;
+		recentLearning = interrupted.recentLearning;
+	}
 
 	if (applied.goal === 'wander') {
 		if (target?.kind !== 'point') {
 			target = pointTarget(wanderTarget);
 		} else {
 			wanderTarget = target.position;
+		}
+	} else if (applied.goal === 'investigate_signal') {
+		// Commit or continue investigation toward the recorded emission origin.
+		const continuing =
+			activeInvestigation !== null &&
+			activeInvestigation.expiresAt > timeSeconds &&
+			creature.goal === 'investigate_signal';
+
+		if (continuing && activeInvestigation) {
+			target = pointTarget(activeInvestigation.origin);
+		} else {
+			const best = selectBestPendingSignal(
+				{
+					position: creature.position,
+					hunger: creature.hunger,
+					thirst: creature.thirst,
+					symbolAssociations
+				},
+				pendingSignals,
+				timeSeconds,
+				config
+			);
+			if (best) {
+				activeInvestigation = beginInvestigation(
+					best.pending,
+					timeSeconds,
+					config.investigationDurationSeconds
+				);
+				pendingSignals = removePendingByEmissionId(pendingSignals, best.pending.emissionId);
+				target = pointTarget(activeInvestigation.origin);
+			} else if (activeInvestigation && activeInvestigation.expiresAt > timeSeconds) {
+				target = pointTarget(activeInvestigation.origin);
+			}
 		}
 	} else if (applied.action === 'search') {
 		const search = ensureSearchTarget(
@@ -196,7 +270,11 @@ function replan(
 		wanderDecisionIndex,
 		searchTarget,
 		searchDecisionIndex,
-		perception
+		perception,
+		pendingSignals,
+		activeInvestigation,
+		symbolAssociations,
+		recentLearning
 	};
 }
 
@@ -295,6 +373,12 @@ export function stepCreatureBehaviour(
 		perception: updatePerception(next.perception, next.position, habitat, timeSeconds, config)
 	};
 
+	// 2b. Learning: expire pending, reinforce active investigation, complete expired windows
+	next = advanceActiveLearning(next, timeSeconds, config);
+
+	// If investigation completed mid-step and we were investigating, force replan next gates.
+	// (advanceActiveLearning only clears activeInvestigation; goal may still say investigate.)
+
 	// 3. Tracked observation expiry while pursuing a known food/water feature
 	if (
 		next.target?.kind === 'feature' &&
@@ -363,8 +447,11 @@ export function stepCreatureBehaviour(
 
 	// 5. Invalid target → immediate replan
 	// Consumptive actions only require the feature still exist in habitat (not perception).
+	// Investigation without an active investigation record is invalid after completion/expiry.
 	const isConsumptiveAction =
 		next.action === 'eat' || next.action === 'drink' || next.action === 'sleep';
+	const investigationStale =
+		next.goal === 'investigate_signal' && next.activeInvestigation === null;
 	const targetOk = isConsumptiveAction
 		? isTargetValid(habitat, next.target)
 		: isTargetValid(
@@ -374,8 +461,8 @@ export function stepCreatureBehaviour(
 				timeSeconds,
 				config.trackedObservationDurationSeconds
 			);
-	if (!targetOk) {
-		if (next.action === 'search' && next.target?.kind !== 'point') {
+	if (!targetOk || investigationStale) {
+		if (next.action === 'search' && next.target?.kind !== 'point' && !investigationStale) {
 			const search = ensureSearchTarget(next, simulationSeed, habitat, config);
 			next = {
 				...next,

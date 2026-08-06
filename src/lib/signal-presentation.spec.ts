@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { SignalEmission } from '$lib/simulation';
+import type { ActiveSignalInvestigation, SignalEmission } from '$lib/simulation';
 import {
 	clearSignalPresentation,
 	createSignalPresentationResources,
-	reconcileSignals
+	reconcileSignals,
+	updateInvestigationOverlay
 } from './signal-presentation';
 
 function emission(id: string, symbolId: SignalEmission['symbolId'] = 'glyph-0'): SignalEmission {
@@ -40,5 +41,28 @@ describe('reconcileSignals', () => {
 
 		clearSignalPresentation(resources);
 		expect(resources.byId.size).toBe(0);
+	});
+
+	it('shows a presentation-only investigation overlay without requiring emissions', () => {
+		const resources = createSignalPresentationResources();
+		const investigation: ActiveSignalInvestigation = {
+			emissionId: 'em-inv',
+			symbolId: 'glyph-1',
+			senderId: 'creature-0',
+			origin: { x: 4, y: 2 },
+			startedAt: 1,
+			expiresAt: 9,
+			arrived: false,
+			foodEvidenceApplied: false,
+			waterEvidenceApplied: false
+		};
+		updateInvestigationOverlay(resources, {
+			creaturePosition: { x: 0, y: 0 },
+			investigation
+		});
+		expect(resources.investigationOverlay?.visible).toBe(true);
+		updateInvestigationOverlay(resources, { creaturePosition: null, investigation: null });
+		expect(resources.investigationOverlay?.visible).toBe(false);
+		clearSignalPresentation(resources);
 	});
 });

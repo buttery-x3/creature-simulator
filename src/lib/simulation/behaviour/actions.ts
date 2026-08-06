@@ -16,6 +16,7 @@ import type {
  * Choose the action for a goal.
  * Need goals without a usable resource/feature target enter `search` (not wander).
  * Rest without home is not expected; if target missing, search is not used for rest.
+ * Signal investigation always uses `move` toward the recorded emission origin (never consumptive).
  */
 export function actionForGoal(
 	goal: CreatureGoal,
@@ -24,6 +25,10 @@ export function actionForGoal(
 ): CreatureAction {
 	if (goal === 'wander') {
 		return 'wander';
+	}
+	if (goal === 'investigate_signal') {
+		// Investigation is identified by goal; movement action is sufficient.
+		return 'move';
 	}
 	if (goal === 'seek_food' || goal === 'seek_water') {
 		if (!hasUsableFeatureTarget) {
@@ -66,7 +71,7 @@ export type ApplyDecisionResult = {
 };
 
 function decisionHasFeatureTarget(target: CreatureTarget | null, goal: CreatureGoal): boolean {
-	if (goal === 'wander') {
+	if (goal === 'wander' || goal === 'investigate_signal') {
 		return false;
 	}
 	if (goal === 'rest') {

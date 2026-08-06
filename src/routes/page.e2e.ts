@@ -195,6 +195,12 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	await expect(page.getByTestId('inspector-hearing-radius')).toBeVisible();
 	await expect(page.getByTestId('inspector-recent-emitted')).toBeVisible();
 	await expect(page.getByTestId('inspector-recent-heard')).toBeVisible();
+	await expect(page.getByTestId('inspector-symbol-associations')).toBeVisible();
+	await expect(page.getByTestId('inspector-assoc-glyph-0')).toContainText('food=0.000');
+	await expect(page.getByTestId('inspector-pending-signals')).toBeVisible();
+	await expect(page.getByTestId('inspector-active-investigation')).toBeVisible();
+	await expect(page.getByTestId('inspector-recent-learning')).toBeVisible();
+	await expect(page.getByTestId('inspector-candidate-investigate_signal')).toBeVisible();
 
 	// Canvas metadata is presentation-only; no need to wait for a natural discovery.
 	await expect(canvas).toHaveAttribute('data-active-emission-count', /\d+/);

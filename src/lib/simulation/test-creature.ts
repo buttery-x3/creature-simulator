@@ -4,6 +4,8 @@
  */
 
 import { emptyPerception } from './behaviour/perception';
+import { createEmptyAssociations } from './learning/signal-associations';
+import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 import type { Creature } from './types';
 
 export function testCreature(overrides: Partial<Creature> = {}): Creature {
@@ -36,6 +38,10 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		lastEmissionAt: -1,
 		recentEmitted: [],
 		recentHeard: [],
+		symbolAssociations: createEmptyAssociations(DEFAULT_SYMBOL_INVENTORY),
+		pendingSignals: [],
+		activeInvestigation: null,
+		recentLearning: [],
 		...overrides
 	};
 }

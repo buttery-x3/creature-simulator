@@ -16,6 +16,7 @@ import { pointTarget } from './behaviour/resource-awareness';
 import { selectPreferredSymbol } from './communication/emission';
 import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 import { sampleSearchTarget, sampleWanderTarget } from './creature-movement';
+import { createEmptyAssociations } from './learning/signal-associations';
 import type { Creature, SimulationConfig, SimulationState } from './types';
 
 export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
@@ -73,6 +74,21 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	recentEmittedHistoryLimit: 8,
 	recentHeardHistoryLimit: 8,
 	recentSimulationEmissionHistoryLimit: 16,
+
+	// Learning: personal associations + signal investigation (no global meanings).
+	// Curiosity slightly above wander baseline so unknown signals are occasionally checked.
+	pendingSignalLifetimeSeconds: 6,
+	maxPendingSignalsPerCreature: 4,
+	investigationCuriosityBaseline: 0.4,
+	investigationDistanceWeight: 0.15,
+	investigationAgeWeight: 0.1,
+	investigationDurationSeconds: 8,
+	learningEvidenceRadius: 3,
+	associationReinforcement: 0.25,
+	noEvidenceConfidenceReduction: 0,
+	learningHistoryLimit: 8,
+	associationStrengthMin: 0,
+	associationStrengthMax: 1,
 
 	initialHunger: 0.2,
 	initialThirst: 0.2,
@@ -200,12 +216,48 @@ function validateSimulationConfig(config: SimulationConfig): void {
 	for (const key of [
 		'recentEmittedHistoryLimit',
 		'recentHeardHistoryLimit',
-		'recentSimulationEmissionHistoryLimit'
+		'recentSimulationEmissionHistoryLimit',
+		'learningHistoryLimit',
+		'maxPendingSignalsPerCreature'
 	] as const) {
 		const value = config[key];
 		if (!Number.isInteger(value) || value < 1) {
 			throw new SimulationCreationError(`${key} must be a positive integer, received ${value}`);
 		}
+	}
+	for (const key of [
+		'pendingSignalLifetimeSeconds',
+		'investigationDurationSeconds',
+		'learningEvidenceRadius',
+		'investigationCuriosityBaseline',
+		'investigationDistanceWeight',
+		'investigationAgeWeight',
+		'associationReinforcement',
+		'noEvidenceConfidenceReduction'
+	] as const) {
+		const value = config[key];
+		if (typeof value !== 'number' || !(value >= 0) || !Number.isFinite(value)) {
+			throw new SimulationCreationError(`${key} must be a finite number >= 0, received ${value}`);
+		}
+	}
+	if (!(config.pendingSignalLifetimeSeconds > 0)) {
+		throw new SimulationCreationError(
+			`pendingSignalLifetimeSeconds must be > 0, received ${config.pendingSignalLifetimeSeconds}`
+		);
+	}
+	if (!(config.investigationDurationSeconds > 0)) {
+		throw new SimulationCreationError(
+			`investigationDurationSeconds must be > 0, received ${config.investigationDurationSeconds}`
+		);
+	}
+	if (
+		!(config.associationStrengthMin < config.associationStrengthMax) ||
+		!Number.isFinite(config.associationStrengthMin) ||
+		!Number.isFinite(config.associationStrengthMax)
+	) {
+		throw new SimulationCreationError(
+			'associationStrengthMin must be < associationStrengthMax and both finite'
+		);
 	}
 	for (const key of ['initialHunger', 'initialThirst', 'initialEnergy'] as const) {
 		const value = config[key];
@@ -300,7 +352,12 @@ function createCreatures(
 			emissionCount: 0,
 			lastEmissionAt: -1,
 			recentEmitted: [],
-			recentHeard: []
+			recentHeard: [],
+			// Independent association array per creature — never share references.
+			symbolAssociations: createEmptyAssociations(config.symbolInventory),
+			pendingSignals: [],
+			activeInvestigation: null,
+			recentLearning: []
 		};
 
 		const decision = commitDecision({

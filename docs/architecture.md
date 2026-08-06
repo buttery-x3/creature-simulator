@@ -4,8 +4,9 @@
 
 The repository has a **seeded bounded habitat**, an **authoritative simulation**
 with deterministic creatures, physiological needs, resource-driven goals/actions,
-fixed-step movement, and Three.js presentation that separates static habitat
-meshes from dynamic creature meshes. Creatures can be selected for inspection;
+transient arbitrary signals, personal symbol association learning, fixed-step
+movement, and Three.js presentation that separates static habitat meshes from
+dynamic creature and signal meshes. Creatures can be selected for inspection;
 selection is presentation state only.
 
 ## Responsibilities present today
@@ -18,6 +19,7 @@ selection is presentation state only.
 | Simulation              | `src/lib/simulation/`                | SimulationState, creation, step, needs/decisions/actions                    |
 | Behaviour subdomain     | `src/lib/simulation/behaviour/`      | Needs, decisions, actions, local perception, search, resource targets       |
 | Communication subdomain | `src/lib/simulation/communication/`  | Arbitrary symbols, emission, local reception, histories, expiry             |
+| Learning subdomain      | `src/lib/simulation/learning/`       | Personal symbol associations, pending signals, investigation evidence       |
 | Habitat workbench       | `src/lib/HabitatWorkbench.svelte`    | Seed/controls, diagnostics; composes creature inspector                     |
 | Creature inspector      | `src/lib/CreatureInspector.svelte`   | Selection chips, needs/perception/communication fields, candidates          |
 | WebGL presentation      | `src/lib/ThreeViewport.svelte`       | Scene lifecycle, pick ray; never owns authoritative creature state          |
@@ -51,7 +53,7 @@ determinism  (seeded RNG + seed derivation; no domain state)
      ↑
 habitat      (layout generation only)
      ↑
-simulation   (SimulationState, create, step, behaviour, communication)
+simulation   (SimulationState, create, step, behaviour, communication, learning)
      ↑
 routes / workbench  (session orchestration, controls, selection, diagnostics)
      ↑
@@ -124,6 +126,9 @@ silently reduced.
 | Symbol inventory + emission   | `src/lib/simulation/communication/emission.ts`            |
 | Local reception               | `src/lib/simulation/communication/reception.ts`           |
 | Communication fixed-step      | `src/lib/simulation/communication/step-communication.ts`  |
+| Association init / reinforce  | `src/lib/simulation/learning/signal-associations.ts`      |
+| Pending / investigation score | `src/lib/simulation/learning/signal-investigation.ts`     |
+| Learning fixed-step hooks     | `src/lib/simulation/learning/step-signal-learning.ts`     |
 | Diagnostic formatting         | `src/lib/simulation/diagnostics.ts`                       |
 | Public barrel                 | `src/lib/simulation/index.ts`                             |
 
@@ -139,7 +144,7 @@ These concepts are distinct on each creature:
 | Concept    | Role                                                                                                                                                                                              |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Need**   | Internal condition: `hunger` and `thirst` are **pressure** (0 = sated/quenched, 1 = maximum); `energy` is **satisfaction** (0 = exhausted, 1 = full). Values stay finite and clamped to `[0, 1]`. |
-| **Goal**   | Outcome pursued: `seek_food`, `seek_water`, `rest`, or `wander`.                                                                                                                                  |
+| **Goal**   | Outcome pursued: `seek_food`, `seek_water`, `rest`, `investigate_signal`, or `wander`.                                                                                                            |
 | **Action** | Current step: `move`, `eat`, `drink`, `sleep`, `wander`, or `search`.                                                                                                                             |
 | **Target** | Habitat feature id/kind or a free-space point for wandering.                                                                                                                                      |
 
@@ -209,15 +214,34 @@ It is the first communication substrate: physical emission and local hearing onl
 | **Heard result**    | Structured `HeardSignal` history only — **no** goal/action/need/target/perception change.                                      |
 | **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                             |
 
+### Personal symbol learning and investigation
+
+Learning is a named subdomain under simulation (`simulation/learning/`). It owns
+receptive meaning only: personal food/water association strengths, pending
+heard-signal candidates, active investigation evidence and bounded learning
+histories. There is **no** global symbol dictionary and **no** learned production.
+
+| Concern             | Rule                                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Associations**    | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. Independent arrays (no shared references).        |
+| **Pending signals** | Built from `HeardSignal` only (no `contextDetail`); bounded, deduped by emission id, expire deterministically.                      |
+| **Goal**            | `investigate_signal` travels to the **recorded emission origin** via existing `move` action (goal identity, not a new action enum). |
+| **Scoring**         | Curiosity baseline + needs×associations − age/distance weights; ordinary hysteresis/commitment still apply.                         |
+| **Reinforcement**   | Only resources the listener perceives near the origin within the investigation window strengthen that listener’s associations.      |
+| **No-evidence**     | Conservative: leave associations unchanged by default (optional small reduction via config).                                        |
+| **Production**      | Preferred-symbol emission remains arbitrary and context-insensitive in this layer.                                                  |
+
 Fixed-step order (authoritative):
 
-1. Behaviour for all creatures (needs, perception, discovery transition, movement).
-2. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, write histories.
-3. Expire active emissions with `expiresAt <= timeSeconds` (kept while `expiresAt > timeSeconds`).
+1. Behaviour for all creatures (needs, perception, **active learning evidence**, decisions including investigation, movement, discovery emission requests).
+2. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, write histories, expire active emissions.
+3. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into pending investigation candidates.
 
-Behaviour may produce an `EmissionRequest` handoff; it must not implement range, receivers or lifetime. Three.js and Svelte only present/inspect; they never decide who hears a signal.
+**Eligibility:** a signal heard in step _N_ becomes pending at the end of step _N_ and is eligible for investigation scoring from step _N+1_. No Svelte/renderer timing.
 
-Signal visuals (`signal-presentation.ts`) reconcile meshes from `activeEmissions` and dispose when emissions leave that list.
+Behaviour may produce an `EmissionRequest` handoff; it must not implement range, receivers or lifetime. Learning never reads emitter `contextDetail`, sender associations or presentation glyph metadata. Three.js and Svelte only present/inspect; they never decide who hears a signal or update associations.
+
+Signal visuals (`signal-presentation.ts`) reconcile meshes from `activeEmissions` and dispose when emissions leave that list. A selected-creature investigation line/marker is presentation-only.
 
 ### Wandering and commitment
 

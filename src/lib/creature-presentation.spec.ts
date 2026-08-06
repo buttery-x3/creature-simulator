@@ -41,7 +41,40 @@ function creature(
 		emissionCount: 0,
 		lastEmissionAt: -1,
 		recentEmitted: [],
-		recentHeard: []
+		recentHeard: [],
+		symbolAssociations: [
+			{
+				symbolId: 'glyph-0',
+				foodStrength: 0,
+				waterStrength: 0,
+				foodEvidenceCount: 0,
+				waterEvidenceCount: 0
+			},
+			{
+				symbolId: 'glyph-1',
+				foodStrength: 0,
+				waterStrength: 0,
+				foodEvidenceCount: 0,
+				waterEvidenceCount: 0
+			},
+			{
+				symbolId: 'glyph-2',
+				foodStrength: 0,
+				waterStrength: 0,
+				foodEvidenceCount: 0,
+				waterEvidenceCount: 0
+			},
+			{
+				symbolId: 'glyph-3',
+				foodStrength: 0,
+				waterStrength: 0,
+				foodEvidenceCount: 0,
+				waterEvidenceCount: 0
+			}
+		],
+		pendingSignals: [],
+		activeInvestigation: null,
+		recentLearning: []
 	};
 }
 

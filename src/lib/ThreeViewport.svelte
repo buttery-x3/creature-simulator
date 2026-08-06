@@ -24,6 +24,7 @@
 		clearSignalPresentation,
 		createSignalPresentationResources,
 		reconcileSignals,
+		updateInvestigationOverlay,
 		type SignalPresentationResources
 	} from './signal-presentation';
 
@@ -199,6 +200,11 @@
 			currentSelectedId = selectedId;
 			reconcileCreatures(creatureResources, list, selectedId);
 			updateSensingOverlay(list, selectedId, radius);
+			const selected = selectedId ? (list.find((c) => c.id === selectedId) ?? null) : null;
+			updateInvestigationOverlay(signalResources, {
+				creaturePosition: selected ? selected.position : null,
+				investigation: selected?.activeInvestigation ?? null
+			});
 			publishCreatureMeta(list.length);
 			renderFrame();
 		};

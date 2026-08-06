@@ -7,6 +7,11 @@
  */
 
 import type { Habitat } from '$lib/habitat';
+import {
+	activeToPendingShape,
+	scoreInvestigationCandidate,
+	selectBestPendingSignal
+} from '../learning/signal-investigation';
 import type {
 	CandidateEvaluation,
 	Creature,
@@ -17,11 +22,15 @@ import type {
 } from '../types';
 import { foodTarget, homeTarget, pointTarget, waterTarget } from './resource-awareness';
 
-/** Tie-break order when scores are equal (earlier wins). */
+/**
+ * Tie-break order when scores are equal (earlier wins).
+ * Survival goals beat investigation; investigation beats wander at equal score.
+ */
 export const GOAL_TIE_BREAK_ORDER: readonly CreatureGoal[] = [
 	'seek_food',
 	'seek_water',
 	'rest',
+	'investigate_signal',
 	'wander'
 ] as const;
 
@@ -38,6 +47,10 @@ export type DecisionConfig = Pick<
 	| 'minGoalCommitmentSeconds'
 	| 'reconsiderIntervalSeconds'
 	| 'trackedObservationDurationSeconds'
+	| 'pendingSignalLifetimeSeconds'
+	| 'investigationCuriosityBaseline'
+	| 'investigationDistanceWeight'
+	| 'investigationAgeWeight'
 >;
 
 /**
@@ -49,7 +62,16 @@ export const WANDER_BASELINE_SCORE = 0.35;
 export function evaluateCandidates(
 	creature: Pick<
 		Creature,
-		'position' | 'hunger' | 'thirst' | 'energy' | 'wanderTarget' | 'perception'
+		| 'position'
+		| 'hunger'
+		| 'thirst'
+		| 'energy'
+		| 'wanderTarget'
+		| 'perception'
+		| 'pendingSignals'
+		| 'symbolAssociations'
+		| 'activeInvestigation'
+		| 'goal'
 	>,
 	habitat: Habitat,
 	config: DecisionConfig,
@@ -80,6 +102,31 @@ export function evaluateCandidates(
 	const foodValid = hungerScore >= config.seekFoodThreshold;
 	const waterValid = thirstScore >= config.seekWaterThreshold;
 	const restValid = restScore >= config.restThreshold;
+
+	const scoreConfig = {
+		pendingSignalLifetimeSeconds: config.pendingSignalLifetimeSeconds,
+		investigationCuriosityBaseline: config.investigationCuriosityBaseline,
+		investigationDistanceWeight: config.investigationDistanceWeight,
+		investigationAgeWeight: config.investigationAgeWeight
+	};
+
+	// Prefer scoring the active investigation while committed; otherwise best pending.
+	const investigationEval: ReturnType<typeof scoreInvestigationCandidate> | null =
+		creature.activeInvestigation &&
+		creature.activeInvestigation.expiresAt > timeSeconds &&
+		creature.goal === 'investigate_signal'
+			? scoreInvestigationCandidate(
+					creature,
+					activeToPendingShape(creature.activeInvestigation),
+					timeSeconds,
+					scoreConfig
+				)
+			: selectBestPendingSignal(creature, creature.pendingSignals, timeSeconds, scoreConfig);
+
+	const investigateValid = investigationEval !== null;
+	const investigateTarget = investigationEval
+		? pointTarget(investigationEval.pending.origin)
+		: null;
 
 	const candidates: CandidateEvaluation[] = [
 		{
@@ -115,6 +162,14 @@ export function evaluateCandidates(
 			rejectionReason: !restValid
 				? `energy deficit ${restScore.toFixed(3)} below threshold ${config.restThreshold}`
 				: undefined
+		},
+		{
+			goal: 'investigate_signal',
+			valid: investigateValid,
+			score: investigationEval?.score ?? 0,
+			reason: investigationEval?.reason ?? 'no pending or active signal investigation candidate',
+			target: investigateTarget,
+			rejectionReason: !investigateValid ? 'no non-expired pending signal candidates' : undefined
 		},
 		{
 			goal: 'wander',
@@ -162,6 +217,9 @@ export type CommitDecisionInput = {
 		| 'position'
 		| 'wanderTarget'
 		| 'perception'
+		| 'pendingSignals'
+		| 'symbolAssociations'
+		| 'activeInvestigation'
 	>;
 	habitat: Habitat;
 	timeSeconds: number;

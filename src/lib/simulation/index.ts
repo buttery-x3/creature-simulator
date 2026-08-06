@@ -7,6 +7,7 @@
  */
 
 export type {
+	ActiveSignalInvestigation,
 	BehaviourTransition,
 	CandidateEvaluation,
 	Creature,
@@ -17,11 +18,15 @@ export type {
 	DecisionRecord,
 	DecisionTrigger,
 	HeardSignal,
+	LearningHistoryEntry,
+	LearningOutcome,
+	PendingSignal,
 	ResourceObservation,
 	SignalEmission,
 	SimulationConfig,
 	SimulationState,
 	SpeedRange,
+	SymbolAssociation,
 	SymbolId
 } from './types';
 
@@ -76,3 +81,11 @@ export {
 	stepCommunication,
 	type EmissionRequest
 } from './communication';
+
+export {
+	createEmptyAssociations,
+	findAssociation,
+	scoreInvestigationCandidate,
+	selectBestPendingSignal,
+	INVESTIGATION_DISTANCE_REFERENCE
+} from './learning';

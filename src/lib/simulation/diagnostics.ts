@@ -1,7 +1,7 @@
 /**
  * Lightweight simulation diagnostics for the workbench.
  * Decision, perception and communication reasons come from structured simulation records only.
- * Symbols are arbitrary — never formatted as food/water meanings.
+ * Symbols are arbitrary at emission — listener associations are personal learned evidence only.
  */
 
 import type { Creature, CreatureTarget, SimulationConfig, SimulationState } from './types';
@@ -233,6 +233,75 @@ export function formatCreatureInspection(
 		lines.push('  recent heard:');
 		for (const heard of creature.recentHeard) {
 			lines.push(`    ${formatHeardLine(heard)}`);
+		}
+	}
+
+	lines.push('', 'learning (personal associations; no global symbol meaning):');
+	if (creature.symbolAssociations.length === 0) {
+		lines.push('  associations: (none)');
+	} else {
+		for (const assoc of creature.symbolAssociations) {
+			lines.push(
+				`  ${assoc.symbolId}: food=${assoc.foodStrength.toFixed(3)} (n=${assoc.foodEvidenceCount})` +
+					` water=${assoc.waterStrength.toFixed(3)} (n=${assoc.waterEvidenceCount})` +
+					` bias=${(assoc.foodStrength * creature.hunger + assoc.waterStrength * creature.thirst).toFixed(3)}`
+			);
+		}
+	}
+
+	if (creature.pendingSignals.length === 0) {
+		lines.push('  pending signals: (none)');
+	} else {
+		lines.push('  pending signals:');
+		for (const pending of creature.pendingSignals) {
+			const age = Math.max(0, timeSeconds - pending.heardAt);
+			lines.push(
+				`    emission=${pending.emissionId} symbol=${pending.symbolId} from ${pending.senderId}` +
+					` origin=(${pending.origin.x.toFixed(3)}, ${pending.origin.y.toFixed(3)})` +
+					` age=${age.toFixed(3)}s expires@${pending.expiresAt.toFixed(3)}` +
+					` (listener-only; no emitter contextDetail)`
+			);
+		}
+	}
+
+	if (creature.activeInvestigation) {
+		const inv = creature.activeInvestigation;
+		lines.push(
+			`  active investigation: emission=${inv.emissionId} symbol=${inv.symbolId}` +
+				` origin=(${inv.origin.x.toFixed(3)}, ${inv.origin.y.toFixed(3)})` +
+				` started@${inv.startedAt.toFixed(3)} expires@${inv.expiresAt.toFixed(3)}` +
+				` arrived=${inv.arrived}` +
+				` foodEvidence=${inv.foodEvidenceApplied} waterEvidence=${inv.waterEvidenceApplied}`
+		);
+	} else {
+		lines.push('  active investigation: (none)');
+	}
+
+	const investigateCandidate = (
+		creature.lastCandidates.length > 0
+			? creature.lastCandidates
+			: (creature.lastDecision?.candidates ?? [])
+	).find((c) => c.goal === 'investigate_signal');
+	if (investigateCandidate) {
+		lines.push(
+			`  investigation score: ${investigateCandidate.score.toFixed(3)} ` +
+				`valid=${investigateCandidate.valid} — ${investigateCandidate.reason}` +
+				(investigateCandidate.rejectionReason ? ` | ${investigateCandidate.rejectionReason}` : '')
+		);
+	}
+
+	if (creature.recentLearning.length === 0) {
+		lines.push('  recent learning: (none)');
+	} else {
+		lines.push('  recent learning:');
+		for (const entry of creature.recentLearning) {
+			lines.push(
+				`    t=${entry.timeSeconds.toFixed(3)} ${entry.outcome} symbol=${entry.symbolId}` +
+					` emission=${entry.emissionId}` +
+					` food ${entry.foodStrengthBefore.toFixed(3)}→${entry.foodStrengthAfter.toFixed(3)}` +
+					` water ${entry.waterStrengthBefore.toFixed(3)}→${entry.waterStrengthAfter.toFixed(3)}` +
+					` — ${entry.reason}`
+			);
 		}
 	}
 

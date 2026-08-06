@@ -2,13 +2,17 @@
  * Fixed-step simulation advancement and bounded wall-clock catch-up.
  *
  * Step order (authoritative):
- * 1. Behaviour for all creatures (needs, perception, decisions, movement)
+ * 1. Behaviour for all creatures (needs, perception, learning evidence, decisions, movement)
  * 2. Communication: apply emission requests, reception, expire active emissions
+ * 3. Learning post-reception: convert newly heard signals into pending investigation candidates
+ *
+ * Eligibility: a signal heard in step N becomes pending at end of N and is investigable from N+1.
  */
 
 import { stepCreatureBehaviour } from './behaviour/step-creature-behaviour';
 import { stepCommunication } from './communication/step-communication';
 import type { EmissionRequest } from './communication/types';
+import { stepPostReceptionLearning } from './learning/step-signal-learning';
 import type { SimulationConfig, SimulationState } from './types';
 
 export type StepSimulationConfig = Pick<
@@ -42,6 +46,18 @@ export type StepSimulationConfig = Pick<
 	| 'recentEmittedHistoryLimit'
 	| 'recentHeardHistoryLimit'
 	| 'recentSimulationEmissionHistoryLimit'
+	| 'pendingSignalLifetimeSeconds'
+	| 'maxPendingSignalsPerCreature'
+	| 'investigationCuriosityBaseline'
+	| 'investigationDistanceWeight'
+	| 'investigationAgeWeight'
+	| 'investigationDurationSeconds'
+	| 'learningEvidenceRadius'
+	| 'associationReinforcement'
+	| 'noEvidenceConfidenceReduction'
+	| 'learningHistoryLimit'
+	| 'associationStrengthMin'
+	| 'associationStrengthMax'
 >;
 
 /**
@@ -81,7 +97,18 @@ export function stepSimulation(
 		creatures
 	};
 
-	return stepCommunication(afterBehaviour, emissionRequests, timeSeconds, config);
+	const afterCommunication = stepCommunication(
+		afterBehaviour,
+		emissionRequests,
+		timeSeconds,
+		config
+	);
+
+	// Pending candidates from this step's hearing (eligible for investigation from next step).
+	return {
+		...afterCommunication,
+		creatures: stepPostReceptionLearning(afterCommunication.creatures, timeSeconds, config)
+	};
 }
 
 export type CatchUpResult = {

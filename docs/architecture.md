@@ -3,23 +3,26 @@
 ## Current status
 
 The repository has a **seeded bounded habitat**, an **authoritative simulation**
-with deterministic creatures and fixed-step bounded wandering, and Three.js
-presentation that separates static habitat meshes from dynamic creature meshes.
+with deterministic creatures, physiological needs, resource-driven goals/actions,
+fixed-step movement, and Three.js presentation that separates static habitat
+meshes from dynamic creature meshes. Creatures can be selected for inspection;
+selection is presentation state only.
 
 ## Responsibilities present today
 
-| Area                  | Ownership                            | Notes                                                               |
-| --------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| App shell             | SvelteKit routes under `src/routes/` | Desktop page layout; owns session simulation state and rAF stepping |
-| Determinism           | `src/lib/determinism/`               | Seeded PRNG and pure seed derivation for independent streams        |
-| Habitat model         | `src/lib/habitat/`                   | Types, seeded generation, geometry validation, diagnostics          |
-| Simulation            | `src/lib/simulation/`                | SimulationState, creature creation, fixed-step movement             |
-| Habitat workbench     | `src/lib/HabitatWorkbench.svelte`    | Seed controls, pause/resume/reset, habitat + creature diagnostics   |
-| WebGL presentation    | `src/lib/ThreeViewport.svelte`       | Scene lifecycle; never owns authoritative world or creature state   |
-| Habitat presentation  | `src/lib/habitat-presentation.ts`    | Static habitat mesh build/dispose                                   |
-| Creature presentation | `src/lib/creature-presentation.ts`   | Dynamic creature mesh reconcile by id                               |
-| Habitat camera        | `src/lib/habitat-camera.ts`          | Near-top-down perspective framing and visibility checks             |
-| Reserved ports        | `src/lib/ports.ts`                   | Shared by Vite, Playwright and docs                                 |
+| Area                  | Ownership                            | Notes                                                                       |
+| --------------------- | ------------------------------------ | --------------------------------------------------------------------------- |
+| App shell             | SvelteKit routes under `src/routes/` | Desktop page; session simulation state, rAF stepping, creature selection id |
+| Determinism           | `src/lib/determinism/`               | Seeded PRNG and pure seed derivation for independent streams                |
+| Habitat model         | `src/lib/habitat/`                   | Types, seeded generation, geometry validation, diagnostics                  |
+| Simulation            | `src/lib/simulation/`                | SimulationState, creation, step, needs/decisions/actions                    |
+| Behaviour subdomain   | `src/lib/simulation/behaviour/`      | Needs, decisions, actions, temporary global resource awareness              |
+| Habitat workbench     | `src/lib/HabitatWorkbench.svelte`    | Seed/controls, diagnostics, creature inspector                              |
+| WebGL presentation    | `src/lib/ThreeViewport.svelte`       | Scene lifecycle, pick ray; never owns authoritative creature state          |
+| Habitat presentation  | `src/lib/habitat-presentation.ts`    | Static habitat mesh build/dispose                                           |
+| Creature presentation | `src/lib/creature-presentation.ts`   | Dynamic mesh reconcile + action-derived visuals                             |
+| Habitat camera        | `src/lib/habitat-camera.ts`          | Near-top-down perspective framing and visibility checks                     |
+| Reserved ports        | `src/lib/ports.ts`                   | Shared by Vite, Playwright and docs                                         |
 
 ## Habitat coordinate convention
 
@@ -46,9 +49,9 @@ determinism  (seeded RNG + seed derivation; no domain state)
      ↑
 habitat      (layout generation only)
      ↑
-simulation   (SimulationState, create, step, movement)
+simulation   (SimulationState, create, step, behaviour)
      ↑
-routes / workbench  (session orchestration, controls, diagnostics)
+routes / workbench  (session orchestration, controls, selection, diagnostics)
      ↑
 presentation (ThreeViewport + habitat/creature presentation modules)
 ```
@@ -103,23 +106,68 @@ silently reduced.
 
 ## Simulation ownership
 
-| Concern                       | Module                                    |
-| ----------------------------- | ----------------------------------------- |
-| Serializable types            | `src/lib/simulation/types.ts`             |
-| Create habitat + creatures    | `src/lib/simulation/create-simulation.ts` |
-| Fixed-step / catch-up advance | `src/lib/simulation/step-simulation.ts`   |
-| Turn, move, bound, retarget   | `src/lib/simulation/creature-movement.ts` |
-| Diagnostic formatting         | `src/lib/simulation/diagnostics.ts`       |
-| Public barrel                 | `src/lib/simulation/index.ts`             |
+| Concern                       | Module                                                    |
+| ----------------------------- | --------------------------------------------------------- |
+| Serializable types            | `src/lib/simulation/types.ts`                             |
+| Create habitat + creatures    | `src/lib/simulation/create-simulation.ts`                 |
+| Fixed-step / catch-up advance | `src/lib/simulation/step-simulation.ts`                   |
+| Turn, move, bound, retarget   | `src/lib/simulation/creature-movement.ts`                 |
+| Need progression              | `src/lib/simulation/behaviour/needs.ts`                   |
+| Goal evaluation / commitment  | `src/lib/simulation/behaviour/decisions.ts`               |
+| Action transitions            | `src/lib/simulation/behaviour/actions.ts`                 |
+| Resource target lookup        | `src/lib/simulation/behaviour/resource-awareness.ts`      |
+| Per-creature behaviour step   | `src/lib/simulation/behaviour/step-creature-behaviour.ts` |
+| Diagnostic formatting         | `src/lib/simulation/diagnostics.ts`                       |
+| Public barrel                 | `src/lib/simulation/index.ts`                             |
 
 Simulation advances with a **fixed timestep** (default 30 Hz). The browser
 session may use `requestAnimationFrame` with an accumulator; elapsed wall time
 is converted into a **bounded** number of fixed steps. The renderer never
 advances simulation state.
 
-Creatures spawn inside the home region, face and gradually turn toward wander
-targets, move along their facing, and stay inside world bounds. Movement does
-not snap facing instantly to the destination.
+### Needs, goals, actions and targets
+
+These concepts are distinct on each creature:
+
+| Concept    | Role                                                                                                                                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Need**   | Internal condition: `hunger` and `thirst` are **pressure** (0 = sated/quenched, 1 = maximum); `energy` is **satisfaction** (0 = exhausted, 1 = full). Values stay finite and clamped to `[0, 1]`. |
+| **Goal**   | Outcome pursued: `seek_food`, `seek_water`, `rest`, or `wander`.                                                                                                                                  |
+| **Action** | Current step: `move`, `eat`, `drink`, `sleep`, or `wander`.                                                                                                                                       |
+| **Target** | Habitat feature id/kind or a free-space point for wandering.                                                                                                                                      |
+
+Need rates, thresholds, reconsideration interval, goal-switch margin and recovery
+targets live on `SimulationConfig` (not scattered literals).
+
+Decision evidence is structured simulation data (`DecisionRecord`,
+`CandidateEvaluation`, bounded `recentTransitions`) produced when goals are
+chosen. The inspector formats those records; it must not invent reasons from
+need values alone.
+
+### Temporary global resource awareness
+
+Creatures currently use **authoritative global knowledge** of habitat food,
+water and home footprints when selecting targets. Lookup is isolated in
+`behaviour/resource-awareness.ts` so a later perception/memory issue can replace
+global awareness without rewriting the decision model. There is no sensing
+radius, line of sight, discovery or memory yet. Food and water are not depleted.
+
+Creatures interact with **simulation footprints** (`featureRect`), not
+presentation-only bush meshes.
+
+### Wandering and commitment
+
+Wandering remains the fallback when no need-driven goal is sufficiently
+important. Ordinary reconsideration is periodic (not every step). Goal switching
+uses hysteresis (`goalSwitchMargin`) and minimum commitment time so tiny score
+differences do not thrash behaviour. Invalid targets and finished eat/drink/sleep
+actions force immediate replan.
+
+### Persistence
+
+Running simulation state is plain serialisable in-memory data. There is **no**
+database, IndexedDB, local storage or schema migration layer. Snapshots and
+experiment history are future concerns.
 
 ## Static and dynamic presentation
 
@@ -127,11 +175,18 @@ not snap facing instantly to the destination.
 | -------------------------- | ---------------------------------- |
 | Static habitat meshes      | `src/lib/habitat-presentation.ts`  |
 | Dynamic creature reconcile | `src/lib/creature-presentation.ts` |
-| Scene / camera / rAF paint | `src/lib/ThreeViewport.svelte`     |
+| Scene / camera / pick      | `src/lib/ThreeViewport.svelte`     |
 
 The static habitat group rebuilds only when habitat data changes. Creature
 presentation maintains meshes keyed by creature id, updates transforms in place,
-and must not rebuild ground, home, water or food meshes during ordinary movement.
+derives action visuals from authoritative `action`, and must not rebuild ground,
+home, water or food meshes during ordinary movement.
+
+### Creature selection
+
+Selected creature id lives on the **page / workbench** (presentation state).
+Three.js raycasting reports picks; selecting a creature must not alter simulation
+behaviour or authoritative state.
 
 ## Application target
 

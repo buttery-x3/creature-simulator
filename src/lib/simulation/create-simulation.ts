@@ -9,6 +9,9 @@ import {
 	generateHabitat,
 	type HabitatGenerationConfig
 } from '$lib/habitat';
+import { applyDecision } from './behaviour/actions';
+import { commitDecision } from './behaviour/decisions';
+import { pointTarget } from './behaviour/resource-awareness';
 import { sampleWanderTarget } from './creature-movement';
 import type { Creature, SimulationConfig, SimulationState } from './types';
 
@@ -30,7 +33,33 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	creatureRadius: 0.25,
 	fixedDt: 1 / 30,
 	maxCatchUpSteps: 6,
-	arrivalDistance: 0.35
+	arrivalDistance: 0.35,
+
+	// Needs: observable over a practical run without constant eating/sleeping.
+	hungerRisePerSecond: 0.012,
+	thirstRisePerSecond: 0.014,
+	energyDrainPerSecond: 0.008,
+	eatRecoveryPerSecond: 0.25,
+	drinkRecoveryPerSecond: 0.28,
+	sleepRecoveryPerSecond: 0.2,
+
+	seekFoodThreshold: 0.45,
+	seekWaterThreshold: 0.45,
+	restThreshold: 0.4,
+
+	goalSwitchMargin: 0.12,
+	minGoalCommitmentSeconds: 2.5,
+	reconsiderIntervalSeconds: 1.5,
+
+	eatUntilHunger: 0.12,
+	drinkUntilThirst: 0.12,
+	sleepUntilEnergy: 0.9,
+
+	decisionHistoryLimit: 10,
+
+	initialHunger: 0.2,
+	initialThirst: 0.2,
+	initialEnergy: 0.85
 };
 
 /**
@@ -93,6 +122,41 @@ function validateSimulationConfig(config: SimulationConfig): void {
 			`arrivalDistance must be > 0, received ${config.arrivalDistance}`
 		);
 	}
+
+	const rateFields: (keyof SimulationConfig)[] = [
+		'hungerRisePerSecond',
+		'thirstRisePerSecond',
+		'energyDrainPerSecond',
+		'eatRecoveryPerSecond',
+		'drinkRecoveryPerSecond',
+		'sleepRecoveryPerSecond',
+		'seekFoodThreshold',
+		'seekWaterThreshold',
+		'restThreshold',
+		'goalSwitchMargin',
+		'minGoalCommitmentSeconds',
+		'reconsiderIntervalSeconds',
+		'eatUntilHunger',
+		'drinkUntilThirst',
+		'sleepUntilEnergy'
+	];
+	for (const key of rateFields) {
+		const value = config[key];
+		if (typeof value !== 'number' || !(value >= 0) || !Number.isFinite(value)) {
+			throw new SimulationCreationError(`${key} must be a finite number >= 0, received ${value}`);
+		}
+	}
+	if (!Number.isInteger(config.decisionHistoryLimit) || config.decisionHistoryLimit < 1) {
+		throw new SimulationCreationError(
+			`decisionHistoryLimit must be a positive integer, received ${config.decisionHistoryLimit}`
+		);
+	}
+	for (const key of ['initialHunger', 'initialThirst', 'initialEnergy'] as const) {
+		const value = config[key];
+		if (!(value >= 0 && value <= 1) || !Number.isFinite(value)) {
+			throw new SimulationCreationError(`${key} must be in [0, 1], received ${value}`);
+		}
+	}
 }
 
 /**
@@ -144,11 +208,43 @@ function createCreatures(
 			config.creatureRadius
 		);
 
-		creatures.push({
+		const draft: Creature = {
 			id,
 			position,
 			facing,
 			movementSpeed,
+			wanderTarget,
+			wanderDecisionIndex,
+			hunger: config.initialHunger,
+			thirst: config.initialThirst,
+			energy: config.initialEnergy,
+			goal: 'wander',
+			action: 'wander',
+			target: pointTarget(wanderTarget),
+			goalStartedAt: 0,
+			actionStartedAt: 0,
+			nextReconsiderAt: 0,
+			lastDecision: null,
+			lastCandidates: [],
+			recentTransitions: []
+		};
+
+		const decision = commitDecision({
+			creature: draft,
+			habitat,
+			timeSeconds: 0,
+			trigger: 'initial',
+			config
+		});
+		const applied = applyDecision(draft, decision, false, config);
+
+		creatures.push({
+			...draft,
+			...applied,
+			target:
+				applied.goal === 'wander'
+					? pointTarget(wanderTarget)
+					: (applied.target ?? pointTarget(wanderTarget)),
 			wanderTarget,
 			wanderDecisionIndex
 		});

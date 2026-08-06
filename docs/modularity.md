@@ -118,14 +118,26 @@ Do not move Three.js objects, Svelte state, creatures or browser APIs into this 
 
 ### Simulation subsystem
 
-`src/lib/simulation/` owns authoritative simulation state and creature movement.
+`src/lib/simulation/` owns authoritative simulation state and creature behaviour.
 
-- `types.ts` — `SimulationState`, `Creature` and configuration types;
+Top-level modules:
+
+- `types.ts` — `SimulationState`, `Creature`, needs/goals/actions/decision types and configuration;
 - `create-simulation.ts` — deterministic habitat + creature population creation;
 - `step-simulation.ts` — fixed-step advance and bounded catch-up;
-- `creature-movement.ts` — turn, translate, clamp and retarget;
-- `diagnostics.ts` — simulation diagnostic text;
+- `creature-movement.ts` — pure turn, translate, clamp and wander retarget helpers;
+- `diagnostics.ts` — simulation and creature inspection text from structured evidence;
 - `index.ts` — explicit public exports only.
+
+Internal behaviour subdomain (`simulation/behaviour/`), introduced for the
+needs/goal/action state machine and temporary global resource awareness:
+
+- `needs.ts` — need progression and recovery completion;
+- `decisions.ts` — candidate evaluation, hysteresis/commitment, decision records;
+- `actions.ts` — goal/action transitions and bounded history;
+- `resource-awareness.ts` — temporary global habitat resource target lookup;
+- `step-creature-behaviour.ts` — per-creature fixed-step behaviour orchestration;
+- `index.ts` — exports for simulation siblings (not a separate app subsystem).
 
 Do not move Three.js objects or Svelte components into this subsystem. Creatures must not live on `Habitat`.
 
@@ -134,17 +146,22 @@ Do not move Three.js objects or Svelte components into this subsystem. Creatures
 Three.js presentation is split:
 
 - `habitat-presentation.ts` — static habitat mesh construction and disposal;
-- `creature-presentation.ts` — dynamic creature mesh reconcile by id;
-- `ThreeViewport.svelte` — scene lifecycle, camera framing orchestration, prop wiring;
+- `creature-presentation.ts` — dynamic creature mesh reconcile by id and action visuals;
+- `ThreeViewport.svelte` — scene lifecycle, camera framing, pick ray, prop wiring;
 - `habitat-camera.ts` — pure framing and visibility calculations.
 
-A further decomposition check becomes mandatory when new work adds another independently changing presentation responsibility—for example animation scheduling, selection overlays or interaction picking.
+Selection overlays or heavier interaction should extract further if
+`ThreeViewport.svelte` approaches modularity thresholds.
 
 ### Workbench and route
 
-`HabitatWorkbench.svelte` owns seed/simulation controls and displayed habitat + creature diagnostics.
+`HabitatWorkbench.svelte` owns seed/simulation controls, diagnostics and the
+creature inspector presentation (formats structured simulation evidence).
 
-`src/routes/+page.svelte` owns page-level simulation session state, rAF fixed-step catch-up, and composition of the workbench with the viewport. It may remain a small application orchestrator, but domain algorithms and Three.js resource management must not migrate into it.
+`src/routes/+page.svelte` owns page-level simulation session state, rAF fixed-step
+catch-up, selected creature id (presentation only), and composition of the
+workbench with the viewport. It may remain a small application orchestrator, but
+domain algorithms and Three.js resource management must not migrate into it.
 
 ## Extraction rules
 

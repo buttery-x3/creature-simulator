@@ -86,8 +86,9 @@ export function sampleWanderTarget(
 }
 
 /**
- * Advance one creature by a fixed dt: turn toward target, move along facing,
- * clamp to bounds, and retarget when close enough.
+ * Pure movement helper: turn toward a wander target, move, clamp, retarget.
+ * Behavioural goals/actions are owned by `behaviour/step-creature-behaviour.ts`;
+ * this remains available for focused movement tests.
  */
 export function stepCreature(
 	creature: Creature,
@@ -144,6 +145,11 @@ export function stepCreature(
 		position,
 		facing,
 		wanderTarget,
-		wanderDecisionIndex
+		wanderDecisionIndex,
+		// Keep behaviour target aligned when only the wander stream moves.
+		target:
+			creature.goal === 'wander'
+				? { kind: 'point', position: { x: wanderTarget.x, y: wanderTarget.y } }
+				: creature.target
 	};
 }

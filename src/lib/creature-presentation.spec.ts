@@ -1,15 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import type { Creature } from '$lib/simulation';
+import type { Creature, CreatureAction } from '$lib/simulation';
 import { createCreaturePresentationResources, reconcileCreatures } from './creature-presentation';
 
-function creature(id: string, x: number, y: number, facing = 0): Creature {
+function creature(
+	id: string,
+	x: number,
+	y: number,
+	facing = 0,
+	action: CreatureAction = 'wander'
+): Creature {
 	return {
 		id,
 		position: { x, y },
 		facing,
 		movementSpeed: 1,
 		wanderTarget: { x: x + 1, y },
-		wanderDecisionIndex: 0
+		wanderDecisionIndex: 0,
+		hunger: 0.2,
+		thirst: 0.2,
+		energy: 0.85,
+		goal: action === 'wander' ? 'wander' : 'seek_food',
+		action,
+		target: { kind: 'point', position: { x: x + 1, y } },
+		goalStartedAt: 0,
+		actionStartedAt: 0,
+		nextReconsiderAt: 1.5,
+		lastDecision: null,
+		lastCandidates: [],
+		recentTransitions: []
 	};
 }
 
@@ -43,10 +61,19 @@ describe('reconcileCreatures', () => {
 		expect(resources.structureVersion).toBe(versionAfterCreate + 1);
 		expect(resources.byId.has('creature-1')).toBe(false);
 
+		// Action visuals update without structural churn.
+		reconcileCreatures(resources, [creature('creature-0', 3, 4, -0.25, 'eat')]);
+		expect(resources.structureVersion).toBe(versionAfterCreate + 1);
+		const mats = resources.materialsById.get('creature-0');
+		expect(mats).toBeTruthy();
+		expect(mats!.body.color.getHex()).toBe(0x2a9d8f);
+
 		// Dispose shared resources used by the test harness.
 		resources.bodyGeometry.dispose();
 		resources.noseGeometry.dispose();
-		resources.bodyMaterial.dispose();
-		resources.noseMaterial.dispose();
+		for (const materials of resources.materialsById.values()) {
+			materials.body.dispose();
+			materials.nose.dispose();
+		}
 	});
 });

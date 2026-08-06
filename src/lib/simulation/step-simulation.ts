@@ -2,8 +2,32 @@
  * Fixed-step simulation advancement and bounded wall-clock catch-up.
  */
 
-import { stepCreature } from './creature-movement';
+import { stepCreatureBehaviour } from './behaviour/step-creature-behaviour';
 import type { SimulationConfig, SimulationState } from './types';
+
+export type StepSimulationConfig = Pick<
+	SimulationConfig,
+	| 'fixedDt'
+	| 'maxTurnRate'
+	| 'creatureRadius'
+	| 'arrivalDistance'
+	| 'hungerRisePerSecond'
+	| 'thirstRisePerSecond'
+	| 'energyDrainPerSecond'
+	| 'eatRecoveryPerSecond'
+	| 'drinkRecoveryPerSecond'
+	| 'sleepRecoveryPerSecond'
+	| 'seekFoodThreshold'
+	| 'seekWaterThreshold'
+	| 'restThreshold'
+	| 'goalSwitchMargin'
+	| 'minGoalCommitmentSeconds'
+	| 'reconsiderIntervalSeconds'
+	| 'eatUntilHunger'
+	| 'drinkUntilThirst'
+	| 'sleepUntilEnergy'
+	| 'decisionHistoryLimit'
+>;
 
 /**
  * Advance the simulation by exactly one fixed timestep.
@@ -11,16 +35,18 @@ import type { SimulationConfig, SimulationState } from './types';
  */
 export function stepSimulation(
 	state: SimulationState,
-	config: Pick<SimulationConfig, 'fixedDt' | 'maxTurnRate' | 'creatureRadius' | 'arrivalDistance'>
+	config: StepSimulationConfig
 ): SimulationState {
 	const dt = config.fixedDt;
+	// Behaviour sees the time *after* this step so need-driven clocks align with state.timeSeconds.
+	const timeSeconds = state.timeSeconds + dt;
 	const creatures = state.creatures.map((creature) =>
-		stepCreature(creature, dt, state.seed, state.habitat.bounds, config)
+		stepCreatureBehaviour(creature, dt, timeSeconds, state.seed, state.habitat, config)
 	);
 
 	return {
 		...state,
-		timeSeconds: state.timeSeconds + dt,
+		timeSeconds,
 		creatures
 	};
 }
@@ -42,10 +68,7 @@ export function advanceSimulation(
 	state: SimulationState,
 	elapsedSeconds: number,
 	accumulator: number,
-	config: Pick<
-		SimulationConfig,
-		'fixedDt' | 'maxCatchUpSteps' | 'maxTurnRate' | 'creatureRadius' | 'arrivalDistance'
-	>
+	config: StepSimulationConfig & Pick<SimulationConfig, 'maxCatchUpSteps'>
 ): CatchUpResult {
 	if (!(elapsedSeconds >= 0) || !Number.isFinite(elapsedSeconds)) {
 		return { state, accumulator, stepsTaken: 0 };

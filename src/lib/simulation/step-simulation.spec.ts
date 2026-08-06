@@ -11,9 +11,9 @@ import {
 	simulationSnapshot,
 	stepCreature,
 	stepSimulation,
-	type Creature,
 	type SimulationConfig
 } from './index';
+import { testCreature } from './test-creature';
 
 function longRunConfig(seed: string): SimulationConfig {
 	return defaultSimulationConfig(seed);
@@ -54,14 +54,12 @@ describe('stepSimulation', () => {
 
 	it('does not exceed max turn rate in a single step', () => {
 		const config = defaultSimulationConfig('turn-rate');
-		const creature: Creature = {
-			id: 'creature-0',
+		const creature = testCreature({
 			position: { x: 0, y: 0 },
 			facing: 0,
 			movementSpeed: 1,
-			wanderTarget: { x: 0, y: 5 },
-			wanderDecisionIndex: 0
-		};
+			wanderTarget: { x: 0, y: 5 }
+		});
 		const next = stepCreature(
 			creature,
 			config.fixedDt,
@@ -78,14 +76,12 @@ describe('stepSimulation', () => {
 			...defaultSimulationConfig('gradual'),
 			maxTurnRate: 0.5
 		};
-		const creature: Creature = {
-			id: 'creature-0',
+		const creature = testCreature({
 			position: { x: 0, y: 0 },
 			facing: 0,
 			movementSpeed: 0.01,
-			wanderTarget: { x: 0, y: 4 },
-			wanderDecisionIndex: 0
-		};
+			wanderTarget: { x: 0, y: 4 }
+		});
 		const next = stepCreature(
 			creature,
 			config.fixedDt,
@@ -112,14 +108,13 @@ describe('stepSimulation', () => {
 			bounds,
 			config.creatureRadius
 		);
-		const creature: Creature = {
-			id: 'creature-0',
+		const creature = testCreature({
 			position: { ...startTarget },
 			facing: 0,
 			movementSpeed: 0.01,
 			wanderTarget: { ...startTarget },
 			wanderDecisionIndex: 0
-		};
+		});
 
 		const next = stepCreature(creature, config.fixedDt, 'retarget', bounds, config);
 		expect(next.wanderDecisionIndex).toBe(1);

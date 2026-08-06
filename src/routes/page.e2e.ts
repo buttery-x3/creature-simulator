@@ -135,12 +135,48 @@ test('pause, resume and reset controls work', async ({ page }) => {
 	await expect(page.getByTestId('simulation-creature-count')).toHaveText('12');
 	await expect(canvas).toHaveAttribute('data-creature-count', '12');
 
-	// Reset returns to initial creature state for the seed (decision indices at 0).
+	// Reset returns to initial creature state for the seed.
 	const afterReset = await page.getByTestId('simulation-diagnostics').textContent();
-	expect(afterReset).toContain('decision=0');
+	expect(afterReset).toContain('time: 0.000 s');
+	expect(afterReset).toMatch(/goal=wander|goal=seek_/);
 	// Creature diagnostics text should differ from mid-run paused snapshot in general,
 	// but reset to t=0 is the hard requirement.
 	expect(creaturesBefore).toBeTruthy();
+});
+
+test('selecting a creature shows needs, goal, action and candidate scores', async ({ page }) => {
+	await page.goto('/');
+
+	await waitForHabitatCanvas(page);
+	await expect(page.getByTestId('creature-inspector-empty')).toHaveText('No creature selected.');
+
+	// Pause so inspection values are stable while we assert structure.
+	await page.getByTestId('simulation-pause-resume').click();
+	await expect(page.getByTestId('simulation-status')).toHaveText('paused');
+
+	const diagnosticsBefore = await page.getByTestId('simulation-diagnostics').textContent();
+	const timeBefore = await page.getByTestId('simulation-time').textContent();
+
+	await page.getByTestId('creature-select-creature-0').click();
+
+	await expect(page.getByTestId('inspector-id')).toHaveText('creature-0');
+	await expect(page.getByTestId('inspector-hunger')).toBeVisible();
+	await expect(page.getByTestId('inspector-thirst')).toBeVisible();
+	await expect(page.getByTestId('inspector-energy')).toBeVisible();
+	await expect(page.getByTestId('inspector-goal')).toBeVisible();
+	await expect(page.getByTestId('inspector-action')).toBeVisible();
+	await expect(page.getByTestId('inspector-target')).toBeVisible();
+	await expect(page.getByTestId('inspector-decision-reason')).not.toHaveText('—');
+	await expect(page.getByTestId('inspector-candidates')).toBeVisible();
+	await expect(page.getByTestId('inspector-candidate-wander')).toBeVisible();
+	await expect(page.getByTestId('inspector-candidate-seek_food')).toBeVisible();
+
+	// Selection must not advance or mutate simulation while paused.
+	await expect(page.getByTestId('simulation-time')).toHaveText(timeBefore ?? '');
+	await expect(page.getByTestId('simulation-diagnostics')).toHaveText(diagnosticsBefore ?? '');
+
+	await page.getByTestId('creature-clear-selection').click();
+	await expect(page.getByTestId('creature-inspector-empty')).toHaveText('No creature selected.');
 });
 
 test('creature movement does not rebuild static habitat presentation', async ({ page }) => {

@@ -31,20 +31,25 @@
 	 *
 	 * Static habitat presentation rebuilds only when habitat identity changes.
 	 * Creature meshes are reconciled by id and updated in place.
+	 * Selection is presentation state owned by the page, not simulation state.
 	 */
 
 	type Props = {
 		habitat: Habitat;
 		creatures: Creature[];
+		selectedCreatureId?: string | null;
+		onSelectCreature?: (creatureId: string | null) => void;
 	};
 
-	let { habitat, creatures }: Props = $props();
+	let { habitat, creatures, selectedCreatureId = null, onSelectCreature }: Props = $props();
 
 	let container: HTMLDivElement | undefined = $state();
 
 	/** Set by onMount; used by $effect to sync presentation with props. */
 	let applyHabitat: ((data: Habitat) => void) | undefined = $state();
-	let applyCreatures: ((list: Creature[]) => void) | undefined = $state();
+	let applyCreatures: ((list: Creature[], selectedId: string | null) => void) | undefined =
+		$state();
+	let publishSelection: ((id: string | null) => void) | undefined = $state();
 
 	onMount(() => {
 		const host = container;
@@ -61,6 +66,7 @@
 		const renderer = new THREE.WebGLRenderer({ antialias: true });
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		renderer.domElement.dataset.testid = 'three-canvas';
+		renderer.domElement.style.cursor = 'pointer';
 		host.appendChild(renderer.domElement);
 
 		const habitatResources: HabitatPresentationResources = createHabitatPresentationResources();
@@ -69,8 +75,12 @@
 		const creatureResources: CreaturePresentationResources = createCreaturePresentationResources();
 		scene.add(creatureResources.root);
 
+		const raycaster = new THREE.Raycaster();
+		const pointer = new THREE.Vector2();
+
 		let currentHabitat: Habitat | undefined;
 		let habitatBuildCount = 0;
+		let currentSelectedId: string | null = null;
 
 		function publishVisibility(report: HabitatVisibilityReport): void {
 			const canvas = renderer.domElement;
@@ -87,6 +97,7 @@
 			canvas.dataset.creatureCount = String(count);
 			canvas.dataset.habitatBuildCount = String(habitatBuildCount);
 			canvas.dataset.creatureStructureVersion = String(creatureResources.structureVersion);
+			canvas.dataset.selectedCreatureId = currentSelectedId ?? '';
 		}
 
 		function renderFrame() {
@@ -124,22 +135,65 @@
 			renderFrame();
 		};
 
-		applyCreatures = (list: Creature[]) => {
-			reconcileCreatures(creatureResources, list);
+		applyCreatures = (list: Creature[], selectedId: string | null) => {
+			currentSelectedId = selectedId;
+			reconcileCreatures(creatureResources, list, selectedId);
 			publishCreatureMeta(list.length);
 			renderFrame();
 		};
 
+		publishSelection = (id: string | null) => {
+			currentSelectedId = id;
+			publishCreatureMeta(creatureResources.byId.size);
+		};
+
+		function pickCreature(clientX: number, clientY: number): string | null {
+			const rect = renderer.domElement.getBoundingClientRect();
+			if (rect.width === 0 || rect.height === 0) {
+				return null;
+			}
+			pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+			pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+			raycaster.setFromCamera(pointer, camera);
+
+			const meshes: THREE.Object3D[] = [];
+			for (const group of creatureResources.byId.values()) {
+				meshes.push(...group.children);
+			}
+			const hits = raycaster.intersectObjects(meshes, false);
+			if (hits.length === 0) {
+				return null;
+			}
+			let object: THREE.Object3D | null = hits[0]!.object;
+			while (object) {
+				const id = object.userData?.creatureId;
+				if (typeof id === 'string') {
+					return id;
+				}
+				object = object.parent;
+			}
+			return null;
+		}
+
+		function onCanvasClick(event: MouseEvent): void {
+			const id = pickCreature(event.clientX, event.clientY);
+			onSelectCreature?.(id);
+		}
+
+		renderer.domElement.addEventListener('click', onCanvasClick);
+
 		applyHabitat(habitat);
-		applyCreatures(creatures);
+		applyCreatures(creatures, selectedCreatureId);
 
 		const observer = new ResizeObserver(renderFrame);
 		observer.observe(host);
 
 		return () => {
 			observer.disconnect();
+			renderer.domElement.removeEventListener('click', onCanvasClick);
 			applyHabitat = undefined;
 			applyCreatures = undefined;
+			publishSelection = undefined;
 			clearHabitatPresentation(habitatResources);
 			clearCreaturePresentation(creatureResources);
 			scene.remove(habitatResources.root);
@@ -156,7 +210,12 @@
 
 	$effect(() => {
 		const list = creatures;
-		applyCreatures?.(list);
+		const selected = selectedCreatureId;
+		applyCreatures?.(list, selected ?? null);
+	});
+
+	$effect(() => {
+		publishSelection?.(selectedCreatureId ?? null);
 	});
 </script>
 

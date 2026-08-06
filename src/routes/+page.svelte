@@ -64,11 +64,22 @@
 	let seedInput = $state(initial.simulation.seed);
 	let errorMessage = $state<string | null>(initial.error);
 	let paused = $state(false);
+	/** Presentation-only selection; never written into simulation state. */
+	let selectedCreatureId = $state<string | null>(null);
 
 	// Accumulator lives outside reactive state so rAF ticks do not thrash Svelte.
 	let accumulator = 0;
 	let lastFrameMs: number | null = null;
 	let rafId = 0;
+
+	function clearStaleSelection(next: SimulationState): void {
+		if (
+			selectedCreatureId !== null &&
+			!next.creatures.some((creature) => creature.id === selectedCreatureId)
+		) {
+			selectedCreatureId = null;
+		}
+	}
 
 	function regenerate(): void {
 		const seed = seedInput.trim();
@@ -83,6 +94,7 @@
 			errorMessage = null;
 			accumulator = 0;
 			lastFrameMs = null;
+			clearStaleSelection(simulation);
 		} catch (error) {
 			errorMessage =
 				error instanceof SimulationCreationError || error instanceof HabitatGenerationError
@@ -106,6 +118,7 @@
 			errorMessage = null;
 			accumulator = 0;
 			lastFrameMs = null;
+			clearStaleSelection(simulation);
 		} catch (error) {
 			errorMessage =
 				error instanceof SimulationCreationError || error instanceof HabitatGenerationError
@@ -119,6 +132,11 @@
 	function togglePause(): void {
 		paused = !paused;
 		lastFrameMs = null;
+	}
+
+	function selectCreature(creatureId: string | null): void {
+		// Selection must not mutate simulation state — only presentation id.
+		selectedCreatureId = creatureId;
 	}
 
 	onMount(() => {
@@ -142,6 +160,7 @@
 								? simulation.habitat
 								: result.state.habitat
 					};
+					clearStaleSelection(simulation);
 				}
 			} else {
 				lastFrameMs = nowMs;
@@ -164,14 +183,14 @@
 	<header class="header">
 		<h1>Creature Simulator</h1>
 		<p>
-			Authoritative creatures with deterministic bounded wandering. Simulation state is plain data;
-			Three.js is presentation only.
+			Creatures have inspectable needs and resource-driven goals. Simulation state is plain data;
+			Three.js is presentation only. Selection does not alter behaviour.
 		</p>
 	</header>
 
 	<div class="workspace">
 		<section class="stage" aria-label="Presentation stage">
-			<ThreeViewport {habitat} {creatures} />
+			<ThreeViewport {habitat} {creatures} {selectedCreatureId} onSelectCreature={selectCreature} />
 		</section>
 		<HabitatWorkbench
 			{simulation}
@@ -179,6 +198,7 @@
 			{errorMessage}
 			config={configForSeed(simulation.seed)}
 			{paused}
+			{selectedCreatureId}
 			onSeedInput={(value) => {
 				seedInput = value;
 			}}
@@ -186,6 +206,7 @@
 			onRandomSeed={useRandomSeed}
 			onTogglePause={togglePause}
 			onReset={resetSimulation}
+			onSelectCreature={selectCreature}
 		/>
 	</div>
 </main>

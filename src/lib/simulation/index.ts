@@ -2,11 +2,23 @@
  * Simulation public entry point.
  *
  * Owns authoritative simulation state, deterministic creature creation, fixed-step
- * advancement and bounded wander movement. Presentation and Svelte must not store
- * creature authority inside Three.js objects.
+ * advancement, needs-driven decisions and bounded movement. Presentation and Svelte
+ * must not store creature authority inside Three.js objects.
  */
 
-export type { Creature, SimulationConfig, SimulationState, SpeedRange } from './types';
+export type {
+	BehaviourTransition,
+	CandidateEvaluation,
+	Creature,
+	CreatureAction,
+	CreatureGoal,
+	CreatureTarget,
+	DecisionRecord,
+	DecisionTrigger,
+	SimulationConfig,
+	SimulationState,
+	SpeedRange
+} from './types';
 
 export {
 	DEFAULT_SIMULATION_CONFIG,
@@ -29,4 +41,19 @@ export {
 	stepCreature
 } from './creature-movement';
 
-export { formatSimulationDiagnostics } from './diagnostics';
+export { formatCreatureInspection, formatSimulationDiagnostics } from './diagnostics';
+
+export {
+	advanceNeeds,
+	clampNeed,
+	commitDecision,
+	evaluateCandidates,
+	GOAL_TIE_BREAK_ORDER,
+	isAtFeature,
+	isAtTarget,
+	isTargetValid,
+	recoveryComplete,
+	selectBestCandidate,
+	selectNearestFeature,
+	WANDER_BASELINE_SCORE
+} from './behaviour';

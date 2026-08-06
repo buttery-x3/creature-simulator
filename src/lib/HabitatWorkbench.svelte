@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { formatHabitatDiagnostics, type Habitat } from '$lib/habitat';
 	import {
+		formatCreatureInspection,
 		formatSimulationDiagnostics,
+		type Creature,
 		type SimulationConfig,
 		type SimulationState
 	} from '$lib/simulation';
@@ -12,11 +14,13 @@
 		errorMessage: string | null;
 		config: SimulationConfig;
 		paused: boolean;
+		selectedCreatureId: string | null;
 		onSeedInput: (value: string) => void;
 		onRegenerate: () => void;
 		onRandomSeed: () => void;
 		onTogglePause: () => void;
 		onReset: () => void;
+		onSelectCreature: (creatureId: string | null) => void;
 	};
 
 	let {
@@ -25,16 +29,35 @@
 		errorMessage,
 		config,
 		paused,
+		selectedCreatureId,
 		onSeedInput,
 		onRegenerate,
 		onRandomSeed,
 		onTogglePause,
-		onReset
+		onReset,
+		onSelectCreature
 	}: Props = $props();
 
 	const habitat: Habitat = $derived(simulation.habitat);
 	const habitatDiagnostics = $derived(formatHabitatDiagnostics(habitat));
 	const simulationDiagnostics = $derived(formatSimulationDiagnostics(simulation, { paused }));
+	const selectedCreature: Creature | null = $derived(
+		simulation.creatures.find((c) => c.id === selectedCreatureId) ?? null
+	);
+	const inspectionText = $derived(
+		selectedCreature ? formatCreatureInspection(selectedCreature, simulation.timeSeconds) : null
+	);
+
+	function formatTargetLabel(creature: Creature): string {
+		const t = creature.target;
+		if (!t) {
+			return 'none';
+		}
+		if (t.kind === 'point') {
+			return `point (${t.position.x.toFixed(2)}, ${t.position.y.toFixed(2)})`;
+		}
+		return `${t.featureKind}:${t.featureId}`;
+	}
 </script>
 
 <aside class="workbench" data-testid="habitat-workbench" aria-label="Simulation controls">
@@ -109,6 +132,135 @@
 		</dl>
 	</section>
 
+	<section class="panel" data-testid="creature-inspector">
+		<h2>Inspector</h2>
+		<p class="hint">Click a creature in the viewport or choose an id below.</p>
+
+		<div class="creature-list" data-testid="creature-select-list">
+			{#each simulation.creatures as creature (creature.id)}
+				<button
+					type="button"
+					class="creature-chip"
+					class:selected={selectedCreatureId === creature.id}
+					data-testid={`creature-select-${creature.id}`}
+					aria-pressed={selectedCreatureId === creature.id}
+					onclick={() => onSelectCreature(creature.id)}
+				>
+					{creature.id}
+				</button>
+			{/each}
+		</div>
+
+		{#if selectedCreatureId && !selectedCreature}
+			<p class="empty" data-testid="creature-inspector-empty">
+				Selected creature is no longer present. Clear selection or pick another.
+			</p>
+			<button
+				type="button"
+				data-testid="creature-clear-selection"
+				onclick={() => onSelectCreature(null)}
+			>
+				Clear selection
+			</button>
+		{:else if !selectedCreature}
+			<p class="empty" data-testid="creature-inspector-empty">No creature selected.</p>
+		{:else}
+			<div class="actions">
+				<button
+					type="button"
+					data-testid="creature-clear-selection"
+					onclick={() => onSelectCreature(null)}
+				>
+					Clear selection
+				</button>
+			</div>
+
+			<dl class="meta inspector-meta" data-testid="creature-inspector-fields">
+				<div>
+					<dt>ID</dt>
+					<dd data-testid="inspector-id">{selectedCreature.id}</dd>
+				</div>
+				<div>
+					<dt>Position</dt>
+					<dd data-testid="inspector-position">
+						({selectedCreature.position.x.toFixed(3)}, {selectedCreature.position.y.toFixed(3)})
+					</dd>
+				</div>
+				<div>
+					<dt>Facing</dt>
+					<dd data-testid="inspector-facing">{selectedCreature.facing.toFixed(3)}</dd>
+				</div>
+				<div>
+					<dt>Hunger</dt>
+					<dd data-testid="inspector-hunger">{selectedCreature.hunger.toFixed(3)}</dd>
+				</div>
+				<div>
+					<dt>Thirst</dt>
+					<dd data-testid="inspector-thirst">{selectedCreature.thirst.toFixed(3)}</dd>
+				</div>
+				<div>
+					<dt>Energy</dt>
+					<dd data-testid="inspector-energy">{selectedCreature.energy.toFixed(3)}</dd>
+				</div>
+				<div>
+					<dt>Goal</dt>
+					<dd data-testid="inspector-goal">{selectedCreature.goal}</dd>
+				</div>
+				<div>
+					<dt>Action</dt>
+					<dd data-testid="inspector-action">{selectedCreature.action}</dd>
+				</div>
+				<div>
+					<dt>Target</dt>
+					<dd data-testid="inspector-target">{formatTargetLabel(selectedCreature)}</dd>
+				</div>
+				<div>
+					<dt>Goal start</dt>
+					<dd data-testid="inspector-goal-started">
+						{selectedCreature.goalStartedAt.toFixed(3)} s
+					</dd>
+				</div>
+				<div>
+					<dt>Action start</dt>
+					<dd data-testid="inspector-action-started">
+						{selectedCreature.actionStartedAt.toFixed(3)} s
+					</dd>
+				</div>
+				<div>
+					<dt>Next reconsider</dt>
+					<dd data-testid="inspector-next-reconsider">
+						{selectedCreature.nextReconsiderAt.toFixed(3)} s
+					</dd>
+				</div>
+				<div>
+					<dt>Decision reason</dt>
+					<dd data-testid="inspector-decision-reason">
+						{selectedCreature.lastDecision?.selectionReason ?? '—'}
+					</dd>
+				</div>
+			</dl>
+
+			<h3 class="subhead">Candidates</h3>
+			<ul class="candidates" data-testid="inspector-candidates">
+				{#each selectedCreature.lastCandidates as candidate (candidate.goal)}
+					<li data-testid={`inspector-candidate-${candidate.goal}`}>
+						<strong>{candidate.goal}</strong>
+						score={candidate.score.toFixed(3)}
+						{candidate.valid ? 'valid' : 'invalid'}
+						— {candidate.reason}
+						{#if candidate.rejectionReason}
+							<span class="reject">({candidate.rejectionReason})</span>
+						{/if}
+					</li>
+				{:else}
+					<li data-testid="inspector-candidates-empty">No candidate snapshot yet.</li>
+				{/each}
+			</ul>
+
+			<pre class="inspection-pre" data-testid="creature-inspection-text">{inspectionText}</pre>
+		{/if}
+	</section>
+
 	<section class="panel diagnostics">
 		<h2>Creatures</h2>
 		<pre data-testid="simulation-diagnostics">{simulationDiagnostics}</pre>
@@ -125,7 +277,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-		width: 18.5rem;
+		width: 20rem;
 		flex: 0 0 auto;
 		min-height: 0;
 		padding: 0.75rem;
@@ -149,11 +301,59 @@
 		color: #9ca3af;
 	}
 
+	.subhead {
+		margin: 0.25rem 0 0;
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.03em;
+		text-transform: uppercase;
+		color: #94a3b8;
+	}
+
 	.summary {
 		margin: 0;
 		font-size: 0.85rem;
 		color: #d1d5db;
 		line-height: 1.4;
+	}
+
+	.hint {
+		margin: 0;
+		font-size: 0.75rem;
+		color: #94a3b8;
+		line-height: 1.35;
+	}
+
+	.empty {
+		margin: 0;
+		padding: 0.55rem;
+		border-radius: 0.35rem;
+		border: 1px dashed #334155;
+		color: #94a3b8;
+		font-size: 0.8rem;
+	}
+
+	.creature-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+	}
+
+	.creature-chip {
+		padding: 0.25rem 0.45rem;
+		border: 1px solid #334155;
+		border-radius: 999px;
+		background: #111827;
+		color: #cbd5e1;
+		font: inherit;
+		font-size: 0.7rem;
+		cursor: pointer;
+	}
+
+	.creature-chip.selected {
+		border-color: #3b82f6;
+		background: #1e3a5f;
+		color: #e2e8f0;
 	}
 
 	.field {
@@ -225,6 +425,10 @@
 		gap: 0.4rem;
 	}
 
+	.inspector-meta div {
+		grid-template-columns: 7rem 1fr;
+	}
+
 	.meta dt {
 		margin: 0;
 		color: #94a3b8;
@@ -233,9 +437,22 @@
 	.meta dd {
 		margin: 0;
 		color: #e2e8f0;
-		word-break: break-all;
+		word-break: break-word;
 	}
 
+	.candidates {
+		margin: 0;
+		padding-left: 1rem;
+		color: #cbd5e1;
+		font-size: 0.72rem;
+		line-height: 1.4;
+	}
+
+	.candidates .reject {
+		color: #fca5a5;
+	}
+
+	.inspection-pre,
 	.diagnostics pre {
 		margin: 0;
 		padding: 0.55rem;

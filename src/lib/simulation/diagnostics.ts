@@ -1,9 +1,9 @@
 /**
  * Lightweight simulation diagnostics for the workbench.
- * Decision reasons come from structured simulation records only.
+ * Decision and perception reasons come from structured simulation records only.
  */
 
-import type { Creature, CreatureTarget, SimulationState } from './types';
+import type { Creature, CreatureTarget, SimulationConfig, SimulationState } from './types';
 
 function formatTarget(target: CreatureTarget | null): string {
 	if (!target) {
@@ -62,11 +62,25 @@ export function formatSimulationDiagnostics(
 	return lines.join('\n');
 }
 
+export type InspectionConfig = Pick<
+	SimulationConfig,
+	'sensingRadius' | 'trackedObservationDurationSeconds'
+>;
+
 /**
  * Pure inspection view for the workbench. Does not mutate the creature.
  * Selection of a creature is presentation state and never calls this for side effects.
+ * Distances to perceived resources are derived from authoritative perception + position.
  */
-export function formatCreatureInspection(creature: Creature, timeSeconds: number): string {
+export function formatCreatureInspection(
+	creature: Creature,
+	timeSeconds: number,
+	config?: InspectionConfig
+): string {
+	const sensingRadius = config?.sensingRadius;
+	const trackDuration = config?.trackedObservationDurationSeconds ?? 0;
+	const p = creature.perception;
+
 	const lines: string[] = [
 		`id: ${creature.id}`,
 		`position: (${creature.position.x.toFixed(3)}, ${creature.position.y.toFixed(3)})`,
@@ -80,9 +94,50 @@ export function formatCreatureInspection(creature: Creature, timeSeconds: number
 		`goal started: ${creature.goalStartedAt.toFixed(3)} s`,
 		`action started: ${creature.actionStartedAt.toFixed(3)} s`,
 		`next reconsider: ${creature.nextReconsiderAt.toFixed(3)} s (in ${Math.max(0, creature.nextReconsiderAt - timeSeconds).toFixed(3)} s)`,
-		'',
-		'last decision:'
+		''
 	];
+
+	if (creature.action === 'search') {
+		lines.push(
+			`search destination: (${creature.searchTarget.x.toFixed(3)}, ${creature.searchTarget.y.toFixed(3)})`,
+			''
+		);
+	}
+
+	lines.push('perception:');
+	if (sensingRadius !== undefined) {
+		lines.push(`  sensing radius: ${sensingRadius.toFixed(3)}`);
+	}
+	lines.push(
+		`  last update: ${p.lastUpdatedAt >= 0 ? `${p.lastUpdatedAt.toFixed(3)} s` : 'never'}`,
+		`  perceived food: ${p.perceivedFoodIds.length > 0 ? p.perceivedFoodIds.join(', ') : '(none)'}`,
+		`  perceived water: ${p.perceivedWaterIds.length > 0 ? p.perceivedWaterIds.join(', ') : '(none)'}`
+	);
+	if (p.observations.length === 0) {
+		lines.push('  observations: (none)');
+	} else {
+		for (const obs of p.observations) {
+			const dx = obs.position.x - creature.position.x;
+			const dy = obs.position.y - creature.position.y;
+			const dist = Math.sqrt(dx * dx + dy * dy);
+			lines.push(
+				`  obs ${obs.featureKind}:${obs.featureId} pos=(${obs.position.x.toFixed(3)}, ${obs.position.y.toFixed(3)}) dist=${dist.toFixed(3)} at ${obs.observedAt.toFixed(3)} s`
+			);
+		}
+	}
+	if (p.tracked) {
+		const age = timeSeconds - p.tracked.observedAt;
+		const expiresAt = p.tracked.observedAt + trackDuration;
+		lines.push(
+			`  tracked: ${p.tracked.featureKind}:${p.tracked.featureId} ` +
+				`pos=(${p.tracked.position.x.toFixed(3)}, ${p.tracked.position.y.toFixed(3)}) ` +
+				`age=${age.toFixed(3)} s expires@${expiresAt.toFixed(3)} s`
+		);
+	} else {
+		lines.push('  tracked: (none)');
+	}
+
+	lines.push('', 'last decision:');
 
 	if (creature.lastDecision) {
 		const d = creature.lastDecision;

@@ -190,7 +190,13 @@
 
 	<div class="workspace">
 		<section class="stage" aria-label="Presentation stage">
-			<ThreeViewport {habitat} {creatures} {selectedCreatureId} onSelectCreature={selectCreature} />
+			<ThreeViewport
+				{habitat}
+				{creatures}
+				{selectedCreatureId}
+				sensingRadius={simulationConfigBase.sensingRadius}
+				onSelectCreature={selectCreature}
+			/>
 		</section>
 		<HabitatWorkbench
 			{simulation}

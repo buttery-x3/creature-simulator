@@ -27,6 +27,9 @@ export type StepSimulationConfig = Pick<
 	| 'drinkUntilThirst'
 	| 'sleepUntilEnergy'
 	| 'decisionHistoryLimit'
+	| 'sensingRadius'
+	| 'perceptionIntervalSeconds'
+	| 'trackedObservationDurationSeconds'
 >;
 
 /**

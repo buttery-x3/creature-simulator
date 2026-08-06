@@ -52,6 +52,8 @@ src/
                 needs.ts
                 decisions.ts
                 actions.ts
+                habitat-feature-query.ts
+                perception.ts
                 resource-awareness.ts
                 step-creature-behaviour.ts
                 *.spec.ts
@@ -75,20 +77,20 @@ Obsolete files should not remain in this topology merely because they were creat
 
 ## Current ownership
 
-| Area                       | Owns                                                                                                    | Does not own                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `src/lib/determinism/`     | Seeded PRNG and pure seed derivation for independent streams                                            | Habitat layout, creature behaviour, UI                              |
-| `src/lib/habitat/`         | Authoritative serialisable habitat data, seeded generation, geometry validation and habitat diagnostics | Creatures, Three.js objects, Svelte state, browser controls         |
-| `src/lib/simulation/`      | Authoritative simulation state, creature creation, fixed-step advance, public diagnostics               | Three.js resources, Svelte components, browser rAF ownership        |
-| `simulation/behaviour/`    | Needs, goal decisions, actions, temporary global resource awareness, per-creature behaviour step        | Presentation, Svelte, habitat generation                            |
-| `habitat-presentation.ts`  | Static habitat mesh construction and disposal                                                           | Creature meshes, simulation stepping                                |
-| `creature-presentation.ts` | Dynamic creature mesh reconcile by id and action-derived visuals                                        | Authoritative creature state, habitat rebuilds                      |
-| `ThreeViewport.svelte`     | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature presentation        | Authoritative habitat or creature state                             |
-| `habitat-camera.ts`        | Pure camera-framing and visibility calculations                                                         | Scene construction, simulation state or UI controls                 |
-| `HabitatWorkbench.svelte`  | Seed/simulation controls, diagnostics, creature inspector presentation                                  | Domain algorithms or renderer lifecycle                             |
-| `src/routes/+page.svelte`  | Page composition, session simulation state, rAF catch-up, pause/reset, selected creature id             | Domain algorithms, geometry rules or Three.js resource ownership    |
-| `ports.ts`                 | Reserved application and test ports                                                                     | Runtime simulation configuration                                    |
-| `src/lib/index.ts`         | Deliberate app-level public exports                                                                     | Private implementation logic or universal re-export of every module |
+| Area                       | Owns                                                                                                                           | Does not own                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `src/lib/determinism/`     | Seeded PRNG and pure seed derivation for independent streams                                                                   | Habitat layout, creature behaviour, UI                              |
+| `src/lib/habitat/`         | Authoritative serialisable habitat data, seeded generation, geometry validation and habitat diagnostics                        | Creatures, Three.js objects, Svelte state, browser controls         |
+| `src/lib/simulation/`      | Authoritative simulation state, creature creation, fixed-step advance, public diagnostics                                      | Three.js resources, Svelte components, browser rAF ownership        |
+| `simulation/behaviour/`    | Needs, goal decisions, actions, local perception, habitat-feature query, search, resource targets, per-creature behaviour step | Presentation, Svelte, habitat generation                            |
+| `habitat-presentation.ts`  | Static habitat mesh construction and disposal                                                                                  | Creature meshes, simulation stepping                                |
+| `creature-presentation.ts` | Dynamic creature mesh reconcile by id and action-derived visuals                                                               | Authoritative creature state, habitat rebuilds                      |
+| `ThreeViewport.svelte`     | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature presentation                               | Authoritative habitat or creature state                             |
+| `habitat-camera.ts`        | Pure camera-framing and visibility calculations                                                                                | Scene construction, simulation state or UI controls                 |
+| `HabitatWorkbench.svelte`  | Seed/simulation controls, diagnostics, creature inspector presentation                                                         | Domain algorithms or renderer lifecycle                             |
+| `src/routes/+page.svelte`  | Page composition, session simulation state, rAF catch-up, pause/reset, selected creature id                                    | Domain algorithms, geometry rules or Three.js resource ownership    |
+| `ports.ts`                 | Reserved application and test ports                                                                                            | Runtime simulation configuration                                    |
+| `src/lib/index.ts`         | Deliberate app-level public exports                                                                                            | Private implementation logic or universal re-export of every module |
 
 ## Dependency direction
 

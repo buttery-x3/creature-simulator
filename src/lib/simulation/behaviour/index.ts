@@ -1,11 +1,12 @@
 /**
- * Creature behaviour subdomain: needs, decisions, actions, temporary resource awareness.
+ * Creature behaviour subdomain: needs, decisions, actions, local perception, search.
  * Consumed by simulation siblings; presentation imports via $lib/simulation only.
  */
 
 export { advanceNeeds, clampNeed, recoveryComplete } from './needs';
 export {
 	foodTarget,
+	hasUsableResourceTarget,
 	homeTarget,
 	isAtFeature,
 	isAtTarget,
@@ -16,6 +17,17 @@ export {
 	selectNearestFeature,
 	waterTarget
 } from './resource-awareness';
+export {
+	clearTracked,
+	emptyPerception,
+	isCurrentlyPerceived,
+	isTrackedUsable,
+	selectNearestPerceived,
+	senseAt,
+	startTracking,
+	updatePerception
+} from './perception';
+export { circleIntersectsRect, queryFeaturesNear } from './habitat-feature-query';
 export {
 	commitDecision,
 	evaluateCandidates,

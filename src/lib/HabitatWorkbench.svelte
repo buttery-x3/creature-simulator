@@ -45,7 +45,12 @@
 		simulation.creatures.find((c) => c.id === selectedCreatureId) ?? null
 	);
 	const inspectionText = $derived(
-		selectedCreature ? formatCreatureInspection(selectedCreature, simulation.timeSeconds) : null
+		selectedCreature
+			? formatCreatureInspection(selectedCreature, simulation.timeSeconds, {
+					sensingRadius: config.sensingRadius,
+					trackedObservationDurationSeconds: config.trackedObservationDurationSeconds
+				})
+			: null
 	);
 
 	function formatTargetLabel(creature: Creature): string {
@@ -238,6 +243,58 @@
 						{selectedCreature.lastDecision?.selectionReason ?? '—'}
 					</dd>
 				</div>
+				<div>
+					<dt>Sensing radius</dt>
+					<dd data-testid="inspector-sensing-radius">{config.sensingRadius.toFixed(3)}</dd>
+				</div>
+				<div>
+					<dt>Perception update</dt>
+					<dd data-testid="inspector-perception-updated">
+						{selectedCreature.perception.lastUpdatedAt >= 0
+							? `${selectedCreature.perception.lastUpdatedAt.toFixed(3)} s`
+							: 'never'}
+					</dd>
+				</div>
+				<div>
+					<dt>Perceived food</dt>
+					<dd data-testid="inspector-perceived-food">
+						{selectedCreature.perception.perceivedFoodIds.length > 0
+							? selectedCreature.perception.perceivedFoodIds.join(', ')
+							: '—'}
+					</dd>
+				</div>
+				<div>
+					<dt>Perceived water</dt>
+					<dd data-testid="inspector-perceived-water">
+						{selectedCreature.perception.perceivedWaterIds.length > 0
+							? selectedCreature.perception.perceivedWaterIds.join(', ')
+							: '—'}
+					</dd>
+				</div>
+				<div>
+					<dt>Tracked</dt>
+					<dd data-testid="inspector-tracked">
+						{#if selectedCreature.perception.tracked}
+							{selectedCreature.perception.tracked.featureKind}:{selectedCreature.perception.tracked
+								.featureId}
+							(age {(
+								simulation.timeSeconds - selectedCreature.perception.tracked.observedAt
+							).toFixed(2)}s)
+						{:else}
+							—
+						{/if}
+					</dd>
+				</div>
+				{#if selectedCreature.action === 'search'}
+					<div>
+						<dt>Search destination</dt>
+						<dd data-testid="inspector-search-destination">
+							({selectedCreature.searchTarget.x.toFixed(3)}, {selectedCreature.searchTarget.y.toFixed(
+								3
+							)})
+						</dd>
+					</div>
+				{/if}
 			</dl>
 
 			<h3 class="subhead">Candidates</h3>

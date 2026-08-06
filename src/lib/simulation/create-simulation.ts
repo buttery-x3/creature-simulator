@@ -11,8 +11,9 @@ import {
 } from '$lib/habitat';
 import { applyDecision } from './behaviour/actions';
 import { commitDecision } from './behaviour/decisions';
+import { emptyPerception } from './behaviour/perception';
 import { pointTarget } from './behaviour/resource-awareness';
-import { sampleWanderTarget } from './creature-movement';
+import { sampleSearchTarget, sampleWanderTarget } from './creature-movement';
 import type { Creature, SimulationConfig, SimulationState } from './types';
 
 export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
@@ -56,6 +57,11 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	sleepUntilEnergy: 0.9,
 
 	decisionHistoryLimit: 10,
+
+	// Local sensing: small enough that creatures must search on a 20×20 world.
+	sensingRadius: 3,
+	perceptionIntervalSeconds: 0.25,
+	trackedObservationDurationSeconds: 4,
 
 	initialHunger: 0.2,
 	initialThirst: 0.2,
@@ -138,13 +144,26 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'reconsiderIntervalSeconds',
 		'eatUntilHunger',
 		'drinkUntilThirst',
-		'sleepUntilEnergy'
+		'sleepUntilEnergy',
+		'sensingRadius',
+		'perceptionIntervalSeconds',
+		'trackedObservationDurationSeconds'
 	];
 	for (const key of rateFields) {
 		const value = config[key];
 		if (typeof value !== 'number' || !(value >= 0) || !Number.isFinite(value)) {
 			throw new SimulationCreationError(`${key} must be a finite number >= 0, received ${value}`);
 		}
+	}
+	if (!(config.sensingRadius > 0)) {
+		throw new SimulationCreationError(
+			`sensingRadius must be > 0, received ${config.sensingRadius}`
+		);
+	}
+	if (!(config.perceptionIntervalSeconds > 0)) {
+		throw new SimulationCreationError(
+			`perceptionIntervalSeconds must be > 0, received ${config.perceptionIntervalSeconds}`
+		);
 	}
 	if (!Number.isInteger(config.decisionHistoryLimit) || config.decisionHistoryLimit < 1) {
 		throw new SimulationCreationError(
@@ -207,6 +226,14 @@ function createCreatures(
 			habitat.bounds,
 			config.creatureRadius
 		);
+		const searchDecisionIndex = 0;
+		const searchTarget = sampleSearchTarget(
+			config.seed,
+			id,
+			searchDecisionIndex,
+			habitat.bounds,
+			config.creatureRadius
+		);
 
 		const draft: Creature = {
 			id,
@@ -215,6 +242,9 @@ function createCreatures(
 			movementSpeed,
 			wanderTarget,
 			wanderDecisionIndex,
+			searchTarget,
+			searchDecisionIndex,
+			perception: emptyPerception(),
 			hunger: config.initialHunger,
 			thirst: config.initialThirst,
 			energy: config.initialEnergy,

@@ -3,10 +3,12 @@
  * Not exported from the public simulation barrel.
  */
 
+import { emptyPerception } from './behaviour/perception';
 import type { Creature } from './types';
 
 export function testCreature(overrides: Partial<Creature> = {}): Creature {
 	const wanderTarget = overrides.wanderTarget ?? { x: 1, y: 0 };
+	const searchTarget = overrides.searchTarget ?? { x: -1, y: 0 };
 	return {
 		id: 'creature-0',
 		position: { x: 0, y: 0 },
@@ -14,6 +16,9 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		movementSpeed: 1,
 		wanderTarget,
 		wanderDecisionIndex: 0,
+		searchTarget,
+		searchDecisionIndex: 0,
+		perception: emptyPerception(),
 		hunger: 0.2,
 		thirst: 0.2,
 		energy: 0.85,

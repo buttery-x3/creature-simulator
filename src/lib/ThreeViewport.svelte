@@ -38,17 +38,25 @@
 		habitat: Habitat;
 		creatures: Creature[];
 		selectedCreatureId?: string | null;
+		/** Authoritative sensing radius from SimulationConfig (presentation overlay only). */
+		sensingRadius?: number;
 		onSelectCreature?: (creatureId: string | null) => void;
 	};
 
-	let { habitat, creatures, selectedCreatureId = null, onSelectCreature }: Props = $props();
+	let {
+		habitat,
+		creatures,
+		selectedCreatureId = null,
+		sensingRadius = 3,
+		onSelectCreature
+	}: Props = $props();
 
 	let container: HTMLDivElement | undefined = $state();
 
 	/** Set by onMount; used by $effect to sync presentation with props. */
 	let applyHabitat: ((data: Habitat) => void) | undefined = $state();
-	let applyCreatures: ((list: Creature[], selectedId: string | null) => void) | undefined =
-		$state();
+	let applyCreatures:
+		((list: Creature[], selectedId: string | null, radius: number) => void) | undefined = $state();
 	let publishSelection: ((id: string | null) => void) | undefined = $state();
 
 	onMount(() => {
@@ -75,12 +83,29 @@
 		const creatureResources: CreaturePresentationResources = createCreaturePresentationResources();
 		scene.add(creatureResources.root);
 
+		// Presentation-only sensing radius ring for the selected creature.
+		const sensingRingGeom = new THREE.RingGeometry(0.98, 1.02, 48);
+		const sensingRingMat = new THREE.MeshBasicMaterial({
+			color: 0x94a3b8,
+			transparent: true,
+			opacity: 0.55,
+			side: THREE.DoubleSide,
+			depthWrite: false
+		});
+		const sensingRing = new THREE.Mesh(sensingRingGeom, sensingRingMat);
+		sensingRing.name = 'sensing-radius-overlay';
+		sensingRing.userData.presentationOnly = true;
+		sensingRing.visible = false;
+		// Flat on XY ground plane (ring is in XY by default in Three; OK for our ground).
+		scene.add(sensingRing);
+
 		const raycaster = new THREE.Raycaster();
 		const pointer = new THREE.Vector2();
 
 		let currentHabitat: Habitat | undefined;
 		let habitatBuildCount = 0;
 		let currentSelectedId: string | null = null;
+		let currentSensingRadius = sensingRadius;
 
 		function publishVisibility(report: HabitatVisibilityReport): void {
 			const canvas = renderer.domElement;
@@ -98,6 +123,24 @@
 			canvas.dataset.habitatBuildCount = String(habitatBuildCount);
 			canvas.dataset.creatureStructureVersion = String(creatureResources.structureVersion);
 			canvas.dataset.selectedCreatureId = currentSelectedId ?? '';
+			canvas.dataset.sensingOverlayVisible = sensingRing.visible ? 'true' : 'false';
+			canvas.dataset.sensingRadius = String(currentSensingRadius);
+		}
+
+		function updateSensingOverlay(
+			list: Creature[],
+			selectedId: string | null,
+			radius: number
+		): void {
+			currentSensingRadius = radius;
+			const selected = selectedId ? list.find((c) => c.id === selectedId) : undefined;
+			if (!selected) {
+				sensingRing.visible = false;
+				return;
+			}
+			sensingRing.visible = true;
+			sensingRing.position.set(selected.position.x, selected.position.y, 0.02);
+			sensingRing.scale.set(radius, radius, 1);
 		}
 
 		function renderFrame() {
@@ -135,9 +178,10 @@
 			renderFrame();
 		};
 
-		applyCreatures = (list: Creature[], selectedId: string | null) => {
+		applyCreatures = (list: Creature[], selectedId: string | null, radius: number) => {
 			currentSelectedId = selectedId;
 			reconcileCreatures(creatureResources, list, selectedId);
+			updateSensingOverlay(list, selectedId, radius);
 			publishCreatureMeta(list.length);
 			renderFrame();
 		};
@@ -183,7 +227,7 @@
 		renderer.domElement.addEventListener('click', onCanvasClick);
 
 		applyHabitat(habitat);
-		applyCreatures(creatures, selectedCreatureId);
+		applyCreatures(creatures, selectedCreatureId, sensingRadius);
 
 		const observer = new ResizeObserver(renderFrame);
 		observer.observe(host);
@@ -198,6 +242,9 @@
 			clearCreaturePresentation(creatureResources);
 			scene.remove(habitatResources.root);
 			scene.remove(creatureResources.root);
+			scene.remove(sensingRing);
+			sensingRingGeom.dispose();
+			sensingRingMat.dispose();
 			renderer.dispose();
 			renderer.domElement.remove();
 		};
@@ -211,7 +258,8 @@
 	$effect(() => {
 		const list = creatures;
 		const selected = selectedCreatureId;
-		applyCreatures?.(list, selected ?? null);
+		const radius = sensingRadius;
+		applyCreatures?.(list, selected ?? null, radius);
 	});
 
 	$effect(() => {

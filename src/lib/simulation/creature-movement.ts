@@ -86,6 +86,21 @@ export function sampleWanderTarget(
 }
 
 /**
+ * Sample a search destination using a stream independent of wander.
+ * Same bounds/margin rules as wander; semantic ownership remains distinct.
+ */
+export function sampleSearchTarget(
+	simulationSeed: string,
+	creatureId: string,
+	decisionIndex: number,
+	bounds: WorldBounds,
+	margin: number
+): Vec2 {
+	const rng = createSeededRng(deriveSeed(simulationSeed, 'search', creatureId, decisionIndex));
+	return sampleInteriorPoint(bounds, margin, (min, max) => rng.nextRange(min, max));
+}
+
+/**
  * Pure movement helper: turn toward a wander target, move, clamp, retarget.
  * Behavioural goals/actions are owned by `behaviour/step-creature-behaviour.ts`;
  * this remains available for focused movement tests.

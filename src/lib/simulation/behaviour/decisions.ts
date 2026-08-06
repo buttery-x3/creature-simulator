@@ -2,6 +2,8 @@
  * Candidate goal evaluation, commitment, hysteresis and decision evidence.
  *
  * Deliberately small: no planner, behaviour tree or ML controller.
+ * Food/water targets come from local perception/track only; missing targets
+ * leave the need goal valid so the action layer can enter search.
  */
 
 import type { Habitat } from '$lib/habitat';
@@ -35,6 +37,7 @@ export type DecisionConfig = Pick<
 	| 'goalSwitchMargin'
 	| 'minGoalCommitmentSeconds'
 	| 'reconsiderIntervalSeconds'
+	| 'trackedObservationDurationSeconds'
 >;
 
 /**
@@ -44,12 +47,29 @@ export type DecisionConfig = Pick<
 export const WANDER_BASELINE_SCORE = 0.35;
 
 export function evaluateCandidates(
-	creature: Pick<Creature, 'position' | 'hunger' | 'thirst' | 'energy' | 'wanderTarget'>,
+	creature: Pick<
+		Creature,
+		'position' | 'hunger' | 'thirst' | 'energy' | 'wanderTarget' | 'perception'
+	>,
 	habitat: Habitat,
-	config: DecisionConfig
+	config: DecisionConfig,
+	timeSeconds: number
 ): CandidateEvaluation[] {
-	const food = foodTarget(creature.position, habitat);
-	const water = waterTarget(creature.position, habitat);
+	const trackDuration = config.trackedObservationDurationSeconds;
+	const food = foodTarget(
+		creature.position,
+		habitat,
+		creature.perception,
+		timeSeconds,
+		trackDuration
+	);
+	const water = waterTarget(
+		creature.position,
+		habitat,
+		creature.perception,
+		timeSeconds,
+		trackDuration
+	);
 	const home = homeTarget(habitat);
 	const wander = pointTarget(creature.wanderTarget);
 
@@ -57,8 +77,8 @@ export function evaluateCandidates(
 	const thirstScore = creature.thirst;
 	const restScore = 1 - creature.energy;
 
-	const foodValid = food !== null && hungerScore >= config.seekFoodThreshold;
-	const waterValid = water !== null && thirstScore >= config.seekWaterThreshold;
+	const foodValid = hungerScore >= config.seekFoodThreshold;
+	const waterValid = thirstScore >= config.seekWaterThreshold;
 	const restValid = restScore >= config.restThreshold;
 
 	const candidates: CandidateEvaluation[] = [
@@ -66,25 +86,25 @@ export function evaluateCandidates(
 			goal: 'seek_food',
 			valid: foodValid,
 			score: hungerScore,
-			reason: `hunger pressure ${hungerScore.toFixed(3)}`,
+			reason: food
+				? `hunger pressure ${hungerScore.toFixed(3)}; food target available`
+				: `hunger pressure ${hungerScore.toFixed(3)}; no relevant resource currently perceived — will search`,
 			target: food,
-			rejectionReason: !food
-				? 'no food sources in habitat'
-				: hungerScore < config.seekFoodThreshold
-					? `hunger ${hungerScore.toFixed(3)} below threshold ${config.seekFoodThreshold}`
-					: undefined
+			rejectionReason: !foodValid
+				? `hunger ${hungerScore.toFixed(3)} below threshold ${config.seekFoodThreshold}`
+				: undefined
 		},
 		{
 			goal: 'seek_water',
 			valid: waterValid,
 			score: thirstScore,
-			reason: `thirst pressure ${thirstScore.toFixed(3)}`,
+			reason: water
+				? `thirst pressure ${thirstScore.toFixed(3)}; water target available`
+				: `thirst pressure ${thirstScore.toFixed(3)}; no relevant resource currently perceived — will search`,
 			target: water,
-			rejectionReason: !water
-				? 'no water regions in habitat'
-				: thirstScore < config.seekWaterThreshold
-					? `thirst ${thirstScore.toFixed(3)} below threshold ${config.seekWaterThreshold}`
-					: undefined
+			rejectionReason: !waterValid
+				? `thirst ${thirstScore.toFixed(3)} below threshold ${config.seekWaterThreshold}`
+				: undefined
 		},
 		{
 			goal: 'rest',
@@ -141,6 +161,7 @@ export type CommitDecisionInput = {
 		| 'energy'
 		| 'position'
 		| 'wanderTarget'
+		| 'perception'
 	>;
 	habitat: Habitat;
 	timeSeconds: number;
@@ -154,7 +175,7 @@ export type CommitDecisionInput = {
  */
 export function commitDecision(input: CommitDecisionInput): DecisionRecord {
 	const { creature, habitat, timeSeconds, trigger, config } = input;
-	const candidates = evaluateCandidates(creature, habitat, config);
+	const candidates = evaluateCandidates(creature, habitat, config, timeSeconds);
 	const best = selectBestCandidate(candidates);
 	const currentEval = candidates.find((c) => c.goal === creature.goal);
 
@@ -171,9 +192,9 @@ export function commitDecision(input: CommitDecisionInput): DecisionRecord {
 		const sameGoal = best.goal === creature.goal;
 
 		if (sameGoal) {
-			// Refresh evaluation/target for the continuing goal.
+			// Refresh evaluation/target for the continuing goal (may gain a perceived resource).
 			selected = currentEval;
-			selectionReason = `continue ${creature.goal} (score ${currentEval.score.toFixed(3)})`;
+			selectionReason = `continue ${creature.goal} (score ${currentEval.score.toFixed(3)}; ${currentEval.reason})`;
 		} else if (!commitmentMet) {
 			selected = currentEval;
 			selectionReason = `hold ${creature.goal}: commitment ${heldFor.toFixed(3)}s < ${config.minGoalCommitmentSeconds}s`;

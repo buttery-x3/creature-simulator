@@ -15,7 +15,35 @@ import type { Habitat, HabitatFeatureKind, HabitatGenerationConfig, Vec2 } from 
 export type CreatureGoal = 'seek_food' | 'seek_water' | 'rest' | 'wander';
 
 /** Current step used to pursue the goal. Distinct from goal. */
-export type CreatureAction = 'move' | 'eat' | 'drink' | 'sleep' | 'wander';
+export type CreatureAction = 'move' | 'eat' | 'drink' | 'sleep' | 'wander' | 'search';
+
+/**
+ * A single food/water observation (current snapshot or brief tracked pursuit).
+ * Not long-term memory — only the latest sense result and optional current track.
+ */
+export type ResourceObservation = {
+	featureId: string;
+	featureKind: Extract<HabitatFeatureKind, 'food' | 'water'>;
+	/** Last observed feature centre (simulation ground plane). */
+	position: Vec2;
+	/** Simulation time when this observation was taken/refreshed. */
+	observedAt: number;
+};
+
+/**
+ * Authoritative per-creature perception. Plain serialisable; no Three.js/UI state.
+ * Home is innate knowledge and is never stored here.
+ */
+export type CreaturePerception = {
+	/** Simulation time of the latest perception update. */
+	lastUpdatedAt: number;
+	perceivedFoodIds: string[];
+	perceivedWaterIds: string[];
+	/** Structured snapshot of currently perceived food/water only. */
+	observations: ResourceObservation[];
+	/** Single briefly retained pursuit observation, if any. */
+	tracked: ResourceObservation | null;
+};
 
 /**
  * Habitat feature or free-space point associated with the current action.
@@ -75,6 +103,16 @@ export type Creature = {
 	wanderTarget: Vec2;
 	/** Increments each time a new wander target is chosen. */
 	wanderDecisionIndex: number;
+	/**
+	 * Active search destination while action is search (mirrors point target).
+	 * Separate from wanderTarget so search diagnostics stay distinct.
+	 */
+	searchTarget: Vec2;
+	/** Increments each time a new search point is chosen. */
+	searchDecisionIndex: number;
+
+	/** Latest local sensing snapshot and optional brief resource track. */
+	perception: CreaturePerception;
 
 	/** Hunger pressure in [0, 1]; larger = more hungry. */
 	hunger: number;
@@ -174,6 +212,18 @@ export type SimulationConfig = {
 
 	/** Max length of recentTransitions (oldest dropped). */
 	decisionHistoryLimit: number;
+
+	/**
+	 * Circular sensing radius on the ground plane (simulation units).
+	 * Food/water footprints intersecting this circle are perceived.
+	 */
+	sensingRadius: number;
+	/** Minimum simulated seconds between perception updates. */
+	perceptionIntervalSeconds: number;
+	/**
+	 * How long a pursued food/water observation remains usable after last seeing it.
+	 */
+	trackedObservationDurationSeconds: number;
 
 	/** Initial hunger pressure at creation (fixed for determinism). */
 	initialHunger: number;

@@ -130,15 +130,19 @@ Top-level modules:
 - `index.ts` — explicit public exports only.
 
 Internal behaviour subdomain (`simulation/behaviour/`), introduced for the
-needs/goal/action state machine and temporary global resource awareness:
+needs/goal/action state machine and local resource perception:
 
 - `needs.ts` — need progression and recovery completion;
 - `decisions.ts` — candidate evaluation, hysteresis/commitment, decision records;
-- `actions.ts` — goal/action transitions and bounded history;
-- `resource-awareness.ts` — temporary global habitat resource target lookup;
+- `actions.ts` — goal/action transitions (including `search`) and bounded history;
+- `habitat-feature-query.ts` — named nearby-feature query (circle ∩ footprint);
+- `perception.ts` — sensing interval, perceived snapshot, brief tracked observation;
+- `resource-awareness.ts` — target resolve/arrival; perception-scoped food/water targets; innate home;
 - `step-creature-behaviour.ts` — per-creature fixed-step behaviour orchestration;
 - `index.ts` — exports for simulation siblings (not a separate app subsystem).
 
+This directory is at capacity for implementation files (hard limit 8 excluding
+tests). Further growth should restated ownership rather than add thin helpers.
 Do not move Three.js objects or Svelte components into this subsystem. Creatures must not live on `Habitat`.
 
 ### Presentation

@@ -7,25 +7,38 @@ import type {
 	Creature,
 	CreatureAction,
 	CreatureGoal,
+	CreatureTarget,
 	DecisionRecord,
 	SimulationConfig
 } from '../types';
 
-export function actionForGoal(goal: CreatureGoal, arrived: boolean): CreatureAction {
+/**
+ * Choose the action for a goal.
+ * Need goals without a usable resource/feature target enter `search` (not wander).
+ * Rest without home is not expected; if target missing, search is not used for rest.
+ */
+export function actionForGoal(
+	goal: CreatureGoal,
+	arrived: boolean,
+	hasUsableFeatureTarget: boolean
+): CreatureAction {
 	if (goal === 'wander') {
 		return 'wander';
 	}
+	if (goal === 'seek_food' || goal === 'seek_water') {
+		if (!hasUsableFeatureTarget) {
+			return 'search';
+		}
+		if (!arrived) {
+			return 'move';
+		}
+		return goal === 'seek_food' ? 'eat' : 'drink';
+	}
+	// rest
 	if (!arrived) {
 		return 'move';
 	}
-	switch (goal) {
-		case 'seek_food':
-			return 'eat';
-		case 'seek_water':
-			return 'drink';
-		case 'rest':
-			return 'sleep';
-	}
+	return 'sleep';
 }
 
 export function appendTransition(
@@ -52,6 +65,20 @@ export type ApplyDecisionResult = {
 	recentTransitions: BehaviourTransition[];
 };
 
+function decisionHasFeatureTarget(target: CreatureTarget | null, goal: CreatureGoal): boolean {
+	if (goal === 'wander') {
+		return false;
+	}
+	if (goal === 'rest') {
+		return target?.kind === 'feature' && target.featureKind === 'home';
+	}
+	return (
+		target?.kind === 'feature' &&
+		((goal === 'seek_food' && target.featureKind === 'food') ||
+			(goal === 'seek_water' && target.featureKind === 'water'))
+	);
+}
+
 /**
  * Apply a decision record onto creature behaviour fields.
  * `arrived` controls whether a need goal starts as move or consumptive action.
@@ -66,7 +93,8 @@ export function applyDecision(
 	config: Pick<SimulationConfig, 'reconsiderIntervalSeconds' | 'decisionHistoryLimit'>
 ): ApplyDecisionResult {
 	const goal = decision.selectedGoal;
-	const action = actionForGoal(goal, arrived);
+	const hasFeature = decisionHasFeatureTarget(decision.selectedTarget, goal);
+	const action = actionForGoal(goal, arrived && hasFeature, hasFeature);
 	const target = decision.selectedTarget;
 	const goalChanged = goal !== creature.goal;
 	const actionChanged = action !== creature.action;
@@ -111,8 +139,9 @@ export function transitionToConsumptive(
 	if (creature.action !== 'move') {
 		return null;
 	}
-	const nextAction = actionForGoal(creature.goal, true);
-	if (nextAction === 'move' || nextAction === 'wander') {
+	const hasFeature = decisionHasFeatureTarget(creature.target, creature.goal);
+	const nextAction = actionForGoal(creature.goal, true, hasFeature);
+	if (nextAction === 'move' || nextAction === 'wander' || nextAction === 'search') {
 		return null;
 	}
 

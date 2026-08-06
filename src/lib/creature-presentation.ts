@@ -17,6 +17,7 @@ const NOSE_LENGTH = 0.16;
 const ACTION_BODY_COLOR: Record<CreatureAction, number> = {
 	wander: 0xe9c46a,
 	move: 0xe9c46a,
+	search: 0xe76f51,
 	eat: 0x2a9d8f,
 	drink: 0x4ea8de,
 	sleep: 0x7b6b9c
@@ -25,6 +26,7 @@ const ACTION_BODY_COLOR: Record<CreatureAction, number> = {
 const ACTION_NOSE_COLOR: Record<CreatureAction, number> = {
 	wander: 0xf4a261,
 	move: 0xf4a261,
+	search: 0xf4a261,
 	eat: 0x52b788,
 	drink: 0x90e0ef,
 	sleep: 0xa78bfa

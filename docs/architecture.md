@@ -16,7 +16,7 @@ selection is presentation state only.
 | Determinism           | `src/lib/determinism/`               | Seeded PRNG and pure seed derivation for independent streams                |
 | Habitat model         | `src/lib/habitat/`                   | Types, seeded generation, geometry validation, diagnostics                  |
 | Simulation            | `src/lib/simulation/`                | SimulationState, creation, step, needs/decisions/actions                    |
-| Behaviour subdomain   | `src/lib/simulation/behaviour/`      | Needs, decisions, actions, temporary global resource awareness              |
+| Behaviour subdomain   | `src/lib/simulation/behaviour/`      | Needs, decisions, actions, local perception, search, resource targets       |
 | Habitat workbench     | `src/lib/HabitatWorkbench.svelte`    | Seed/controls, diagnostics, creature inspector                              |
 | WebGL presentation    | `src/lib/ThreeViewport.svelte`       | Scene lifecycle, pick ray; never owns authoritative creature state          |
 | Habitat presentation  | `src/lib/habitat-presentation.ts`    | Static habitat mesh build/dispose                                           |
@@ -115,6 +115,8 @@ silently reduced.
 | Need progression              | `src/lib/simulation/behaviour/needs.ts`                   |
 | Goal evaluation / commitment  | `src/lib/simulation/behaviour/decisions.ts`               |
 | Action transitions            | `src/lib/simulation/behaviour/actions.ts`                 |
+| Habitat feature spatial query | `src/lib/simulation/behaviour/habitat-feature-query.ts`   |
+| Local perception + tracking   | `src/lib/simulation/behaviour/perception.ts`              |
 | Resource target lookup        | `src/lib/simulation/behaviour/resource-awareness.ts`      |
 | Per-creature behaviour step   | `src/lib/simulation/behaviour/step-creature-behaviour.ts` |
 | Diagnostic formatting         | `src/lib/simulation/diagnostics.ts`                       |
@@ -133,7 +135,7 @@ These concepts are distinct on each creature:
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Need**   | Internal condition: `hunger` and `thirst` are **pressure** (0 = sated/quenched, 1 = maximum); `energy` is **satisfaction** (0 = exhausted, 1 = full). Values stay finite and clamped to `[0, 1]`. |
 | **Goal**   | Outcome pursued: `seek_food`, `seek_water`, `rest`, or `wander`.                                                                                                                                  |
-| **Action** | Current step: `move`, `eat`, `drink`, `sleep`, or `wander`.                                                                                                                                       |
+| **Action** | Current step: `move`, `eat`, `drink`, `sleep`, `wander`, or `search`.                                                                                                                             |
 | **Target** | Habitat feature id/kind or a free-space point for wandering.                                                                                                                                      |
 
 Need rates, thresholds, reconsideration interval, goal-switch margin and recovery
@@ -144,16 +146,47 @@ Decision evidence is structured simulation data (`DecisionRecord`,
 chosen. The inspector formats those records; it must not invent reasons from
 need values alone.
 
-### Temporary global resource awareness
+### Local sensing, search and brief tracking
 
-Creatures currently use **authoritative global knowledge** of habitat food,
-water and home footprints when selecting targets. Lookup is isolated in
-`behaviour/resource-awareness.ts` so a later perception/memory issue can replace
-global awareness without rewriting the decision model. There is no sensing
-radius, line of sight, discovery or memory yet. Food and water are not depleted.
+Creatures use **local perception**, not global food/water knowledge.
+
+| Knowledge            | Rule                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| **Home**             | Innate. Always targetable for rest regardless of sensing distance. Never stored in perception.      |
+| **Food / water**     | Selectable only when currently perceived or retained as the single short-lived tracked observation. |
+| **Long-term memory** | Not present. No permanent discovered-location map.                                                  |
+
+Sensing:
+
+- Configurable circular **sensing radius** on the ground plane (`sensingRadius`).
+- Updates at `perceptionIntervalSeconds` via `behaviour/perception.ts`.
+- Nearby features come only through the named query boundary
+  `behaviour/habitat-feature-query.ts` (linear scan; circle ∩ authoritative
+  footprint). Facing does not restrict sensing. No LOS/occlusion.
+- Perception state on each creature is plain serialisable
+  (`CreaturePerception`: last update time, perceived food/water ids,
+  observation snapshot, optional `tracked`).
+
+Search:
+
+- When `seek_food` / `seek_water` is valid but no usable resource target exists,
+  the action is **`search`** (not `wander`), with a deterministic point target
+  from the `search` seed stream (`sampleSearchTarget`).
+- Perceiving a relevant resource transitions search → `move` toward that feature
+  and starts brief tracking.
+
+Brief tracking:
+
+- While pursuing a resource, a single `tracked` observation may remain usable
+  for `trackedObservationDurationSeconds` after the feature leaves the radius.
+- Expiry without reacquisition keeps the need-driven goal and returns to `search`.
 
 Creatures interact with **simulation footprints** (`featureRect`), not
-presentation-only bush meshes.
+presentation-only bush meshes. Food and water are not depleted.
+
+The selected-creature **sensing-radius overlay** in the viewport is
+presentation-only (reads config radius + selection id); Three.js never computes
+authoritative perception.
 
 ### Wandering and commitment
 

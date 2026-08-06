@@ -12,9 +12,11 @@ export type {
 	Creature,
 	CreatureAction,
 	CreatureGoal,
+	CreaturePerception,
 	CreatureTarget,
 	DecisionRecord,
 	DecisionTrigger,
+	ResourceObservation,
 	SimulationConfig,
 	SimulationState,
 	SpeedRange
@@ -36,6 +38,7 @@ export {
 	interiorPositionBounds,
 	normalizeAngle,
 	sampleInteriorPoint,
+	sampleSearchTarget,
 	sampleWanderTarget,
 	shortestAngleDelta,
 	stepCreature
@@ -47,13 +50,16 @@ export {
 	advanceNeeds,
 	clampNeed,
 	commitDecision,
+	emptyPerception,
 	evaluateCandidates,
 	GOAL_TIE_BREAK_ORDER,
 	isAtFeature,
 	isAtTarget,
 	isTargetValid,
+	queryFeaturesNear,
 	recoveryComplete,
 	selectBestCandidate,
 	selectNearestFeature,
+	senseAt,
 	WANDER_BASELINE_SCORE
 } from './behaviour';

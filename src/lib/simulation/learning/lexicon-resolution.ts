@@ -100,10 +100,7 @@ function compareLexiconOrder(
 	return 0;
 }
 
-function scoreAssignment(
-	lexicon: CreatureLexicon,
-	byId: Map<SymbolId, SymbolAssociation>
-): number {
+function scoreAssignment(lexicon: CreatureLexicon, byId: Map<SymbolId, SymbolAssociation>): number {
 	let score = 0;
 	for (const meaning of LEXICON_MEANINGS) {
 		const symbolId = lexicon[meaning];
@@ -116,9 +113,7 @@ function scoreAssignment(
 }
 
 function isValidExclusive(lexicon: CreatureLexicon): boolean {
-	const assigned = LEXICON_MEANINGS.map((m) => lexicon[m]).filter(
-		(s): s is SymbolId => s !== null
-	);
+	const assigned = LEXICON_MEANINGS.map((m) => lexicon[m]).filter((s): s is SymbolId => s !== null);
 	return new Set(assigned).size === assigned.length;
 }
 
@@ -184,9 +179,7 @@ export function resolveCreatureLexicon(
 
 	const best = candidates[0]!;
 	const runnerUp = candidates.find(
-		(c) =>
-			c.lexicon.food !== best.lexicon.food ||
-			c.lexicon.water !== best.lexicon.water
+		(c) => c.lexicon.food !== best.lexicon.food || c.lexicon.water !== best.lexicon.water
 	);
 
 	const parts: string[] = [];

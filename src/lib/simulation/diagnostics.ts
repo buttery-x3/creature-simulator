@@ -47,9 +47,7 @@ function formatCreature(creature: Creature): string {
 
 function formatEmissionLine(emission: SignalEmission): string {
 	const evidence = emission.selectionEvidence;
-	const candidateSummary = evidence.candidates
-		.map((c) => `${c.symbolId}:${c.note}`)
-		.join(' ');
+	const candidateSummary = evidence.candidates.map((c) => `${c.symbolId}:${c.note}`).join(' ');
 	return (
 		`${emission.id} symbol=${emission.symbolId} sender=${emission.senderId} ` +
 		`origin=(${emission.origin.x.toFixed(3)}, ${emission.origin.y.toFixed(3)}) ` +

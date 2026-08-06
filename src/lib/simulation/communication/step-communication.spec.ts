@@ -281,7 +281,7 @@ describe('stepCommunication', () => {
 		const senderAfter = {
 			...state.creatures[0]!,
 			lastEmissionAt: -1,
-			lexicon: { food: 'glyph-0', water: 'glyph-3' }
+			lexicon: { food: 'glyph-0' as const, water: 'glyph-3' as const }
 		};
 		state = {
 			...state,

@@ -22,10 +22,7 @@ export type ResourceDiscoveryDetail = 'food' | 'water';
 
 /** How the emitter chose its symbol (developer diagnostics only). */
 export type SymbolSelectionMode =
-	| 'learned_lexicon'
-	| 'exploratory'
-	| 'fallback_preferred'
-	| 'fallback_inventory';
+	'learned_lexicon' | 'exploratory' | 'fallback_preferred' | 'fallback_inventory';
 
 /**
  * Per-candidate notes used when selecting an emission symbol.

@@ -112,10 +112,7 @@ function evidenceCountOf(
 	return context === 'food' ? assoc.foodEvidenceCount : assoc.waterEvidenceCount;
 }
 
-function lexiconAssignment(
-	creature: Creature,
-	context: ResourceDiscoveryDetail
-): SymbolId | null {
+function lexiconAssignment(creature: Creature, context: ResourceDiscoveryDetail): SymbolId | null {
 	return creature.lexicon[context];
 }
 

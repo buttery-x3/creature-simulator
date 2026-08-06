@@ -29,7 +29,9 @@
 </script>
 
 <div data-testid="inspector-lexicon-panel">
-	<p class="label">Current lexicon <span class="muted">(exclusive; not a global dictionary)</span></p>
+	<p class="label">
+		Current lexicon <span class="muted">(exclusive; not a global dictionary)</span>
+	</p>
 	<ul class="signal-list" data-testid="inspector-lexicon">
 		<li data-testid="inspector-lexicon-food">food → {assignmentSupport('food')}</li>
 		<li data-testid="inspector-lexicon-water">water → {assignmentSupport('water')}</li>
@@ -52,8 +54,9 @@
 	<ul class="signal-list" data-testid="inspector-symbol-associations">
 		{#each creature.symbolAssociations as assoc (assoc.symbolId)}
 			<li data-testid={`inspector-assoc-${assoc.symbolId}`}>
-				{assoc.symbolId}: food={assoc.foodStrength.toFixed(3)} (n={assoc.foodEvidenceCount}),
-				water={assoc.waterStrength.toFixed(3)} (n={assoc.waterEvidenceCount}), bias={(
+				{assoc.symbolId}: food={assoc.foodStrength.toFixed(3)} (n={assoc.foodEvidenceCount}), water={assoc.waterStrength.toFixed(
+					3
+				)} (n={assoc.waterEvidenceCount}), bias={(
 					assoc.foodStrength * creature.hunger +
 					assoc.waterStrength * creature.thirst
 				).toFixed(3)}

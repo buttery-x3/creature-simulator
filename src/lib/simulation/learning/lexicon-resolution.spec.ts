@@ -41,11 +41,7 @@ function evidence(
 
 describe('resolveCreatureLexicon', () => {
 	it('leaves both meanings unassigned with zero evidence', () => {
-		const result = resolveCreatureLexicon(
-			evidence({}),
-			DEFAULT_SYMBOL_INVENTORY,
-			config
-		);
+		const result = resolveCreatureLexicon(evidence({}), DEFAULT_SYMBOL_INVENTORY, config);
 		expect(result.lexicon).toEqual(emptyLexicon());
 		expect(result.score).toBe(0);
 		expect(result.reason).toBe('insufficient_evidence');

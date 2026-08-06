@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import {
+	HABITAT_CAMERA_ELEVATION_DEGREES,
 	assessHabitatVisibility,
 	frameHabitatPerspectiveCamera,
 	habitatGroundCorners,
@@ -22,9 +23,17 @@ describe('habitat-camera', () => {
 
 		expect(report.fullyVisible).toBe(true);
 		expect(report.corners.every((corner) => corner.visible)).toBe(true);
-		// Elevated angle: camera must not sit on the top-down axis.
-		expect(Math.abs(camera.position.z)).toBeGreaterThan(0);
-		expect(Math.hypot(camera.position.x, camera.position.y)).toBeGreaterThan(0);
+
+		// Near top-down: mostly elevated Z, slight -Y tilt, no side (X) offset.
+		expect(camera.position.x).toBeCloseTo(0, 5);
+		expect(camera.position.y).toBeLessThan(0);
+		expect(camera.position.z).toBeGreaterThan(0);
+		expect(Math.abs(camera.position.z)).toBeGreaterThan(Math.abs(camera.position.y));
+
+		const elevationDeg =
+			(Math.atan2(camera.position.z, Math.hypot(camera.position.x, camera.position.y)) * 180) /
+			Math.PI;
+		expect(elevationDeg).toBeCloseTo(HABITAT_CAMERA_ELEVATION_DEGREES, 0);
 	});
 
 	it('keeps the habitat fully visible across common desktop aspects', () => {

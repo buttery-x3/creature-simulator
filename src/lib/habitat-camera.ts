@@ -5,8 +5,9 @@ import type { WorldBounds } from '$lib/habitat';
  * Presentation camera framing for the bounded habitat.
  *
  * Simulation ground remains XY; presentation height is +Z (future creature
- * capsules stand along Z). The camera sits on an elevated orbit so volume is
- * readable while the full habitat stays inside the viewport.
+ * capsules stand along Z). The default view is nearly top-down (~80° elevation
+ * from the ground plane) with a slight single-axis tilt and no side yaw, so
+ * upright volumes read as 3D while the layout stays map-like.
  */
 
 export type HabitatCameraOptions = {
@@ -14,7 +15,7 @@ export type HabitatCameraOptions = {
 	fovDegrees?: number;
 	/**
 	 * Unit-ish offset from the look-at target toward the camera before
-	 * normalisation. Z is elevation (presentation up).
+	 * normalisation. Z is elevation above the ground plane.
 	 */
 	offset?: THREE.Vector3;
 	/** NDC inset required on each side (0–0.45). */
@@ -24,6 +25,9 @@ export type HabitatCameraOptions = {
 	/** Multiplier applied after the minimum fit distance. */
 	fitPadding?: number;
 };
+
+/** Elevation from the ground plane in degrees (90 = pure top-down). */
+export const HABITAT_CAMERA_ELEVATION_DEGREES = 80;
 
 export type ProjectedCorner = {
 	/** Ground-plane corner label. */
@@ -39,8 +43,16 @@ export type HabitatVisibilityReport = {
 	corners: ProjectedCorner[];
 };
 
-const DEFAULT_OFFSET = new THREE.Vector3(0.62, -0.95, 0.78);
-const DEFAULT_FOV = 42;
+/**
+ * Nearly top-down: 80° above the ground, tilted only along -Y (no X/side offset).
+ * horizontal = cos(80°) ≈ 0.174, vertical = sin(80°) ≈ 0.985
+ */
+function defaultNearTopDownOffset(): THREE.Vector3 {
+	const elevation = (HABITAT_CAMERA_ELEVATION_DEGREES * Math.PI) / 180;
+	return new THREE.Vector3(0, -Math.cos(elevation), Math.sin(elevation));
+}
+
+const DEFAULT_FOV = 40;
 const DEFAULT_NDC_MARGIN = 0.06;
 const DEFAULT_PRESENTATION_HEIGHT = 2.4;
 const DEFAULT_FIT_PADDING = 1.04;
@@ -114,7 +126,7 @@ export function assessHabitatVisibility(
 }
 
 /**
- * Place a perspective camera on a fixed elevated angle and pull it back far
+ * Place a perspective camera on a near-top-down tilt and pull it back far
  * enough that every habitat corner (ground + presentation height) fits in the
  * viewport with the configured NDC margin.
  */
@@ -135,11 +147,12 @@ export function frameHabitatPerspectiveCamera(
 	const ndcMargin = options.ndcMargin ?? DEFAULT_NDC_MARGIN;
 	const presentationHeight = options.presentationHeight ?? DEFAULT_PRESENTATION_HEIGHT;
 	const fitPadding = options.fitPadding ?? DEFAULT_FIT_PADDING;
-	const offset = (options.offset ?? DEFAULT_OFFSET).clone().normalize();
+	const offset = (options.offset ?? defaultNearTopDownOffset()).clone().normalize();
 
 	const target = new THREE.Vector3(0, 0, 0);
-	// Presentation height is +Z, so keep world-up as +Z for upright capsules.
-	const up = new THREE.Vector3(0, 0, 1);
+	// Screen-up follows ground +Y so a near-top-down look stays stable
+	// (camera look direction is nearly -Z; world +Z cannot be used as up).
+	const up = new THREE.Vector3(0, 1, 0);
 
 	camera.fov = fovDegrees;
 	camera.aspect = aspect;

@@ -37,7 +37,7 @@ Keep browser tests focused and non-pixel-based where practical:
 - confirm the Three.js rendering surface (`canvas` with `data-testid="three-canvas"`) is present and sized
 - confirm habitat framing via canvas data attributes rather than screenshot comparison:
   - `data-habitat-fully-visible="true"` when every fit corner projects into the viewport
-  - `data-habitat-camera-mode="perspective-elevated"` for the angled presentation camera
+  - `data-habitat-camera-mode="perspective-near-top-down"` for the near-top-down presentation camera
   - `data-habitat-corners-visible` / `data-habitat-corner-count` for corner coverage
 
 Prefer `data-testid` attributes for stable selectors on rendering surfaces.

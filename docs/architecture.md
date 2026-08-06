@@ -27,10 +27,11 @@ rules are not present yet.
 - Three.js maps simulation `(x, y)` onto its **XY plane**. Vertical extent
   (Three.js `z`) is presentation-only (for example bush height, future creature
   capsules) and must not affect the habitat model.
-- The presentation camera is a **perspective** view on an elevated offset, with
-  world-up **+Z**, so upright volumes read as 3D. Framing (`habitat-camera.ts`)
-  pulls the camera back until every habitat corner (ground + presentation
-  height) stays inside the viewport with a small NDC margin.
+- The presentation camera is a **near-top-down perspective** (~80° elevation from
+  the ground, slight single-axis tilt, no side yaw) so upright volumes read as
+  3D while the layout stays map-like. Framing (`habitat-camera.ts`) pulls the
+  camera back until every habitat corner (ground + presentation height) stays
+  inside the viewport with a small NDC margin.
 
 ## Dependency direction (current)
 

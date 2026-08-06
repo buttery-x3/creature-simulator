@@ -12,9 +12,9 @@
 	 * Coordinate convention:
 	 * - Simulation ground plane uses (x, y).
 	 * - Three.js maps those onto the XY plane (z is presentation height only).
-	 * - Perspective camera is elevated and offset so upright presentation
-	 *   (bushes now; creature capsules later) reads as 3D while the full
-	 *   habitat remains framed in the viewport.
+	 * - Perspective camera is nearly top-down (~80° elevation) with a slight
+	 *   single-axis tilt so upright presentation (bushes now; creature capsules
+	 *   later) reads as 3D while the layout stays map-like and fully framed.
 	 */
 
 	type Props = {
@@ -37,8 +37,8 @@
 		const scene = new THREE.Scene();
 		scene.background = new THREE.Color(0x0f172a);
 
-		const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 500);
-		camera.up.set(0, 0, 1);
+		const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 500);
+		camera.up.set(0, 1, 0);
 
 		const renderer = new THREE.WebGLRenderer({ antialias: true });
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -178,7 +178,7 @@
 		function publishVisibility(report: HabitatVisibilityReport): void {
 			const canvas = renderer.domElement;
 			canvas.dataset.habitatFullyVisible = report.fullyVisible ? 'true' : 'false';
-			canvas.dataset.habitatCameraMode = 'perspective-elevated';
+			canvas.dataset.habitatCameraMode = 'perspective-near-top-down';
 			// Compact corner summary for Playwright assertions without scraping WebGL pixels.
 			canvas.dataset.habitatCornersVisible = String(
 				report.corners.filter((corner) => corner.visible).length

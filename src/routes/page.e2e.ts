@@ -2,7 +2,7 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 
 async function expectHabitatFullyVisible(canvas: Locator): Promise<void> {
 	await expect(canvas).toHaveAttribute('data-habitat-fully-visible', 'true');
-	await expect(canvas).toHaveAttribute('data-habitat-camera-mode', 'perspective-elevated');
+	await expect(canvas).toHaveAttribute('data-habitat-camera-mode', 'perspective-near-top-down');
 
 	const cornerCount = Number(await canvas.getAttribute('data-habitat-corner-count'));
 	const cornersVisible = Number(await canvas.getAttribute('data-habitat-corners-visible'));
@@ -38,7 +38,7 @@ test('loads the habitat surface and workbench controls', async ({ page }) => {
 	await expect(page.getByTestId('habitat-diagnostics')).toContainText('seed: demo');
 });
 
-test('elevated perspective view keeps the entire habitat visible', async ({ page }) => {
+test('near-top-down perspective view keeps the entire habitat visible', async ({ page }) => {
 	await page.goto('/');
 
 	const canvas = await waitForHabitatCanvas(page);

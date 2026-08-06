@@ -1,9 +1,26 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as THREE from 'three';
+	import type { Habitat, HabitatFeature } from '$lib/habitat';
 	import { orthographicFrustum } from './orthographic-frustum';
 
+	/**
+	 * Coordinate convention:
+	 * - Simulation ground plane uses (x, y).
+	 * - Three.js maps those onto the XY plane (z is presentation height only).
+	 * - The orthographic camera looks down -Z so the full habitat is visible.
+	 */
+
+	type Props = {
+		habitat: Habitat;
+	};
+
+	let { habitat }: Props = $props();
+
 	let container: HTMLDivElement | undefined = $state();
+
+	/** Set by onMount; used by $effect to rebuild presentation when habitat changes. */
+	let applyHabitat: ((data: Habitat) => void) | undefined = $state();
 
 	onMount(() => {
 		const host = container;
@@ -12,32 +29,154 @@
 		}
 
 		const scene = new THREE.Scene();
-		scene.background = new THREE.Color(0x111827);
+		scene.background = new THREE.Color(0x0f172a);
 
-		const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-		camera.position.z = 1;
+		const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+		camera.position.set(0, 0, 20);
+		camera.up.set(0, 1, 0);
+		camera.lookAt(0, 0, 0);
 
 		const renderer = new THREE.WebGLRenderer({ antialias: true });
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		renderer.domElement.dataset.testid = 'three-canvas';
 		host.appendChild(renderer.domElement);
 
-		// Static bounded 2D area used only to confirm Three.js rendering works.
-		const planeGeometry = new THREE.PlaneGeometry(1.2, 0.8);
-		const planeMaterial = new THREE.MeshBasicMaterial({
-			color: 0x1b4332,
-			side: THREE.DoubleSide
-		});
-		const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-		scene.add(plane);
+		const habitatRoot = new THREE.Group();
+		habitatRoot.name = 'habitat-root';
+		scene.add(habitatRoot);
 
-		const edgeGeometry = new THREE.EdgesGeometry(planeGeometry);
-		const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x95d5b2 });
-		const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
-		scene.add(edges);
+		const geometries: THREE.BufferGeometry[] = [];
+		const materials: THREE.Material[] = [];
+		let currentHabitat: Habitat | undefined;
+
+		function trackGeometry<T extends THREE.BufferGeometry>(geometry: T): T {
+			geometries.push(geometry);
+			return geometry;
+		}
+
+		function trackMaterial<T extends THREE.Material>(material: T): T {
+			materials.push(material);
+			return material;
+		}
+
+		function clearHabitatPresentation(): void {
+			while (habitatRoot.children.length > 0) {
+				habitatRoot.remove(habitatRoot.children[0]!);
+			}
+			for (const geometry of geometries.splice(0)) {
+				geometry.dispose();
+			}
+			for (const material of materials.splice(0)) {
+				material.dispose();
+			}
+		}
+
+		function addGround(boundsWidth: number, boundsHeight: number): void {
+			const groundGeom = trackGeometry(new THREE.PlaneGeometry(boundsWidth, boundsHeight));
+			const groundMat = trackMaterial(
+				new THREE.MeshBasicMaterial({
+					color: 0x1b4332,
+					side: THREE.DoubleSide
+				})
+			);
+			const ground = new THREE.Mesh(groundGeom, groundMat);
+			ground.name = 'ground';
+			ground.position.z = -0.02;
+			habitatRoot.add(ground);
+
+			const edgeGeom = trackGeometry(new THREE.EdgesGeometry(groundGeom));
+			const edgeMat = trackMaterial(new THREE.LineBasicMaterial({ color: 0xd8f3dc }));
+			const edges = new THREE.LineSegments(edgeGeom, edgeMat);
+			edges.name = 'world-edges';
+			edges.position.z = 0.01;
+			habitatRoot.add(edges);
+		}
+
+		function addRegionMarker(feature: HabitatFeature, color: number): void {
+			const geom = trackGeometry(new THREE.PlaneGeometry(feature.size.width, feature.size.height));
+			const mat = trackMaterial(
+				new THREE.MeshBasicMaterial({
+					color,
+					transparent: true,
+					opacity: 0.85,
+					side: THREE.DoubleSide
+				})
+			);
+			const mesh = new THREE.Mesh(geom, mat);
+			mesh.name = feature.id;
+			mesh.position.set(feature.position.x, feature.position.y, 0);
+			habitatRoot.add(mesh);
+
+			const outlineGeom = trackGeometry(new THREE.EdgesGeometry(geom));
+			const outlineMat = trackMaterial(
+				new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 })
+			);
+			const outline = new THREE.LineSegments(outlineGeom, outlineMat);
+			outline.position.copy(mesh.position);
+			outline.position.z = 0.02;
+			habitatRoot.add(outline);
+		}
+
+		/**
+		 * Presentation-only bush: simple stacked geometry above the ground plane.
+		 * Creatures will interact with the feature footprint, not these meshes.
+		 */
+		function addFoodBush(feature: HabitatFeature): void {
+			const group = new THREE.Group();
+			group.name = feature.id;
+			group.position.set(feature.position.x, feature.position.y, 0);
+
+			const footprint = Math.min(feature.size.width, feature.size.height);
+			const trunkHeight = footprint * 0.35;
+			const canopyRadius = footprint * 0.42;
+
+			const trunkGeom = trackGeometry(
+				new THREE.CylinderGeometry(footprint * 0.08, footprint * 0.1, trunkHeight, 6)
+			);
+			const trunkMat = trackMaterial(new THREE.MeshBasicMaterial({ color: 0x5c4033 }));
+			const trunk = new THREE.Mesh(trunkGeom, trunkMat);
+			// Cylinder is Y-up; rotate so height rises along presentation Z.
+			trunk.rotation.x = Math.PI / 2;
+			trunk.position.z = trunkHeight / 2;
+			group.add(trunk);
+
+			const canopyGeom = trackGeometry(new THREE.IcosahedronGeometry(canopyRadius, 0));
+			const canopyMat = trackMaterial(new THREE.MeshBasicMaterial({ color: 0x2d6a4f }));
+			const canopy = new THREE.Mesh(canopyGeom, canopyMat);
+			canopy.position.z = trunkHeight + canopyRadius * 0.65;
+			group.add(canopy);
+
+			const canopyTopGeom = trackGeometry(new THREE.IcosahedronGeometry(canopyRadius * 0.7, 0));
+			const canopyTopMat = trackMaterial(new THREE.MeshBasicMaterial({ color: 0x40916c }));
+			const canopyTop = new THREE.Mesh(canopyTopGeom, canopyTopMat);
+			canopyTop.position.set(
+				footprint * 0.08,
+				-footprint * 0.05,
+				trunkHeight + canopyRadius * 1.15
+			);
+			group.add(canopyTop);
+
+			habitatRoot.add(group);
+		}
+
+		function buildHabitatPresentation(data: Habitat): void {
+			clearHabitatPresentation();
+			addGround(data.bounds.width, data.bounds.height);
+			addRegionMarker(data.home, 0xc9a227);
+			for (const water of data.water) {
+				addRegionMarker(water, 0x1d4e89);
+			}
+			for (const food of data.food) {
+				addFoodBush(food);
+			}
+		}
+
+		function viewHeightForHabitat(data: Habitat): number {
+			return data.bounds.height * 1.15;
+		}
 
 		function renderFrame() {
-			if (!host) {
+			if (!host || !currentHabitat) {
 				return;
 			}
 
@@ -49,7 +188,7 @@
 
 			renderer.setSize(width, height, false);
 
-			const frustum = orthographicFrustum(width / height, 1);
+			const frustum = orthographicFrustum(width / height, viewHeightForHabitat(currentHabitat));
 			camera.left = frustum.left;
 			camera.right = frustum.right;
 			camera.top = frustum.top;
@@ -59,20 +198,31 @@
 			renderer.render(scene, camera);
 		}
 
+		applyHabitat = (data: Habitat) => {
+			currentHabitat = data;
+			buildHabitatPresentation(data);
+			renderFrame();
+		};
+
+		// Initial paint uses the current prop value.
+		applyHabitat(habitat);
+
 		const observer = new ResizeObserver(renderFrame);
 		observer.observe(host);
-		renderFrame();
 
 		return () => {
 			observer.disconnect();
-			scene.remove(plane, edges);
-			planeGeometry.dispose();
-			planeMaterial.dispose();
-			edgeGeometry.dispose();
-			edgeMaterial.dispose();
+			applyHabitat = undefined;
+			clearHabitatPresentation();
+			scene.remove(habitatRoot);
 			renderer.dispose();
 			renderer.domElement.remove();
 		};
+	});
+
+	$effect(() => {
+		const data = habitat;
+		applyHabitat?.(data);
 	});
 </script>
 
@@ -80,7 +230,7 @@
 	class="viewport"
 	bind:this={container}
 	data-testid="three-viewport"
-	aria-label="Three.js viewport"
+	aria-label="Habitat viewport"
 ></div>
 
 <style>

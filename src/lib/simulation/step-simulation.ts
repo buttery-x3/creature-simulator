@@ -107,7 +107,7 @@ export function stepSimulation(
 		creatures
 	};
 
-	const afterCommunication = stepCommunication(
+	const { state: afterCommunication, emittedThisStep } = stepCommunication(
 		afterBehaviour,
 		emissionRequests,
 		timeSeconds,
@@ -115,14 +115,12 @@ export function stepSimulation(
 	);
 
 	// Successful announcement emissions this step → first-class memory (not perception).
-	const newEmissions = afterCommunication.recentEmissions.filter(
-		(e) => e.emittedAt === timeSeconds
-	);
+	// Use authoritative emittedThisStep — never reconstruct from bounded recentEmissions.
 	const afterMemory: SimulationState = {
 		...afterCommunication,
 		creatures: applySuccessfulAnnouncementMemories(
 			afterCommunication.creatures,
-			newEmissions,
+			emittedThisStep,
 			timeSeconds
 		)
 	};

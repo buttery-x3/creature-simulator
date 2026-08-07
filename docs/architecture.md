@@ -287,8 +287,8 @@ announcement queue state, communication history, or lexicon evidence.
 Fixed-step order (authoritative):
 
 1. Behaviour for all creatures (needs, perception episodes, announcement opportunities/preparation with memory consult, expire pending, decisions including investigation, movement or site inspection+completion, emission requests).
-2. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, write histories, expire active emissions.
-3. Memory: write `resource_announcement` entries for successful announcement-linked emissions this step.
+2. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, produce authoritative `emittedThisStep`, write bounded histories, expire active emissions.
+3. Memory: write `resource_announcement` entries from **`emittedThisStep` only** (not from bounded `recentEmissions` / diagnostic retention).
 4. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into investigation opportunities with one-shot curiosity decisions (accepted may prompt wander reconsider).
 
 **Eligibility:** a signal heard in step _N_ becomes an opportunity at the end of step _N_ (curiosity decided then) and accepted opportunities are eligible for investigation from step _N+1_. No Svelte/renderer timing.

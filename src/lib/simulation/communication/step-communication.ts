@@ -24,26 +24,38 @@ export type CommunicationStepConfig = Pick<
 >;
 
 /**
+ * Result of one communication fixed step.
+ * `emittedThisStep` is authoritative and independent of bounded history retention.
+ */
+export type CommunicationStepResult = {
+	state: SimulationState;
+	/** All emissions accepted this fixed step (not truncated by history limits). */
+	emittedThisStep: SignalEmission[];
+};
+
+/**
  * Apply emission requests then expire stale active emissions.
  *
  * Ordering (authoritative):
  * 1. Process requests in given order (caller sorts by sender id).
  * 2. For each accepted request: select symbol from lexicon, build emission,
- *    select receivers at post-behaviour positions, update histories.
+ *    select receivers at post-behaviour positions, record emittedThisStep, update histories.
  * 3. Drop active emissions with expiresAt <= timeSeconds.
  *
  * Hearing does not alter goals, actions, needs, targets or perception.
  * Selection never mutates evidence/lexicon or routes listener outcomes to the emitter.
+ * Bounded recentEmissions/recentEmitted are diagnostics only — memory must use emittedThisStep.
  */
 export function stepCommunication(
 	state: SimulationState,
 	requests: readonly EmissionRequest[],
 	timeSeconds: number,
 	config: CommunicationStepConfig
-): SimulationState {
+): CommunicationStepResult {
 	let creatures = state.creatures;
 	let activeEmissions = [...state.activeEmissions];
 	let recentEmissions = [...state.recentEmissions];
+	const emittedThisStep: SignalEmission[] = [];
 
 	const byId = new Map(creatures.map((c) => [c.id, c]));
 
@@ -123,6 +135,8 @@ export function stepCommunication(
 			});
 		}
 
+		// Authoritative current-step list (unbounded by diagnostic history limits).
+		emittedThisStep.push(emission);
 		activeEmissions.push(emission);
 		recentEmissions = appendBounded(
 			recentEmissions,
@@ -138,10 +152,13 @@ export function stepCommunication(
 	activeEmissions = expireEmissions(activeEmissions, timeSeconds);
 
 	return {
-		...state,
-		creatures: creatures.map((c) => byId.get(c.id) ?? c),
-		activeEmissions,
-		recentEmissions
+		state: {
+			...state,
+			creatures: creatures.map((c) => byId.get(c.id) ?? c),
+			activeEmissions,
+			recentEmissions
+		},
+		emittedThisStep
 	};
 }
 

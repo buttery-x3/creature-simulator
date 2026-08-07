@@ -13,6 +13,11 @@ import { expireEmissions, stepCommunication } from './step-communication';
 import type { EmissionRequest, ResourceDiscoveryDetail, SignalEmission, SymbolId } from './types';
 import { DEFAULT_SYMBOL_INVENTORY } from './types';
 
+/** Spec helper: communication step returns { state, emittedThisStep }. */
+function stepComm(...args: Parameters<typeof stepCommunication>): SimulationState {
+	return stepCommunication(...args).state;
+}
+
 function testSelectionEvidence(
 	symbolId: SymbolId,
 	context: ResourceDiscoveryDetail = 'food'
@@ -184,7 +189,7 @@ describe('stepCommunication', () => {
 			context: 'resource_discovered',
 			contextDetail: 'food'
 		};
-		const next = stepCommunication(state, [request], 1, config);
+		const next = stepComm(state, [request], 1, config);
 
 		expect(next.activeEmissions).toHaveLength(1);
 		const emission = next.activeEmissions[0]!;
@@ -248,7 +253,7 @@ describe('stepCommunication', () => {
 			context: 'resource_discovered',
 			contextDetail: 'water'
 		};
-		const next = stepCommunication(state, [request], 3, config);
+		const next = stepComm(state, [request], 3, config);
 		expect(next.activeEmissions).toHaveLength(0);
 		expect(next.creatures[0]!.emissionCount).toBe(1);
 	});
@@ -263,7 +268,7 @@ describe('stepCommunication', () => {
 			lastEmissionAt: -1
 		});
 		let state = bareState({ creatures: [sender], timeSeconds: 1, seed: 'context-symbol' });
-		state = stepCommunication(
+		state = stepComm(
 			state,
 			[
 				{
@@ -291,7 +296,7 @@ describe('stepCommunication', () => {
 			activeEmissions: [],
 			timeSeconds: 10
 		};
-		state = stepCommunication(
+		state = stepComm(
 			state,
 			[
 				{
@@ -333,7 +338,7 @@ describe('stepCommunication', () => {
 					expiresAt: t + 100
 				}))
 			};
-			state = stepCommunication(
+			state = stepComm(
 				state,
 				[
 					{
@@ -360,7 +365,7 @@ describe('stepCommunication', () => {
 		const config = { ...commConfig('expire'), signalLifetimeSeconds: 1 };
 		const sender = testCreature({ id: 'creature-0', position: { x: 0, y: 0 } });
 		let state = bareState({ creatures: [sender], timeSeconds: 0 });
-		state = stepCommunication(
+		state = stepComm(
 			state,
 			[
 				{
@@ -375,7 +380,7 @@ describe('stepCommunication', () => {
 		);
 		expect(state.activeEmissions).toHaveLength(1);
 		// Same step time as expiresAt (emittedAt 1 + lifetime 1 = 2)
-		state = stepCommunication(state, [], 2, config);
+		state = stepComm(state, [], 2, config);
 		expect(state.activeEmissions).toHaveLength(0);
 	});
 
@@ -392,15 +397,15 @@ describe('stepCommunication', () => {
 			context: 'resource_discovered',
 			contextDetail: 'food'
 		};
-		const a = stepCommunication(bareState({ creatures, timeSeconds: 1 }), [request], 1, config);
-		const b = stepCommunication(bareState({ creatures, timeSeconds: 1 }), [request], 1, config);
+		const a = stepComm(bareState({ creatures, timeSeconds: 1 }), [request], 1, config);
+		const b = stepComm(bareState({ creatures, timeSeconds: 1 }), [request], 1, config);
 		expect(simulationSnapshot(a)).toBe(simulationSnapshot(b));
 	});
 
 	it('keeps simulation state JSON-serialisable', () => {
 		const config = commConfig('serial');
 		const state = createSimulation({ ...config, creatureCount: 3 });
-		const withEmission = stepCommunication(
+		const withEmission = stepComm(
 			state,
 			[
 				{
@@ -485,7 +490,7 @@ describe('discovery integration via stepSimulation', () => {
 			lexicon: { food: 'glyph-3', water: null }
 		});
 		const state = bareState({ creatures: [sender], timeSeconds: 1, seed: 'lexicon-emit' });
-		const next = stepCommunication(
+		const next = stepComm(
 			state,
 			[
 				{
@@ -504,7 +509,7 @@ describe('discovery integration via stepSimulation', () => {
 		let glyph3 = 0;
 		let current = state;
 		for (let i = 0; i < 20; i += 1) {
-			const stepped = stepCommunication(
+			const stepped = stepComm(
 				{
 					...current,
 					creatures: current.creatures.map((c) =>
@@ -560,7 +565,7 @@ describe('discovery integration via stepSimulation', () => {
 		});
 		const beforeAssoc = JSON.stringify(associations);
 		const beforeLexicon = JSON.stringify(lexicon);
-		const next = stepCommunication(
+		const next = stepComm(
 			bareState({ creatures: [sender, listener], timeSeconds: 1 }),
 			[
 				{

@@ -111,6 +111,7 @@ export {
 	selectPreferredSymbol,
 	selectReceivers,
 	stepCommunication,
+	type CommunicationStepResult,
 	type EmissionRequest
 } from './communication';
 

@@ -4,9 +4,13 @@
 
 import { describe, expect, it } from 'vitest';
 import { createSimulation, defaultSimulationConfig } from '../create-simulation';
+import { stepCommunication } from '../communication/step-communication';
+import type { EmissionRequest } from '../communication/types';
 import { stepSimulation } from '../step-simulation';
+import { testCreature } from '../test-creature';
 import { hasResourceAnnouncementMemory } from './query';
 import { rememberResourceAnnouncement } from './mutate';
+import { applySuccessfulAnnouncementMemories } from './apply-announcement-memory';
 import { createEmptyMemory } from './create-memory';
 import { createOpportunitiesFromDiscoveries } from '../announcement/opportunity-lifecycle';
 
@@ -95,6 +99,83 @@ describe('announcement memory integration', () => {
 		});
 		expect(result.opportunities).toHaveLength(0);
 		expect(result.decisions[0]!.reason).toBe('announcement_remembered');
+	});
+
+	it('writes memory for every same-step emission even when history limit is smaller', () => {
+		const historyLimit = 2;
+		const emitterCount = 5;
+		const config = {
+			...defaultSimulationConfig('mem-hist-decouple'),
+			recentSimulationEmissionHistoryLimit: historyLimit,
+			recentEmittedHistoryLimit: historyLimit,
+			emissionCooldownSeconds: 0
+		};
+
+		const creatures = Array.from({ length: emitterCount }, (_, i) =>
+			testCreature({
+				id: `creature-${i}`,
+				position: { x: i, y: 0 },
+				lastEmissionAt: -1,
+				emissionCount: 0
+			})
+		);
+
+		const requests: EmissionRequest[] = creatures.map((c, i) => ({
+			senderId: c.id,
+			origin: { ...c.position },
+			context: 'resource_discovered',
+			contextDetail: 'food',
+			opportunityId: `ann-${c.id}-0`,
+			perceptionEpisodeId: `ep-${c.id}-0`,
+			triggerFeatureId: `food-${i}`,
+			triggerFeaturePosition: { x: i + 10, y: 0 },
+			discoveredAt: 1
+		}));
+
+		const bare = createSimulation({ ...config, creatureCount: 0 });
+		const before = {
+			...bare,
+			creatures,
+			activeEmissions: [],
+			recentEmissions: [],
+			timeSeconds: 1
+		};
+
+		const { state: afterComm, emittedThisStep } = stepCommunication(before, requests, 1, config);
+
+		expect(emittedThisStep).toHaveLength(emitterCount);
+		expect(afterComm.recentEmissions.length).toBeLessThanOrEqual(historyLimit);
+		expect(afterComm.recentEmissions.length).toBe(historyLimit);
+
+		const afterMemory = {
+			...afterComm,
+			creatures: applySuccessfulAnnouncementMemories(afterComm.creatures, emittedThisStep, 1)
+		};
+
+		for (let i = 0; i < emitterCount; i += 1) {
+			const creature = afterMemory.creatures.find((c) => c.id === `creature-${i}`)!;
+			const featureId = `food-${i}`;
+			expect(hasResourceAnnouncementMemory(creature.memory, featureId)).toBe(true);
+			const entry = creature.memory.entries.find(
+				(e) => e.kind === 'resource_announcement' && e.featureId === featureId
+			)!;
+			expect(entry.opportunityId).toBe(`ann-creature-${i}-0`);
+			expect(entry.emissionId).toBe(`em-creature-${i}-0`);
+		}
+
+		// Same authoritative memories if history limit is large enough to retain all.
+		const wideConfig = { ...config, recentSimulationEmissionHistoryLimit: 24 };
+		const wide = stepCommunication(before, requests, 1, wideConfig);
+		const afterWide = applySuccessfulAnnouncementMemories(
+			wide.state.creatures,
+			wide.emittedThisStep,
+			1
+		);
+		for (let i = 0; i < emitterCount; i += 1) {
+			const a = afterMemory.creatures.find((c) => c.id === `creature-${i}`)!;
+			const b = afterWide.find((c) => c.id === `creature-${i}`)!;
+			expect(a.memory.entries).toEqual(b.memory.entries);
+		}
 	});
 
 	it('allows rediscovery after the announcement memory is evicted', () => {

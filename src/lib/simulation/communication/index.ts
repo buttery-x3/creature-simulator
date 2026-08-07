@@ -38,5 +38,6 @@ export {
 export {
 	expireEmissions,
 	stepCommunication,
-	type CommunicationStepConfig
+	type CommunicationStepConfig,
+	type CommunicationStepResult
 } from './step-communication';

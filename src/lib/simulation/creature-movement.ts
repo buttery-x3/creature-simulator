@@ -103,6 +103,10 @@ export function sampleSearchTarget(
 /**
  * Turn toward a destination and translate for one fixed step, clamped to interior.
  * Used by behaviour and announcement preparation movement.
+ *
+ * Forward motion is scaled by residual heading alignment so a creature with a
+ * large turn-rate-limited heading error does not orbit a nearby point forever
+ * (minimum turning radius vs arrival ball). Gradual turning is preserved.
  */
 export function moveToward(
 	creature: Pick<Creature, 'position' | 'facing' | 'movementSpeed'>,
@@ -111,19 +115,32 @@ export function moveToward(
 	bounds: WorldBounds,
 	config: Pick<SimulationConfig, 'maxTurnRate' | 'creatureRadius'>
 ): Pick<Creature, 'position' | 'facing'> {
-	const desiredFacing = Math.atan2(
-		destination.y - creature.position.y,
-		destination.x - creature.position.x
-	);
+	const dx = destination.x - creature.position.x;
+	const dy = destination.y - creature.position.y;
+	const dist = Math.hypot(dx, dy);
+
+	// Already at the exact point — keep facing, no translation.
+	if (!(dist > 0) || !Number.isFinite(dist)) {
+		return { position: { ...creature.position }, facing: creature.facing };
+	}
+
+	const desiredFacing = Math.atan2(dy, dx);
 	const delta = shortestAngleDelta(creature.facing, desiredFacing);
 	const maxTurn = config.maxTurnRate * dt;
 	const turn = Math.max(-maxTurn, Math.min(maxTurn, delta));
 	const facing = normalizeAngle(creature.facing + turn);
 
-	const distance = creature.movementSpeed * dt;
+	// Residual heading error after this step's turn (0 when fully aligned).
+	const residual = shortestAngleDelta(facing, desiredFacing);
+	// Suppress forward motion when still sharply off-heading (orbit fix).
+	const forwardFactor = Math.max(0, Math.cos(residual));
+	let step = creature.movementSpeed * dt * forwardFactor;
+	// Do not overshoot the destination when nearly aligned and close.
+	step = Math.min(step, dist);
+
 	let position = {
-		x: creature.position.x + Math.cos(facing) * distance,
-		y: creature.position.y + Math.sin(facing) * distance
+		x: creature.position.x + Math.cos(facing) * step,
+		y: creature.position.y + Math.sin(facing) * step
 	};
 	position = clampToInterior(position, bounds, config.creatureRadius);
 	return { position, facing };
@@ -158,18 +175,16 @@ export function stepCreature(
 		);
 	}
 
-	const desiredFacing = Math.atan2(wanderTarget.y - position.y, wanderTarget.x - position.x);
-	const delta = shortestAngleDelta(facing, desiredFacing);
-	const maxTurn = config.maxTurnRate * dt;
-	const turn = Math.max(-maxTurn, Math.min(maxTurn, delta));
-	facing = normalizeAngle(facing + turn);
-
-	const distance = creature.movementSpeed * dt;
-	position = {
-		x: position.x + Math.cos(facing) * distance,
-		y: position.y + Math.sin(facing) * distance
-	};
-	position = clampToInterior(position, bounds, margin);
+	// Same alignment-scaled controller as moveToward (shared liveness policy).
+	const moved = moveToward(
+		{ position, facing, movementSpeed: creature.movementSpeed },
+		wanderTarget,
+		dt,
+		bounds,
+		{ maxTurnRate: config.maxTurnRate, creatureRadius: config.creatureRadius }
+	);
+	position = moved.position;
+	facing = moved.facing;
 
 	// If clamping left us effectively stuck on the boundary with an exterior
 	// target, force a fresh interior target so we do not oscillate forever.

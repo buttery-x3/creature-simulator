@@ -21,7 +21,7 @@ import type {
 	CreatureLexicon,
 	LearningHistoryEntry,
 	LexiconChangeEntry,
-	PendingSignal,
+	SignalInvestigationOpportunity,
 	SymbolAssociation
 } from './learning/types';
 
@@ -37,11 +37,14 @@ export { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 export type {
 	ActiveSignalInvestigation,
 	CreatureLexicon,
+	CuriosityDecision,
+	CuriosityEvidence,
 	LearningHistoryEntry,
 	LearningOutcome,
 	LexiconChangeEntry,
 	LexiconMeaning,
 	PendingSignal,
+	SignalInvestigationOpportunity,
 	SymbolAssociation
 } from './learning/types';
 export { LEXICON_MEANINGS } from './learning/types';
@@ -222,8 +225,11 @@ export type Creature = {
 	lexicon: CreatureLexicon;
 	/** Recent exclusive-lexicon reassignments, newest last, length-capped. */
 	recentLexiconChanges: LexiconChangeEntry[];
-	/** Short-lived heard-signal investigation candidates (bounded, deduped). */
-	pendingSignals: PendingSignal[];
+	/**
+	 * Short-lived heard-signal investigation opportunities (bounded, deduped by emissionId).
+	 * Each entry carries an explicit curiosity accept/reject decision made once at ingest.
+	 */
+	pendingSignals: SignalInvestigationOpportunity[];
 	/** Active signal investigation evidence, if any. */
 	activeInvestigation: ActiveSignalInvestigation | null;
 	/** Recent learning outcomes, newest last, length-capped. */
@@ -404,17 +410,15 @@ export type SimulationConfig = {
 	/**
 	 * Inclusive range for per-creature curiosity sampled at creation
 	 * (independent `deriveSeed(seed, 'curiosity', id)` stream).
+	 * Curiosity is susceptibility to investigating a heard communication opportunity.
 	 */
 	curiosityRange: { min: number; max: number };
-	/** Multiplier applied to creature.curiosity in investigation scoring. */
-	investigationCuriosityWeight: number;
 	/**
-	 * Characteristic length for smooth distance falloff:
+	 * Characteristic length for presentation-only smooth distance falloff on signal rings:
 	 * distanceFactor = 1 / (1 + distance / investigationDistanceScale).
+	 * Does **not** affect curiosity acceptance or investigation goal eligibility.
 	 */
 	investigationDistanceScale: number;
-	/** Weight of normalised age penalty in investigation scoring. */
-	investigationAgeWeight: number;
 	/** Max distance from signal origin for contextual learning evidence. */
 	learningEvidenceRadius: number;
 	/** Bounded additive reinforcement applied per qualifying food/water evidence. */

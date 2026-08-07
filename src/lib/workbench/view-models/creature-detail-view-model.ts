@@ -1,17 +1,21 @@
 /**
  * Pure creature roster and selected-detail helpers for the Creatures tab.
- * Investigation score terms are recomputed via exported scoring helpers (display only).
+ * Investigation opportunity summaries use authoritative curiosity decisions (display only).
  */
 
 import type {
 	CandidateEvaluation,
 	Creature,
 	CreatureTarget,
-	PendingSignal,
-	SimulationConfig,
+	SignalInvestigationOpportunity,
 	SymbolId
 } from '$lib/simulation';
-import { scoreInvestigationCandidate, selectBestPendingSignal } from '$lib/simulation';
+import {
+	countAcceptedPending,
+	INVESTIGATION_ELIGIBLE_SCORE,
+	mostRecentCuriosityDecision,
+	selectBestAcceptedOpportunity
+} from '$lib/simulation';
 
 export type RosterRow = {
 	id: string;
@@ -28,13 +32,19 @@ export type LabelledScoreTerm = {
 	value: number;
 };
 
-export type InvestigationScoreBreakdown = {
-	totalScore: number;
-	terms: LabelledScoreTerm[];
-	/** Full scorer reason string for Debug / secondary display. */
-	rawReason: string;
-	symbolId: SymbolId;
-	emissionId: string;
+/**
+ * Compact investigation opportunity summary for the Creatures tab (not multi-factor scores).
+ */
+export type InvestigationOpportunitySummary = {
+	curiosity: number;
+	acceptedPendingCount: number;
+	recentDecision: 'accepted' | 'rejected' | 'pending' | null;
+	recentEmissionId: string | null;
+	recentSample: number | null;
+	activeEmissionId: string | null;
+	activeSymbolId: SymbolId | null;
+	eligibleEmissionId: string | null;
+	eligibleScore: number | null;
 } | null;
 
 export type CandidateView = {
@@ -44,7 +54,6 @@ export type CandidateView = {
 	reason: string;
 	rejectionReason?: string;
 	selected: boolean;
-	/** Labelled terms when this is investigate_signal and structured score is available. */
 	scoreTerms: LabelledScoreTerm[] | null;
 };
 
@@ -70,67 +79,62 @@ export function formatTargetLabel(target: CreatureTarget | null): string {
 	return `${target.featureKind}:${target.featureId}`;
 }
 
-export type InvestigationScoreConfig = Pick<
-	SimulationConfig,
-	| 'pendingSignalLifetimeSeconds'
-	| 'investigationCuriosityWeight'
-	| 'investigationDistanceScale'
-	| 'investigationAgeWeight'
->;
-
 /**
- * Recompute investigation score breakdown for the creature's active or best pending signal.
+ * Build curiosity/investigation opportunity summary for the selected creature.
  */
-export function buildInvestigationScoreBreakdown(
+export function buildInvestigationOpportunitySummary(
 	creature: Creature,
-	timeSeconds: number,
-	config: InvestigationScoreConfig
-): InvestigationScoreBreakdown {
-	const scoreConfig = {
-		pendingSignalLifetimeSeconds: config.pendingSignalLifetimeSeconds,
-		investigationCuriosityWeight: config.investigationCuriosityWeight,
-		investigationDistanceScale: config.investigationDistanceScale,
-		investigationAgeWeight: config.investigationAgeWeight
-	};
+	timeSeconds: number
+): InvestigationOpportunitySummary {
+	const recent = mostRecentCuriosityDecision(creature.pendingSignals);
+	const acceptedCount = countAcceptedPending(creature.pendingSignals, timeSeconds);
+	const eligible = selectBestAcceptedOpportunity(
+		creature.pendingSignals,
+		timeSeconds,
+		INVESTIGATION_ELIGIBLE_SCORE
+	);
+	const active = creature.activeInvestigation;
 
-	const scored =
-		creature.activeInvestigation && creature.goal === 'investigate_signal'
-			? scoreInvestigationCandidate(
-					creature,
-					{
-						emissionId: creature.activeInvestigation.emissionId,
-						symbolId: creature.activeInvestigation.symbolId,
-						senderId: creature.activeInvestigation.senderId,
-						origin: { ...creature.activeInvestigation.origin },
-						heardAt: creature.activeInvestigation.startedAt,
-						expiresAt: Number.POSITIVE_INFINITY
-					} satisfies PendingSignal,
-					timeSeconds,
-					scoreConfig
-				)
-			: selectBestPendingSignal(creature, creature.pendingSignals, timeSeconds, scoreConfig);
-
-	if (!scored) {
-		return null;
+	if (!recent && !active && acceptedCount === 0) {
+		return {
+			curiosity: creature.curiosity,
+			acceptedPendingCount: 0,
+			recentDecision: null,
+			recentEmissionId: null,
+			recentSample: null,
+			activeEmissionId: null,
+			activeSymbolId: null,
+			eligibleEmissionId: null,
+			eligibleScore: null
+		};
 	}
 
 	return {
-		totalScore: scored.score,
-		terms: [
-			{ label: 'Curiosity contribution', value: scored.curiosityTerm },
-			{ label: 'Resource bias', value: scored.resourceBias },
-			{ label: 'Distance factor', value: scored.distanceFactor },
-			{ label: 'Age penalty', value: scored.agePenalty }
-		],
-		rawReason: scored.reason,
-		symbolId: scored.pending.symbolId,
-		emissionId: scored.pending.emissionId
+		curiosity: creature.curiosity,
+		acceptedPendingCount: acceptedCount,
+		recentDecision: recent?.curiosityDecision ?? null,
+		recentEmissionId: recent?.emissionId ?? null,
+		recentSample: recent?.curiosityEvidence?.deterministicSample ?? null,
+		activeEmissionId: active?.emissionId ?? null,
+		activeSymbolId: active?.symbolId ?? null,
+		eligibleEmissionId: eligible?.opportunity.emissionId ?? active?.emissionId ?? null,
+		eligibleScore: active ? INVESTIGATION_ELIGIBLE_SCORE : (eligible?.score ?? null)
 	};
+}
+
+/** @deprecated Use {@link buildInvestigationOpportunitySummary}. */
+export function buildInvestigationScoreBreakdown(
+	creature: Creature,
+	timeSeconds: number,
+	_config?: unknown
+): InvestigationOpportunitySummary {
+	void _config;
+	return buildInvestigationOpportunitySummary(creature, timeSeconds);
 }
 
 export function buildCandidateViews(
 	creature: Creature,
-	investigation: InvestigationScoreBreakdown
+	investigation: InvestigationOpportunitySummary
 ): CandidateView[] {
 	const candidates =
 		creature.lastCandidates.length > 0
@@ -147,7 +151,13 @@ export function buildCandidateViews(
 		selected: c.goal === selectedGoal,
 		scoreTerms:
 			c.goal === 'investigate_signal' && investigation
-				? [{ label: 'Total score', value: investigation.totalScore }, ...investigation.terms]
+				? [
+						{ label: 'Eligible score', value: investigation.eligibleScore ?? c.score },
+						{ label: 'Curiosity', value: investigation.curiosity },
+						...(investigation.recentSample !== null
+							? [{ label: 'Last sample', value: investigation.recentSample }]
+							: [])
+					]
 				: c.goal !== 'investigate_signal'
 					? [
 							{ label: 'Total score', value: c.score },
@@ -188,4 +198,13 @@ export function evidenceRowCount(creature: Creature): number {
 		(sum, row) => sum + row.foodEvidenceCount + row.waterEvidenceCount,
 		0
 	);
+}
+
+export function formatOpportunityDecision(
+	opportunity: SignalInvestigationOpportunity | null | undefined
+): string {
+	if (!opportunity) {
+		return '—';
+	}
+	return opportunity.curiosityDecision;
 }

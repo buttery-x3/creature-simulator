@@ -6,14 +6,16 @@
  * leave the need goal valid so the action layer can enter search.
  *
  * Explore exemption: wander → investigate_signal skips goalSwitchMargin so
- * unknown signals can displace ordinary wandering on a normal reconsider.
+ * curiosity-accepted opportunities can displace ordinary wandering on a normal reconsider.
+ *
+ * Investigation eligibility is curiosity accept/reject only (decided at ingest).
+ * Distance, age, and association strength are not part of the investigation score.
  */
 
 import type { Habitat } from '$lib/habitat';
 import {
-	activeToPendingShape,
-	scoreInvestigationCandidate,
-	selectBestPendingSignal
+	selectBestAcceptedOpportunity,
+	type InvestigationSelection
 } from '../learning/signal-investigation';
 import type {
 	CandidateEvaluation,
@@ -51,10 +53,6 @@ export type DecisionConfig = Pick<
 	| 'minGoalCommitmentSeconds'
 	| 'reconsiderIntervalSeconds'
 	| 'trackedObservationDurationSeconds'
-	| 'pendingSignalLifetimeSeconds'
-	| 'investigationCuriosityWeight'
-	| 'investigationDistanceScale'
-	| 'investigationAgeWeight'
 >;
 
 /**
@@ -62,6 +60,13 @@ export type DecisionConfig = Pick<
  * to displace wandering; keeps free roaming the default when needs are mild.
  */
 export const WANDER_BASELINE_SCORE = 0.35;
+
+/**
+ * Fixed score for an eligible investigation (active or curiosity-accepted).
+ * Equal to wander baseline so tie-break + explore exemption select investigation
+ * without multi-factor motivation scores.
+ */
+export const INVESTIGATION_ELIGIBLE_SCORE = WANDER_BASELINE_SCORE;
 
 export function evaluateCandidates(
 	creature: Pick<
@@ -74,7 +79,6 @@ export function evaluateCandidates(
 		| 'wanderTarget'
 		| 'perception'
 		| 'pendingSignals'
-		| 'symbolAssociations'
 		| 'activeInvestigation'
 		| 'goal'
 	>,
@@ -108,31 +112,45 @@ export function evaluateCandidates(
 	const waterValid = thirstScore >= config.seekWaterThreshold;
 	const restValid = restScore >= config.restThreshold;
 
-	const scoreConfig = {
-		pendingSignalLifetimeSeconds: config.pendingSignalLifetimeSeconds,
-		investigationCuriosityWeight: config.investigationCuriosityWeight,
-		investigationDistanceScale: config.investigationDistanceScale,
-		investigationAgeWeight: config.investigationAgeWeight
-	};
-
-	// Prefer scoring the active investigation while committed; otherwise best pending.
-	const investigationEval: ReturnType<typeof scoreInvestigationCandidate> | null =
+	// Prefer the active investigation while committed; otherwise best accepted opportunity.
+	const investigationEval: InvestigationSelection | null =
 		creature.activeInvestigation && creature.goal === 'investigate_signal'
-			? scoreInvestigationCandidate(
-					creature,
-					activeToPendingShape(
-						creature.activeInvestigation,
-						creature.activeInvestigation.startedAt
-					),
+			? (() => {
+					const inv = creature.activeInvestigation!;
+					return {
+						opportunity: {
+							emissionId: inv.emissionId,
+							symbolId: inv.symbolId,
+							senderId: inv.senderId,
+							origin: { x: inv.origin.x, y: inv.origin.y },
+							heardAt: inv.startedAt,
+							expiresAt: Number.POSITIVE_INFINITY,
+							curiosityDecision: 'accepted' as const,
+							curiosityEvidence: null
+						},
+						score: INVESTIGATION_ELIGIBLE_SCORE,
+						reason: `active investigation emission=${inv.emissionId} symbol=${inv.symbolId} (committed travel)`
+					};
+				})()
+			: selectBestAcceptedOpportunity(
+					creature.pendingSignals,
 					timeSeconds,
-					scoreConfig
-				)
-			: selectBestPendingSignal(creature, creature.pendingSignals, timeSeconds, scoreConfig);
+					INVESTIGATION_ELIGIBLE_SCORE
+				);
 
 	const investigateValid = investigationEval !== null;
 	const investigateTarget = investigationEval
-		? pointTarget(investigationEval.pending.origin)
+		? pointTarget(investigationEval.opportunity.origin)
 		: null;
+
+	const rejectedLive = creature.pendingSignals.filter(
+		(p) => p.expiresAt > timeSeconds && p.curiosityDecision === 'rejected'
+	);
+	const investigateRejectionReason = !investigateValid
+		? rejectedLive.length > 0
+			? `curiosity rejected all live opportunities (${rejectedLive.length}); none accepted`
+			: 'no curiosity-accepted non-expired investigation opportunities'
+		: undefined;
 
 	const candidates: CandidateEvaluation[] = [
 		{
@@ -173,9 +191,9 @@ export function evaluateCandidates(
 			goal: 'investigate_signal',
 			valid: investigateValid,
 			score: investigationEval?.score ?? 0,
-			reason: investigationEval?.reason ?? 'no pending or active signal investigation candidate',
+			reason: investigationEval?.reason ?? 'no curiosity-accepted investigation opportunity',
 			target: investigateTarget,
-			rejectionReason: !investigateValid ? 'no non-expired pending signal candidates' : undefined
+			rejectionReason: investigateRejectionReason
 		},
 		{
 			goal: 'wander',
@@ -225,7 +243,6 @@ export type CommitDecisionInput = {
 		| 'wanderTarget'
 		| 'perception'
 		| 'pendingSignals'
-		| 'symbolAssociations'
 		| 'activeInvestigation'
 	>;
 	habitat: Habitat;

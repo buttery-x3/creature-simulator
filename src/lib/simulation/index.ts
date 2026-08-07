@@ -33,6 +33,7 @@ export type {
 	ResourceFeaturePerceptionEpisode,
 	ResourceObservation,
 	SignalEmission,
+	SignalInvestigationOpportunity,
 	SimulationConfig,
 	SimulationState,
 	SpeedRange,
@@ -40,7 +41,9 @@ export type {
 	SymbolId,
 	SymbolSelectionCandidateEvidence,
 	SymbolSelectionEvidence,
-	SymbolSelectionMode
+	SymbolSelectionMode,
+	CuriosityDecision,
+	CuriosityEvidence
 } from './types';
 
 export { DEFAULT_SYMBOL_INVENTORY, LEXICON_MEANINGS } from './types';
@@ -94,9 +97,9 @@ export {
 	selectBestCandidate,
 	selectNearestFeature,
 	senseAt,
+	INVESTIGATION_ELIGIBLE_SCORE,
 	WANDER_BASELINE_SCORE
 } from './behaviour';
-
 export {
 	expireEmissions,
 	selectContextSymbol,
@@ -107,11 +110,14 @@ export {
 } from './communication';
 
 export {
+	countAcceptedPending,
 	createEmptyAssociations,
+	decideCuriosityAcceptance,
 	distanceFalloffFactor,
 	emptyLexicon,
 	findAssociation,
+	mostRecentCuriosityDecision,
 	resolveCreatureLexicon,
-	scoreInvestigationCandidate,
+	selectBestAcceptedOpportunity,
 	selectBestPendingSignal
 } from './learning';

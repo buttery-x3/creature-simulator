@@ -1,11 +1,7 @@
-import {
-	createSimulation,
-	defaultSimulationConfig,
-	scoreInvestigationCandidate
-} from '$lib/simulation';
+import { createSimulation, defaultSimulationConfig } from '$lib/simulation';
 import { describe, expect, it } from 'vitest';
 import {
-	buildInvestigationScoreBreakdown,
+	buildInvestigationOpportunitySummary,
 	buildRosterRows,
 	formatTargetLabel
 } from './creature-detail-view-model';
@@ -31,7 +27,7 @@ describe('creature-detail-view-model', () => {
 		);
 	});
 
-	it('exposes labelled investigation score terms from structured scorer output', () => {
+	it('summarises curiosity opportunities without multi-factor score recipes', () => {
 		const config = defaultSimulationConfig('demo');
 		const state = createSimulation(config);
 		const creature = state.creatures[0]!;
@@ -42,28 +38,16 @@ describe('creature-detail-view-model', () => {
 				senderId: 'creature-1',
 				origin: { x: 1, y: 1 },
 				heardAt: 0,
-				expiresAt: 100
+				expiresAt: 100,
+				curiosityDecision: 'accepted',
+				curiosityEvidence: { curiosity: creature.curiosity, deterministicSample: 0.12 }
 			}
 		];
-		const breakdown = buildInvestigationScoreBreakdown(creature, 1, {
-			pendingSignalLifetimeSeconds: config.pendingSignalLifetimeSeconds,
-			investigationCuriosityWeight: config.investigationCuriosityWeight,
-			investigationDistanceScale: config.investigationDistanceScale,
-			investigationAgeWeight: config.investigationAgeWeight
-		});
-		expect(breakdown).not.toBeNull();
-		expect(breakdown!.terms.map((t) => t.label)).toEqual([
-			'Curiosity contribution',
-			'Resource bias',
-			'Distance factor',
-			'Age penalty'
-		]);
-		const direct = scoreInvestigationCandidate(creature, creature.pendingSignals[0]!, 1, {
-			pendingSignalLifetimeSeconds: config.pendingSignalLifetimeSeconds,
-			investigationCuriosityWeight: config.investigationCuriosityWeight,
-			investigationDistanceScale: config.investigationDistanceScale,
-			investigationAgeWeight: config.investigationAgeWeight
-		});
-		expect(breakdown!.totalScore).toBeCloseTo(direct.score, 10);
+		const summary = buildInvestigationOpportunitySummary(creature, 1);
+		expect(summary).not.toBeNull();
+		expect(summary!.acceptedPendingCount).toBe(1);
+		expect(summary!.recentDecision).toBe('accepted');
+		expect(summary!.recentSample).toBeCloseTo(0.12);
+		expect(summary!.eligibleEmissionId).toBe('e-1');
 	});
 });

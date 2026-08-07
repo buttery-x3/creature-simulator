@@ -89,14 +89,13 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	recentEmissionDiagnosticsWindowSeconds: 30,
 
 	// Learning: personal evidence + exclusive lexicon + signal investigation (no global meanings).
-	// Per-creature curiosity (sampled at creation) drives unknown-symbol investigation.
+	// Per-creature curiosity (sampled at creation) = susceptibility to investigating heard signals.
 	pendingSignalLifetimeSeconds: 10,
 	maxPendingSignalsPerCreature: 4,
-	curiosityRange: { min: 0.3, max: 0.55 },
-	investigationCuriosityWeight: 1,
-	// Smooth falloff: distanceFactor = 1 / (1 + dist / scale); scale is stable if habitat size changes.
+	// Wide enough that an ordinary population has meaningfully different accept rates.
+	curiosityRange: { min: 0.2, max: 0.8 },
+	// Presentation-only signal-ring falloff scale (not curiosity / goal motivation).
 	investigationDistanceScale: 8,
-	investigationAgeWeight: 0.1,
 	learningEvidenceRadius: 3,
 	associationReinforcement: 0.25,
 	noEvidenceConfidenceReduction: 0,
@@ -252,9 +251,7 @@ function validateSimulationConfig(config: SimulationConfig): void {
 	for (const key of [
 		'pendingSignalLifetimeSeconds',
 		'learningEvidenceRadius',
-		'investigationCuriosityWeight',
 		'investigationDistanceScale',
-		'investigationAgeWeight',
 		'associationReinforcement',
 		'noEvidenceConfidenceReduction',
 		'recentEmissionDiagnosticsWindowSeconds',

@@ -222,6 +222,52 @@
 		{/if}
 	</section>
 
+	<section class="block" data-testid="curiosity-opportunities" aria-label="Curiosity decisions">
+		<h3>Curiosity decisions</h3>
+		<p class="hint">
+			Every heard signal gets one curiosity accept/reject. Selected = currently investigating that
+			emission.
+		</p>
+		{#if vm.curiosityOpportunities.length === 0}
+			<p class="empty">No live investigation opportunities.</p>
+		{:else}
+			<div class="table-wrap">
+				<table class="table">
+					<thead>
+						<tr>
+							<th scope="col">Listener</th>
+							<th scope="col">Symbol</th>
+							<th scope="col">Heard</th>
+							<th scope="col">Curiosity</th>
+							<th scope="col">Decision</th>
+							<th scope="col">Selected</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each vm.curiosityOpportunities as row (row.listenerId + row.emissionId)}
+							<tr data-testid={`curiosity-row-${row.listenerId}-${row.emissionId}`}>
+								<td>
+									<button
+										type="button"
+										class="linkish"
+										onclick={() => onNavigate({ kind: 'creatures', creatureId: row.listenerId })}
+									>
+										{row.listenerId}
+									</button>
+								</td>
+								<td><SymbolGlyph symbolId={row.symbolId} /></td>
+								<td>{row.heardAt.toFixed(2)}s</td>
+								<td>{row.curiosity.toFixed(3)}</td>
+								<td>{row.decision}</td>
+								<td>{row.selected ? 'yes' : '—'}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</section>
+
 	<section class="block" data-testid="active-investigations" aria-label="Investigations">
 		<h3>Active investigations</h3>
 		{#if vm.activeInvestigations.length === 0}

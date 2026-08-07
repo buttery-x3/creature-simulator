@@ -48,18 +48,36 @@ export type LexiconChangeEntry = {
 	evidenceNote: string;
 };
 
+/** Explicit curiosity outcome for one heard emission (listener-local). */
+export type CuriosityDecision = 'pending' | 'accepted' | 'rejected';
+
+/** Structured evidence for a one-shot curiosity sample (inspectable, serialisable). */
+export type CuriosityEvidence = {
+	/** Creature curiosity at decision time. */
+	curiosity: number;
+	/** Deterministic sample in [0, 1); accepted when sample < curiosity. */
+	deterministicSample: number;
+};
+
 /**
- * Short-lived investigation candidate derived from a heard signal.
+ * Short-lived investigation opportunity derived from a heard signal.
  * Contains only information available to the listener — never emitter contextDetail.
+ * Curiosity is decided once at ingest (accepted/rejected); rejected stays for diagnostics
+ * but is never selected as an investigation goal.
  */
-export type PendingSignal = {
+export type SignalInvestigationOpportunity = {
 	emissionId: string;
 	symbolId: SymbolId;
 	senderId: string;
 	origin: Vec2;
 	heardAt: number;
 	expiresAt: number;
+	curiosityDecision: CuriosityDecision;
+	curiosityEvidence: CuriosityEvidence | null;
 };
+
+/** @deprecated Prefer {@link SignalInvestigationOpportunity}; alias for existing call sites. */
+export type PendingSignal = SignalInvestigationOpportunity;
 
 /**
  * Authoritative record of the signal currently being investigated.

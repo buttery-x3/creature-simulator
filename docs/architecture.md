@@ -249,30 +249,30 @@ Emission uses the creature’s resolved exclusive lexicon (learned path) or
 deterministic exploratory selection when unassigned — never independent
 multi-context weighted sampling, and never speaker-success feedback.
 
-| Concern               | Rule                                                                                                                                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Evidence**          | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. May be ambiguous/overlapping across meanings. Independent arrays (no shared references).                 |
-| **Lexicon**           | Exclusive one-to-one assignment (`food` / `water` → symbol or null). Deterministic max-total-evidence non-duplicating resolve after evidence updates.                                      |
-| **Curiosity trait**   | Per-creature `curiosity` sampled at creation via `deriveSeed(seed, 'curiosity', id)` and `curiosityRange`. Serialisable state.                                                             |
-| **Pending signals**   | Built from `HeardSignal` only (no `contextDetail`); bounded, deduped by emission id, expire deterministically.                                                                             |
-| **Goal / action**     | `investigate_signal` goal: `move` toward recorded origin, then `investigate` (stop, no movement).                                                                                          |
-| **Scoring**           | `(curiosity×weight + needs×evidence) × distanceFactor − agePenalty` with `distanceFactor = 1/(1+d/scale)`. Uses raw evidence, not exclusive lexicon.                                       |
-| **Explore exemption** | `wander → investigate_signal` skips `goalSwitchMargin` (min commitment still applies). Survival goals keep full hysteresis.                                                                |
-| **Travel lock**       | Once committed, rising needs do not interrupt the trip; no active travel timeout. Pending unselected signals may still expire.                                                             |
-| **Reinforcement**     | Only on **arrival** at the origin: force local perception, qualify food/water within evidence radius, reinforce at most once, then recompute lexicon.                                      |
-| **Completion**        | Clear active investigation and replan immediately after site inspection (food / water / mixed / no_evidence).                                                                              |
-| **No-evidence**       | Conservative: leave evidence unchanged by default (optional small reduction via config); still recompute lexicon.                                                                          |
-| **Production**        | Communication emits `lexicon[context]` when assigned; otherwise exploratory among symbols not assigned to another meaning. Learning never mutates evidence because someone heard a signal. |
+| Concern               | Rule                                                                                                                                                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Evidence**          | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. May be ambiguous/overlapping across meanings. Independent arrays (no shared references).                                  |
+| **Lexicon**           | Exclusive one-to-one assignment (`food` / `water` → symbol or null). Deterministic max-total-evidence non-duplicating resolve after evidence updates.                                                       |
+| **Curiosity trait**   | Per-creature `curiosity` sampled at creation via `deriveSeed(seed, 'curiosity', id)` and `curiosityRange`. Meaning: susceptibility to investigating a heard communication opportunity.                      |
+| **Opportunities**     | Built from `HeardSignal` only (no `contextDetail`); each carries one-shot `curiosityDecision` (`accepted`/`rejected`) + sample evidence; bounded, deduped by emission id, expire deterministically.         |
+| **Curiosity accept**  | At ingest: `sample = RNG(deriveSeed(seed, 'signal-investigation-curiosity', listenerId, emissionId)).next()`; `accepted = sample < curiosity`. Never resampled; independent of distance/needs/associations. |
+| **Goal / action**     | Only **accepted** opportunities make `investigate_signal` valid. Fixed eligible score equals wander baseline; `move` toward origin, then `investigate`.                                                     |
+| **Explore exemption** | `wander → investigate_signal` skips `goalSwitchMargin` (min commitment still applies). Survival goals keep full hysteresis.                                                                                 |
+| **Travel lock**       | Once committed, rising needs do not interrupt the trip; no active travel timeout. Pending unselected signals may still expire.                                                                              |
+| **Reinforcement**     | Only on **arrival** at the origin: force local perception, qualify food/water within evidence radius, reinforce at most once, then recompute lexicon.                                                       |
+| **Completion**        | Clear active investigation and replan immediately after site inspection (food / water / mixed / no_evidence).                                                                                               |
+| **No-evidence**       | Conservative: leave evidence unchanged by default (optional small reduction via config); still recompute lexicon.                                                                                           |
+| **Production**        | Communication emits `lexicon[context]` when assigned; otherwise exploratory among symbols not assigned to another meaning. Learning never mutates evidence because someone heard a signal.                  |
 
 Fixed-step order (authoritative):
 
 1. Behaviour for all creatures (needs, perception episodes, announcement opportunities/preparation, expire pending, decisions including investigation, movement or site inspection+completion, emission requests).
 2. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, write histories, expire active emissions.
-3. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into pending investigation candidates (may prompt wander reconsider).
+3. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into investigation opportunities with one-shot curiosity decisions (accepted may prompt wander reconsider).
 
-**Eligibility:** a signal heard in step _N_ becomes pending at the end of step _N_ and is eligible for investigation scoring from step _N+1_. No Svelte/renderer timing.
+**Eligibility:** a signal heard in step _N_ becomes an opportunity at the end of step _N_ (curiosity decided then) and accepted opportunities are eligible for investigation from step _N+1_. No Svelte/renderer timing.
 
-**Investigation lifecycle:** hear → pending → choose investigate → travel to origin → stop (`investigate`) → sense → update evidence → resolve exclusive lexicon → clear active → replan.
+**Investigation lifecycle:** hear → opportunity + curiosity accept/reject → (if accepted) choose investigate → travel to origin → stop (`investigate`) → sense → update evidence → resolve exclusive lexicon → clear active → replan.
 
 Behaviour may produce an `EmissionRequest` handoff; it must not implement range, receivers or lifetime. Learning never reads emitter `contextDetail`, sender lexicons or presentation glyph metadata. Three.js and Svelte only present/inspect; they never decide who hears a signal or update evidence/lexicon.
 
@@ -303,9 +303,10 @@ Signal and communication visuals are presentation-only:
 - **Speech bubbles** (`signal-presentation.ts`) follow the sender’s current position
   for the active emission lifetime (fallback: emission origin). Billboards face the camera.
 - **Thin propagation rings** expand from `SignalEmission.origin` toward configurable
-  `hearingRadius`. Opacity uses shared `distanceFalloffFactor` × lifetime fade. The
-  ring is an **illustrative** range/falloff cue — hearing remains instantaneous within
-  radius at emission time (no propagation delay).
+  `hearingRadius`. Opacity uses shared `distanceFalloffFactor` × lifetime fade with
+  presentation-only `investigationDistanceScale`. The ring is an **illustrative**
+  range/falloff cue — hearing remains instantaneous within radius at emission time
+  (no propagation delay). Distance falloff does **not** affect curiosity acceptance.
 - **Listener `?` cues** (`listener-cue-presentation.ts`) show one neutral mark per
   creature when it has a recent `HeardSignal` (brief pulse) **or** while
   `activeInvestigation` is set (held for the full investigation). Coalesced per

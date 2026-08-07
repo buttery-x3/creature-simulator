@@ -49,6 +49,19 @@ export type ActiveInvestigationRow = {
 	startedAt: number;
 };
 
+/** Recent heard-signal curiosity decisions for Communication tab. */
+export type CuriosityOpportunityRow = {
+	listenerId: string;
+	symbolId: SymbolId;
+	emissionId: string;
+	heardAt: number;
+	curiosity: number;
+	decision: 'pending' | 'accepted' | 'rejected';
+	sample: number | null;
+	/** Whether this emission is the listener's active investigation. */
+	selected: boolean;
+};
+
 export type CompletedOutcomeCounts = {
 	food_evidence: number;
 	water_evidence: number;
@@ -65,6 +78,7 @@ export type CommunicationViewModel = {
 	lexiconMatrix: LexiconMatrixRow[];
 	liveFeed: LiveFeedItem[];
 	activeInvestigations: ActiveInvestigationRow[];
+	curiosityOpportunities: CuriosityOpportunityRow[];
 	completedOutcomes: CompletedOutcomeCounts;
 };
 
@@ -88,6 +102,7 @@ export function buildCommunicationViewModel(
 
 	const liveFeed = buildLiveFeed(state);
 	const activeInvestigations: ActiveInvestigationRow[] = [];
+	const curiosityOpportunities: CuriosityOpportunityRow[] = [];
 	const completedOutcomes: CompletedOutcomeCounts = {
 		food_evidence: 0,
 		water_evidence: 0,
@@ -110,10 +125,24 @@ export function buildCommunicationViewModel(
 				startedAt: inv.startedAt
 			});
 		}
+		for (const opp of creature.pendingSignals) {
+			curiosityOpportunities.push({
+				listenerId: creature.id,
+				symbolId: opp.symbolId,
+				emissionId: opp.emissionId,
+				heardAt: opp.heardAt,
+				curiosity: opp.curiosityEvidence?.curiosity ?? creature.curiosity,
+				decision: opp.curiosityDecision,
+				sample: opp.curiosityEvidence?.deterministicSample ?? null,
+				selected: creature.activeInvestigation?.emissionId === opp.emissionId
+			});
+		}
 		for (const entry of creature.recentLearning) {
 			completedOutcomes[entry.outcome] = (completedOutcomes[entry.outcome] ?? 0) + 1;
 		}
 	}
+
+	curiosityOpportunities.sort((a, b) => b.heardAt - a.heardAt);
 
 	return {
 		population,
@@ -121,6 +150,7 @@ export function buildCommunicationViewModel(
 		lexiconMatrix,
 		liveFeed,
 		activeInvestigations,
+		curiosityOpportunities,
 		completedOutcomes
 	};
 }

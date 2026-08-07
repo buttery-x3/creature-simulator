@@ -3,12 +3,13 @@ import { generateHabitat } from '$lib/habitat';
 import {
 	commitDecision,
 	evaluateCandidates,
+	INVESTIGATION_ELIGIBLE_SCORE,
 	isExploreExemption,
 	WANDER_BASELINE_SCORE
 } from '../behaviour/decisions';
 import { DEFAULT_SIMULATION_CONFIG } from '../create-simulation';
 import { testCreature } from '../test-creature';
-import type { PendingSignal } from './types';
+import type { SignalInvestigationOpportunity } from './types';
 
 const habitat = generateHabitat({
 	...DEFAULT_SIMULATION_CONFIG.habitat,
@@ -22,28 +23,35 @@ const decisionConfig = {
 	goalSwitchMargin: DEFAULT_SIMULATION_CONFIG.goalSwitchMargin,
 	minGoalCommitmentSeconds: DEFAULT_SIMULATION_CONFIG.minGoalCommitmentSeconds,
 	reconsiderIntervalSeconds: DEFAULT_SIMULATION_CONFIG.reconsiderIntervalSeconds,
-	trackedObservationDurationSeconds: DEFAULT_SIMULATION_CONFIG.trackedObservationDurationSeconds,
-	pendingSignalLifetimeSeconds: DEFAULT_SIMULATION_CONFIG.pendingSignalLifetimeSeconds,
-	investigationCuriosityWeight: DEFAULT_SIMULATION_CONFIG.investigationCuriosityWeight,
-	investigationDistanceScale: DEFAULT_SIMULATION_CONFIG.investigationDistanceScale,
-	investigationAgeWeight: DEFAULT_SIMULATION_CONFIG.investigationAgeWeight
+	trackedObservationDurationSeconds: DEFAULT_SIMULATION_CONFIG.trackedObservationDurationSeconds
 };
 
-function pendingNear(): PendingSignal {
+function acceptedNear(): SignalInvestigationOpportunity {
 	return {
 		emissionId: 'em-near',
 		symbolId: 'glyph-0',
 		senderId: 'creature-9',
 		origin: { x: 1, y: 0 },
 		heardAt: 5,
-		expiresAt: 30
+		expiresAt: 30,
+		curiosityDecision: 'accepted',
+		curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
 	};
 }
 
-describe('investigate_signal decisions', () => {
-	it('includes a valid investigate candidate targeting emission origin', () => {
+function rejectedNear(): SignalInvestigationOpportunity {
+	return {
+		...acceptedNear(),
+		emissionId: 'em-rej',
+		curiosityDecision: 'rejected',
+		curiosityEvidence: { curiosity: 0.2, deterministicSample: 0.9 }
+	};
+}
+
+describe('investigate_signal decisions (curiosity opportunities)', () => {
+	it('includes a valid investigate candidate for an accepted opportunity', () => {
 		const creature = testCreature({
-			pendingSignals: [pendingNear()],
+			pendingSignals: [acceptedNear()],
 			curiosity: 0.5,
 			hunger: 0.2,
 			thirst: 0.2,
@@ -52,9 +60,24 @@ describe('investigate_signal decisions', () => {
 		const candidates = evaluateCandidates(creature, habitat, decisionConfig, 5);
 		const inv = candidates.find((c) => c.goal === 'investigate_signal');
 		expect(inv?.valid).toBe(true);
-		expect(inv?.score).toBeGreaterThan(0);
+		expect(inv?.score).toBe(INVESTIGATION_ELIGIBLE_SCORE);
+		expect(inv?.score).toBe(WANDER_BASELINE_SCORE);
 		expect(inv?.target).toEqual({ kind: 'point', position: { x: 1, y: 0 } });
-		expect(inv!.score).toBeGreaterThan(WANDER_BASELINE_SCORE - 0.2);
+		expect(inv?.reason).toMatch(/curiosity accepted/);
+	});
+
+	it('does not treat rejected opportunities as valid investigation candidates', () => {
+		const creature = testCreature({
+			pendingSignals: [rejectedNear()],
+			curiosity: 0.2,
+			hunger: 0.15,
+			thirst: 0.15,
+			energy: 0.95
+		});
+		const candidates = evaluateCandidates(creature, habitat, decisionConfig, 5);
+		const inv = candidates.find((c) => c.goal === 'investigate_signal');
+		expect(inv?.valid).toBe(false);
+		expect(inv?.rejectionReason).toMatch(/rejected/);
 	});
 
 	it('documents explore exemption for wander → investigate_signal', () => {
@@ -72,7 +95,7 @@ describe('investigate_signal decisions', () => {
 			hunger: 0.2,
 			thirst: 0.2,
 			energy: 0.95,
-			pendingSignals: [pendingNear()]
+			pendingSignals: [acceptedNear()]
 		});
 		const held = commitDecision({
 			creature,
@@ -85,8 +108,7 @@ describe('investigate_signal decisions', () => {
 		expect(held.selectionReason).toMatch(/commitment/);
 	});
 
-	it('selects an unknown pending signal from ordinary wander reconsideration', () => {
-		// Not action_complete / invalid_target — explore exemption waives margin only.
+	it('selects an accepted opportunity from ordinary wander reconsideration', () => {
 		const creature = testCreature({
 			goal: 'wander',
 			action: 'wander',
@@ -96,7 +118,7 @@ describe('investigate_signal decisions', () => {
 			hunger: 0.15,
 			thirst: 0.15,
 			energy: 0.95,
-			pendingSignals: [pendingNear()]
+			pendingSignals: [acceptedNear()]
 		});
 		const decision = commitDecision({
 			creature,
@@ -110,50 +132,80 @@ describe('investigate_signal decisions', () => {
 		expect(decision.selectionReason).toMatch(/explore exemption|investigate_signal/);
 	});
 
-	it('allows a highly curious creature to select a more distant unknown signal', () => {
-		// Mid-range: high curiosity × distanceFactor can still beat wander; low curiosity cannot.
-		const midRange: PendingSignal = {
-			emissionId: 'em-mid',
-			symbolId: 'glyph-1',
-			senderId: 'creature-9',
-			origin: { x: 4, y: 0 },
-			heardAt: 5,
-			expiresAt: 30
-		};
-		const curious = testCreature({
+	it('continues wander when the only opportunity is rejected', () => {
+		const creature = testCreature({
 			goal: 'wander',
 			action: 'wander',
 			goalStartedAt: 0,
-			curiosity: 0.55,
+			curiosity: 0.1,
 			hunger: 0.15,
 			thirst: 0.15,
 			energy: 0.95,
-			pendingSignals: [midRange]
+			pendingSignals: [rejectedNear()]
 		});
-		const shy = testCreature({
-			...curious,
-			curiosity: 0.3
-		});
-		const curiousDecision = commitDecision({
-			creature: curious,
+		const decision = commitDecision({
+			creature,
 			habitat,
 			timeSeconds: 5,
 			trigger: 'reconsider',
 			config: decisionConfig
 		});
-		const shyDecision = commitDecision({
-			creature: shy,
+		expect(decision.selectedGoal).toBe('wander');
+		expect(decision.candidates.find((c) => c.goal === 'investigate_signal')?.valid).toBe(false);
+	});
+
+	it('can accept curiosity but not select investigation when a need goal wins', () => {
+		const creature = testCreature({
+			goal: 'wander',
+			action: 'wander',
+			goalStartedAt: 0,
+			curiosity: 0.8,
+			hunger: 0.95,
+			thirst: 0.15,
+			energy: 0.95,
+			pendingSignals: [acceptedNear()]
+		});
+		const decision = commitDecision({
+			creature,
 			habitat,
 			timeSeconds: 5,
 			trigger: 'reconsider',
 			config: decisionConfig
 		});
-		const curiousScore = curiousDecision.candidates.find(
+		const inv = decision.candidates.find((c) => c.goal === 'investigate_signal')!;
+		expect(inv.valid).toBe(true);
+		expect(inv.reason).toMatch(/curiosity accepted/);
+		expect(decision.selectedGoal).toBe('seek_food');
+		expect(inv.rejectionReason).toMatch(/not selected/);
+	});
+
+	it('treats distant accepted opportunities the same as near ones for eligibility score', () => {
+		const far: SignalInvestigationOpportunity = {
+			...acceptedNear(),
+			emissionId: 'em-far',
+			origin: { x: 20, y: 0 }
+		};
+		const nearCreature = testCreature({
+			pendingSignals: [acceptedNear()],
+			curiosity: 0.5,
+			hunger: 0.15,
+			thirst: 0.15,
+			energy: 0.95
+		});
+		const farCreature = testCreature({
+			...nearCreature,
+			pendingSignals: [far]
+		});
+		const nearInv = evaluateCandidates(nearCreature, habitat, decisionConfig, 5).find(
 			(c) => c.goal === 'investigate_signal'
-		)!.score;
-		const shyScore = shyDecision.candidates.find((c) => c.goal === 'investigate_signal')!.score;
-		expect(curiousScore).toBeGreaterThan(shyScore);
-		expect(curiousDecision.selectedGoal).toBe('investigate_signal');
-		expect(shyDecision.selectedGoal).toBe('wander');
+		)!;
+		const farInv = evaluateCandidates(farCreature, habitat, decisionConfig, 5).find(
+			(c) => c.goal === 'investigate_signal'
+		)!;
+		expect(nearInv.valid).toBe(true);
+		expect(farInv.valid).toBe(true);
+		expect(nearInv.score).toBe(farInv.score);
+		expect(nearInv.reason).not.toMatch(/distance/i);
+		expect(farInv.reason).not.toMatch(/distance/i);
 	});
 });

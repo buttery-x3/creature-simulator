@@ -518,7 +518,9 @@ describe('announcement preparation lock and exit replan', () => {
 					senderId: 'creature-9',
 					origin: { x: 0.5, y: 0.5 },
 					heardAt: 0,
-					expiresAt: 100
+					expiresAt: 100,
+					curiosityDecision: 'accepted',
+					curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
 				}
 			],
 			announcementOpportunities: [

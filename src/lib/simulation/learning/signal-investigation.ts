@@ -1,19 +1,24 @@
 /**
- * Pending-signal lifecycle, investigation scoring and evidence qualification.
+ * Pending-signal opportunity lifecycle, curiosity acceptance and evidence qualification.
  * Learning never reads emitter contextDetail or global symbol meanings.
+ *
+ * Curiosity is decided once at ingest (sample < curiosity). Distance affects hearing
+ * only — not post-hearing interest. Rejected opportunities remain for diagnostics but
+ * never become investigation goals.
  */
 
+import { createSeededRng, deriveSeed } from '$lib/determinism';
 import type { Vec2 } from '$lib/habitat';
 import { distanceSquared } from '../creature-movement';
 import type { CreaturePerception, SimulationConfig } from '../types';
 import type { HeardSignal } from '../communication/types';
-import { findAssociation } from './signal-associations';
 import type {
 	ActiveSignalInvestigation,
+	CuriosityDecision,
+	CuriosityEvidence,
 	LearningHistoryEntry,
 	LearningOutcome,
-	PendingSignal,
-	SymbolAssociation
+	SignalInvestigationOpportunity
 } from './types';
 
 export type PendingConfig = Pick<
@@ -21,42 +26,104 @@ export type PendingConfig = Pick<
 	'pendingSignalLifetimeSeconds' | 'maxPendingSignalsPerCreature'
 >;
 
-export type InvestigationScoreConfig = Pick<
-	SimulationConfig,
-	| 'pendingSignalLifetimeSeconds'
-	| 'investigationCuriosityWeight'
-	| 'investigationDistanceScale'
-	| 'investigationAgeWeight'
->;
-
 export type EvidenceConfig = Pick<SimulationConfig, 'learningEvidenceRadius'>;
 
-export function heardToPending(heard: HeardSignal, lifetimeSeconds: number): PendingSignal {
+/** Seed channel tag for one-shot curiosity samples (isolated from other streams). */
+export const CURIOSITY_SAMPLE_CHANNEL = 'signal-investigation-curiosity';
+
+/**
+ * Deterministic curiosity acceptance for one listener/emission pair.
+ * accepted = sample < curiosity; extremes: 0 rejects all, 1 accepts all.
+ */
+export function decideCuriosityAcceptance(
+	simulationSeed: string,
+	listenerId: string,
+	emissionId: string,
+	curiosity: number
+): { decision: Extract<CuriosityDecision, 'accepted' | 'rejected'>; evidence: CuriosityEvidence } {
+	const sample = createSeededRng(
+		deriveSeed(simulationSeed, CURIOSITY_SAMPLE_CHANNEL, listenerId, emissionId)
+	).next();
+	const safeCuriosity = Number.isFinite(curiosity) ? curiosity : 0;
+	const decision: Extract<CuriosityDecision, 'accepted' | 'rejected'> =
+		sample < safeCuriosity ? 'accepted' : 'rejected';
+	return {
+		decision,
+		evidence: {
+			curiosity: safeCuriosity,
+			deterministicSample: sample
+		}
+	};
+}
+
+export function heardToOpportunity(
+	heard: HeardSignal,
+	lifetimeSeconds: number,
+	simulationSeed: string,
+	listenerId: string,
+	curiosity: number
+): SignalInvestigationOpportunity {
+	const { decision, evidence } = decideCuriosityAcceptance(
+		simulationSeed,
+		listenerId,
+		heard.emissionId,
+		curiosity
+	);
 	return {
 		emissionId: heard.emissionId,
 		symbolId: heard.symbolId,
 		senderId: heard.senderId,
 		origin: { x: heard.origin.x, y: heard.origin.y },
 		heardAt: heard.heardAt,
-		expiresAt: heard.heardAt + lifetimeSeconds
+		expiresAt: heard.heardAt + lifetimeSeconds,
+		curiosityDecision: decision,
+		curiosityEvidence: evidence
 	};
 }
 
+/** @deprecated Use {@link heardToOpportunity} — retained name for call-site migration. */
+export function heardToPending(
+	heard: HeardSignal,
+	lifetimeSeconds: number,
+	simulationSeed: string,
+	listenerId: string,
+	curiosity: number
+): SignalInvestigationOpportunity {
+	return heardToOpportunity(heard, lifetimeSeconds, simulationSeed, listenerId, curiosity);
+}
+
+export type InsertPendingFromHeardInput = {
+	pending: readonly SignalInvestigationOpportunity[];
+	heardSignals: readonly HeardSignal[];
+	config: PendingConfig;
+	simulationSeed: string;
+	listenerId: string;
+	curiosity: number;
+};
+
 /**
- * Insert pending candidates from heard signals, deduped by emissionId, bounded, newest last.
- * Existing pending for the same emissionId is not duplicated.
+ * Insert opportunities from heard signals, deduped by emissionId, bounded, newest last.
+ * Curiosity is decided once at insert; existing entries are never recomputed.
+ * Overflow drops the oldest prefix (deterministic).
  */
 export function insertPendingFromHeard(
-	pending: readonly PendingSignal[],
-	heardSignals: readonly HeardSignal[],
-	config: PendingConfig
-): PendingSignal[] {
+	input: InsertPendingFromHeardInput
+): SignalInvestigationOpportunity[] {
+	const { pending, heardSignals, config, simulationSeed, listenerId, curiosity } = input;
 	let next = [...pending];
 	for (const heard of heardSignals) {
 		if (next.some((p) => p.emissionId === heard.emissionId)) {
 			continue;
 		}
-		next.push(heardToPending(heard, config.pendingSignalLifetimeSeconds));
+		next.push(
+			heardToOpportunity(
+				heard,
+				config.pendingSignalLifetimeSeconds,
+				simulationSeed,
+				listenerId,
+				curiosity
+			)
+		);
 	}
 	if (next.length > config.maxPendingSignalsPerCreature) {
 		next = next.slice(next.length - config.maxPendingSignalsPerCreature);
@@ -66,21 +133,22 @@ export function insertPendingFromHeard(
 
 /** Drop pending with expiresAt <= timeSeconds. */
 export function expirePendingSignals(
-	pending: readonly PendingSignal[],
+	pending: readonly SignalInvestigationOpportunity[],
 	timeSeconds: number
-): PendingSignal[] {
+): SignalInvestigationOpportunity[] {
 	return pending.filter((p) => p.expiresAt > timeSeconds);
 }
 
 export function removePendingByEmissionId(
-	pending: readonly PendingSignal[],
+	pending: readonly SignalInvestigationOpportunity[],
 	emissionId: string
-): PendingSignal[] {
+): SignalInvestigationOpportunity[] {
 	return pending.filter((p) => p.emissionId !== emissionId);
 }
 
 /**
- * Smooth distance falloff: nearby ≈ 1, distant decreases continuously, never hard-zero.
+ * Smooth distance falloff for presentation (signal rings): nearby ≈ 1, distant decreases,
+ * never hard-zero. Not used for curiosity acceptance or goal eligibility.
  * distanceFactor = 1 / (1 + distance / scale)
  */
 export function distanceFalloffFactor(distance: number, scale: number): number {
@@ -89,122 +157,64 @@ export function distanceFalloffFactor(distance: number, scale: number): number {
 	return 1 / (1 + safeDistance / safeScale);
 }
 
-export type InvestigationScore = {
+export type InvestigationSelection = {
+	opportunity: SignalInvestigationOpportunity;
+	/** Fixed eligible score for goal evaluation (not a multi-factor motivation blend). */
 	score: number;
 	reason: string;
-	pending: PendingSignal;
-	curiosity: number;
-	curiosityTerm: number;
-	resourceBias: number;
-	distance: number;
-	distanceScale: number;
-	distanceFactor: number;
-	ageNorm: number;
-	agePenalty: number;
 };
 
 /**
- * Score one pending (or active-as-pending) investigation opportunity.
- * Per-creature curiosity is the primary unknown-symbol interest term.
+ * Choose the earliest-heard non-expired accepted opportunity (emissionId ASC on ties).
+ * Rejected and pending opportunities are never selected.
  */
-export function scoreInvestigationCandidate(
-	creature: {
-		position: Vec2;
-		hunger: number;
-		thirst: number;
-		curiosity: number;
-		symbolAssociations: readonly SymbolAssociation[];
-	},
-	pending: PendingSignal,
+export function selectBestAcceptedOpportunity(
+	opportunities: readonly SignalInvestigationOpportunity[],
 	timeSeconds: number,
-	config: InvestigationScoreConfig
-): InvestigationScore {
-	const assoc = findAssociation(creature.symbolAssociations, pending.symbolId);
-	const foodStrength = assoc?.foodStrength ?? 0;
-	const waterStrength = assoc?.waterStrength ?? 0;
-	const resourceBias = foodStrength * creature.hunger + waterStrength * creature.thirst;
-	const curiosityTerm = creature.curiosity * config.investigationCuriosityWeight;
-
-	const age = Math.max(0, timeSeconds - pending.heardAt);
-	const lifetime = config.pendingSignalLifetimeSeconds;
-	const ageNorm = lifetime > 0 ? Math.min(1, age / lifetime) : 0;
-	const agePenalty = config.investigationAgeWeight * ageNorm;
-
-	const distance = Math.sqrt(distanceSquared(creature.position, pending.origin));
-	const distanceScale = config.investigationDistanceScale;
-	const distanceFactor = distanceFalloffFactor(distance, distanceScale);
-
-	let score = (curiosityTerm + resourceBias) * distanceFactor - agePenalty;
-	if (!Number.isFinite(score) || score < 0) {
-		score = 0;
+	eligibleScore: number
+): InvestigationSelection | null {
+	const liveAccepted = opportunities.filter(
+		(p) => p.expiresAt > timeSeconds && p.curiosityDecision === 'accepted'
+	);
+	if (liveAccepted.length === 0) {
+		return null;
 	}
-
+	const ordered = [...liveAccepted].sort((a, b) => {
+		if (a.heardAt !== b.heardAt) {
+			return a.heardAt - b.heardAt;
+		}
+		return a.emissionId < b.emissionId ? -1 : a.emissionId > b.emissionId ? 1 : 0;
+	});
+	const best = ordered[0]!;
+	const sample = best.curiosityEvidence?.deterministicSample;
+	const curiosity = best.curiosityEvidence?.curiosity;
 	const reason =
-		`curiosity ${creature.curiosity.toFixed(3)}×${config.investigationCuriosityWeight.toFixed(3)}` +
-		`=${curiosityTerm.toFixed(3)}` +
-		` + resourceBias ${resourceBias.toFixed(3)}` +
-		` (food ${foodStrength.toFixed(3)}×hunger ${creature.hunger.toFixed(3)}` +
-		` + water ${waterStrength.toFixed(3)}×thirst ${creature.thirst.toFixed(3)})` +
-		` × distanceFactor ${distanceFactor.toFixed(3)}` +
-		` (dist=${distance.toFixed(3)}, scale=${distanceScale.toFixed(3)})` +
-		` − agePenalty ${agePenalty.toFixed(3)}` +
-		` → ${score.toFixed(3)}; symbol=${pending.symbolId} emission=${pending.emissionId}`;
-
+		`curiosity accepted emission=${best.emissionId} symbol=${best.symbolId}` +
+		(curiosity !== undefined && sample !== undefined
+			? ` (curiosity=${curiosity.toFixed(3)} sample=${sample.toFixed(3)})`
+			: '');
 	return {
-		score,
-		reason,
-		pending,
-		curiosity: creature.curiosity,
-		curiosityTerm,
-		resourceBias,
-		distance,
-		distanceScale,
-		distanceFactor,
-		ageNorm,
-		agePenalty
+		opportunity: best,
+		score: eligibleScore,
+		reason
 	};
 }
 
-/**
- * Choose the highest-scoring non-expired pending signal (emissionId ASC on ties).
- */
+/** @deprecated Prefer {@link selectBestAcceptedOpportunity}. */
 export function selectBestPendingSignal(
-	creature: {
-		position: Vec2;
-		hunger: number;
-		thirst: number;
-		curiosity: number;
-		symbolAssociations: readonly SymbolAssociation[];
-	},
-	pendingSignals: readonly PendingSignal[],
+	_creature: unknown,
+	pendingSignals: readonly SignalInvestigationOpportunity[],
 	timeSeconds: number,
-	config: InvestigationScoreConfig
-): InvestigationScore | null {
-	const live = pendingSignals.filter((p) => p.expiresAt > timeSeconds);
-	if (live.length === 0) {
-		return null;
-	}
-	let best: InvestigationScore | null = null;
-	const ordered = [...live].sort((a, b) =>
-		a.emissionId < b.emissionId ? -1 : a.emissionId > b.emissionId ? 1 : 0
-	);
-	for (const pending of ordered) {
-		const scored = scoreInvestigationCandidate(creature, pending, timeSeconds, config);
-		if (
-			!best ||
-			scored.score > best.score ||
-			(scored.score === best.score && scored.pending.emissionId < best.pending.emissionId)
-		) {
-			best = scored;
-		}
-	}
-	return best;
+	eligibleScore: number
+): InvestigationSelection | null {
+	void _creature;
+	return selectBestAcceptedOpportunity(pendingSignals, timeSeconds, eligibleScore);
 }
 
 export function activeToPendingShape(
 	active: ActiveSignalInvestigation,
 	heardAtFallback: number
-): PendingSignal {
+): SignalInvestigationOpportunity {
 	return {
 		emissionId: active.emissionId,
 		symbolId: active.symbolId,
@@ -212,13 +222,16 @@ export function activeToPendingShape(
 		origin: { x: active.origin.x, y: active.origin.y },
 		// Use startedAt for age while travelling so age does not explode mid-trip.
 		heardAt: heardAtFallback,
-		// Active investigations do not expire; far-future placeholder for scoring filters.
-		expiresAt: Number.POSITIVE_INFINITY
+		// Active investigations do not expire; far-future placeholder for filters.
+		expiresAt: Number.POSITIVE_INFINITY,
+		// Already committed — treat as accepted for eligibility.
+		curiosityDecision: 'accepted',
+		curiosityEvidence: null
 	};
 }
 
 export function beginInvestigation(
-	pending: PendingSignal,
+	pending: Pick<SignalInvestigationOpportunity, 'emissionId' | 'symbolId' | 'senderId' | 'origin'>,
 	timeSeconds: number
 ): ActiveSignalInvestigation {
 	return {
@@ -304,4 +317,30 @@ export function appendLearningHistory(
 
 export function isNearOrigin(position: Vec2, origin: Vec2, arrivalDistance: number): boolean {
 	return distanceSquared(position, origin) <= arrivalDistance * arrivalDistance;
+}
+
+export function countAcceptedPending(
+	pending: readonly SignalInvestigationOpportunity[],
+	timeSeconds: number
+): number {
+	return pending.filter((p) => p.expiresAt > timeSeconds && p.curiosityDecision === 'accepted')
+		.length;
+}
+
+export function mostRecentCuriosityDecision(
+	pending: readonly SignalInvestigationOpportunity[]
+): SignalInvestigationOpportunity | null {
+	if (pending.length === 0) {
+		return null;
+	}
+	let best = pending[0]!;
+	for (let i = 1; i < pending.length; i += 1) {
+		const p = pending[i]!;
+		if (p.heardAt > best.heardAt) {
+			best = p;
+		} else if (p.heardAt === best.heardAt && p.emissionId > best.emissionId) {
+			best = p;
+		}
+	}
+	return best;
 }

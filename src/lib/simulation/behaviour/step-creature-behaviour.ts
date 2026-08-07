@@ -19,8 +19,9 @@ import {
 import {
 	beginInvestigation,
 	removePendingByEmissionId,
-	selectBestPendingSignal
+	selectBestAcceptedOpportunity
 } from '../learning/signal-investigation';
+import { INVESTIGATION_ELIGIBLE_SCORE } from './decisions';
 import {
 	advanceActiveLearning,
 	interruptInvestigation,
@@ -72,9 +73,7 @@ export type BehaviourStepConfig = Pick<
 	| 'trackedObservationDurationSeconds'
 	| 'pendingSignalLifetimeSeconds'
 	| 'maxPendingSignalsPerCreature'
-	| 'investigationCuriosityWeight'
 	| 'investigationDistanceScale'
-	| 'investigationAgeWeight'
 	| 'learningEvidenceRadius'
 	| 'associationReinforcement'
 	| 'noEvidenceConfidenceReduction'
@@ -167,21 +166,14 @@ function replan(
 		if (continuing && activeInvestigation) {
 			target = pointTarget(activeInvestigation.origin);
 		} else {
-			const best = selectBestPendingSignal(
-				{
-					position: creature.position,
-					hunger: creature.hunger,
-					thirst: creature.thirst,
-					curiosity: creature.curiosity,
-					symbolAssociations
-				},
+			const best = selectBestAcceptedOpportunity(
 				pendingSignals,
 				timeSeconds,
-				config
+				INVESTIGATION_ELIGIBLE_SCORE
 			);
 			if (best) {
-				activeInvestigation = beginInvestigation(best.pending, timeSeconds);
-				pendingSignals = removePendingByEmissionId(pendingSignals, best.pending.emissionId);
+				activeInvestigation = beginInvestigation(best.opportunity, timeSeconds);
+				pendingSignals = removePendingByEmissionId(pendingSignals, best.opportunity.emissionId);
 				target = pointTarget(activeInvestigation.origin);
 			} else if (activeInvestigation) {
 				target = pointTarget(activeInvestigation.origin);

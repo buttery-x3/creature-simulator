@@ -2,18 +2,21 @@
  * Learning subdomain: personal symbol evidence, exclusive lexicon, signal investigation.
  * Consumed by simulation siblings; presentation imports via $lib/simulation only.
  *
- * Does not own emission, reception or goal selection — only pending candidates,
- * evidence updates, lexicon resolution, investigation and learning histories.
+ * Does not own emission, reception or goal selection — only investigation opportunities,
+ * evidence updates, lexicon resolution, and learning histories.
  */
 
 export type {
 	ActiveSignalInvestigation,
 	CreatureLexicon,
+	CuriosityDecision,
+	CuriosityEvidence,
 	LearningHistoryEntry,
 	LearningOutcome,
 	LexiconChangeEntry,
 	LexiconMeaning,
 	PendingSignal,
+	SignalInvestigationOpportunity,
 	SymbolAssociation
 } from './types';
 
@@ -43,16 +46,22 @@ export {
 	activeToPendingShape,
 	appendLearningHistory,
 	beginInvestigation,
+	countAcceptedPending,
+	CURIOSITY_SAMPLE_CHANNEL,
+	decideCuriosityAcceptance,
 	distanceFalloffFactor,
 	expirePendingSignals,
+	heardToOpportunity,
 	heardToPending,
 	insertPendingFromHeard,
 	isNearOrigin,
+	mostRecentCuriosityDecision,
 	outcomeFromEvidenceFlags,
 	qualifyEvidenceNearOrigin,
 	removePendingByEmissionId,
-	scoreInvestigationCandidate,
-	selectBestPendingSignal
+	selectBestAcceptedOpportunity,
+	selectBestPendingSignal,
+	type InvestigationSelection
 } from './signal-investigation';
 
 export {

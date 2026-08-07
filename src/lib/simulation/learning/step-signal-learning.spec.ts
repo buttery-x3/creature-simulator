@@ -47,8 +47,9 @@ describe('step signal learning', () => {
 				}
 			]
 		});
-		const next = ingestHeardIntoPending(creature, 2, learningConfig);
+		const next = ingestHeardIntoPending(creature, 2, learningConfig, 'test-seed');
 		expect(next.pendingSignals).toHaveLength(1);
+		expect(next.pendingSignals[0]!.curiosityDecision).toMatch(/accepted|rejected/);
 		expect(JSON.stringify(next.pendingSignals[0])).not.toContain('contextDetail');
 	});
 
@@ -59,7 +60,9 @@ describe('step signal learning', () => {
 			senderId: 'creature-1',
 			origin: { x: 0, y: 0 },
 			heardAt: 1,
-			expiresAt: 20
+			expiresAt: 20,
+			curiosityDecision: 'accepted',
+			curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
 		};
 		const creature = testCreature({
 			position: { x: 5, y: 0 },
@@ -93,7 +96,9 @@ describe('step signal learning', () => {
 			senderId: 'creature-1',
 			origin: { x: 0, y: 0 },
 			heardAt: 1,
-			expiresAt: 20
+			expiresAt: 20,
+			curiosityDecision: 'accepted',
+			curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
 		};
 		const habitat = generateHabitat({
 			...DEFAULT_SIMULATION_CONFIG.habitat,
@@ -141,7 +146,9 @@ describe('step signal learning', () => {
 			senderId: 'creature-1',
 			origin: { x: 0, y: 0 },
 			heardAt: 1,
-			expiresAt: 20
+			expiresAt: 20,
+			curiosityDecision: 'accepted',
+			curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
 		};
 		const habitat = generateHabitat({
 			...DEFAULT_SIMULATION_CONFIG.habitat,
@@ -175,7 +182,9 @@ describe('step signal learning', () => {
 			senderId: 'creature-1',
 			origin: { x: 1, y: 1 },
 			heardAt: 1,
-			expiresAt: 20
+			expiresAt: 20,
+			curiosityDecision: 'accepted',
+			curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
 		};
 		const creature = testCreature({
 			activeInvestigation: beginInvestigation(pending, 1)
@@ -230,7 +239,9 @@ describe('investigation travel lock and arrival', () => {
 			senderId: 'creature-9',
 			origin,
 			heardAt: 1,
-			expiresAt: 100
+			expiresAt: 100,
+			curiosityDecision: 'accepted',
+			curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
 		};
 		let creature = testCreature({
 			position: { x: 0, y: 0 },
@@ -284,7 +295,9 @@ describe('investigation travel lock and arrival', () => {
 			senderId: 'creature-9',
 			origin,
 			heardAt: 1,
-			expiresAt: 100
+			expiresAt: 100,
+			curiosityDecision: 'accepted',
+			curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
 		};
 		const creature = testCreature({
 			position: { x: 0, y: 0 },
@@ -327,9 +340,7 @@ describe('investigation travel lock and arrival', () => {
 					emissionId: 'em-orbit',
 					symbolId: 'glyph-0',
 					senderId: 'creature-9',
-					origin,
-					heardAt: 1,
-					expiresAt: 100
+					origin
 				},
 				1
 			)

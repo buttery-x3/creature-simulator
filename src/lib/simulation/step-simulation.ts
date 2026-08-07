@@ -49,9 +49,7 @@ export type StepSimulationConfig = Pick<
 	| 'symbolInventory'
 	| 'pendingSignalLifetimeSeconds'
 	| 'maxPendingSignalsPerCreature'
-	| 'investigationCuriosityWeight'
 	| 'investigationDistanceScale'
-	| 'investigationAgeWeight'
 	| 'learningEvidenceRadius'
 	| 'associationReinforcement'
 	| 'noEvidenceConfidenceReduction'
@@ -113,10 +111,15 @@ export function stepSimulation(
 		config
 	);
 
-	// Pending candidates from this step's hearing (eligible for investigation from next step).
+	// Opportunities from this step's hearing (eligible for investigation from next step).
 	return {
 		...afterCommunication,
-		creatures: stepPostReceptionLearning(afterCommunication.creatures, timeSeconds, config)
+		creatures: stepPostReceptionLearning(
+			afterCommunication.creatures,
+			timeSeconds,
+			config,
+			state.seed
+		)
 	};
 }
 

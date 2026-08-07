@@ -295,15 +295,21 @@ export function formatCreatureInspection(
 	}
 
 	if (creature.pendingSignals.length === 0) {
-		lines.push('  pending signals: (none)');
+		lines.push('  investigation opportunities: (none)');
 	} else {
-		lines.push('  pending signals:');
+		lines.push('  investigation opportunities:');
 		for (const pending of creature.pendingSignals) {
 			const age = Math.max(0, timeSeconds - pending.heardAt);
+			const evidence = pending.curiosityEvidence;
+			const evidenceText =
+				evidence !== null
+					? ` curiosity=${evidence.curiosity.toFixed(3)} sample=${evidence.deterministicSample.toFixed(3)}`
+					: '';
 			lines.push(
 				`    emission=${pending.emissionId} symbol=${pending.symbolId} from ${pending.senderId}` +
 					` origin=(${pending.origin.x.toFixed(3)}, ${pending.origin.y.toFixed(3)})` +
 					` age=${age.toFixed(3)}s expires@${pending.expiresAt.toFixed(3)}` +
+					` decision=${pending.curiosityDecision}${evidenceText}` +
 					` (listener-only; no emitter contextDetail)`
 			);
 		}
@@ -328,7 +334,7 @@ export function formatCreatureInspection(
 	).find((c) => c.goal === 'investigate_signal');
 	if (investigateCandidate) {
 		lines.push(
-			`  investigation score: ${investigateCandidate.score.toFixed(3)} ` +
+			`  investigation candidate: score=${investigateCandidate.score.toFixed(3)} ` +
 				`valid=${investigateCandidate.valid} — ${investigateCandidate.reason}` +
 				(investigateCandidate.rejectionReason ? ` | ${investigateCandidate.rejectionReason}` : '')
 		);

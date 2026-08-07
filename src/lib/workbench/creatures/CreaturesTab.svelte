@@ -3,7 +3,7 @@
 	import type { Creature, SimulationConfig, SimulationState } from '$lib/simulation';
 	import {
 		buildCandidateViews,
-		buildInvestigationScoreBreakdown,
+		buildInvestigationOpportunitySummary,
 		buildRosterRows,
 		formatTargetLabel,
 		lastEmittedSymbolId,
@@ -29,12 +29,7 @@
 	);
 	const investigation = $derived(
 		selectedCreature
-			? buildInvestigationScoreBreakdown(selectedCreature, simulation.timeSeconds, {
-					pendingSignalLifetimeSeconds: config.pendingSignalLifetimeSeconds,
-					investigationCuriosityWeight: config.investigationCuriosityWeight,
-					investigationDistanceScale: config.investigationDistanceScale,
-					investigationAgeWeight: config.investigationAgeWeight
-				})
+			? buildInvestigationOpportunitySummary(selectedCreature, simulation.timeSeconds)
 			: null
 	);
 	const candidates = $derived(
@@ -188,19 +183,43 @@
 			</dl>
 
 			{#if investigation}
-				<div class="score-box" data-testid="investigation-score-breakdown">
-					<h4>Investigation score terms</h4>
+				<div class="score-box" data-testid="investigation-opportunity-summary">
+					<h4>Investigation opportunities</h4>
 					<dl class="meta">
 						<div>
-							<dt>Total score</dt>
-							<dd>{investigation.totalScore.toFixed(3)}</dd>
+							<dt>Curiosity</dt>
+							<dd data-testid="investigation-summary-curiosity">
+								{investigation.curiosity.toFixed(3)}
+							</dd>
 						</div>
-						{#each investigation.terms as term (term.label)}
-							<div>
-								<dt>{term.label}</dt>
-								<dd>{term.value.toFixed(3)}</dd>
-							</div>
-						{/each}
+						<div>
+							<dt>Accepted pending</dt>
+							<dd data-testid="investigation-summary-accepted-count">
+								{investigation.acceptedPendingCount}
+							</dd>
+						</div>
+						<div>
+							<dt>Recent decision</dt>
+							<dd data-testid="investigation-summary-recent-decision">
+								{investigation.recentDecision ?? '—'}
+								{#if investigation.recentSample !== null}
+									<span class="muted">
+										· sample={investigation.recentSample.toFixed(3)}
+									</span>
+								{/if}
+							</dd>
+						</div>
+						<div>
+							<dt>Active</dt>
+							<dd data-testid="investigation-summary-active">
+								{#if investigation.activeSymbolId}
+									<SymbolGlyph symbolId={investigation.activeSymbolId} />
+									{investigation.activeEmissionId}
+								{:else}
+									—
+								{/if}
+							</dd>
+						</div>
 					</dl>
 				</div>
 			{/if}
@@ -339,9 +358,14 @@
 					</dd>
 				</div>
 				<div>
-					<dt>Pending signals</dt>
+					<dt>Pending opportunities</dt>
 					<dd data-testid="inspector-pending-signals">
 						{selectedCreature.pendingSignals.length}
+						{#if investigation}
+							<span class="muted">
+								· accepted={investigation.acceptedPendingCount}
+							</span>
+						{/if}
 					</dd>
 				</div>
 				<div>
@@ -542,6 +566,11 @@
 
 	.fill.energy {
 		background: #22c55e;
+	}
+
+	.muted {
+		color: #94a3b8;
+		font-size: 0.85em;
 	}
 
 	.score-box {

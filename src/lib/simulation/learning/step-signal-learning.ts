@@ -226,26 +226,34 @@ export function interruptInvestigation(
 }
 
 /**
- * Convert signals heard this step into pending investigation candidates.
+ * Convert signals heard this step into investigation opportunities with one-shot curiosity decisions.
  */
 export function ingestHeardIntoPending(
 	creature: Creature,
 	timeSeconds: number,
-	config: Pick<LearningStepConfig, 'pendingSignalLifetimeSeconds' | 'maxPendingSignalsPerCreature'>
+	config: Pick<LearningStepConfig, 'pendingSignalLifetimeSeconds' | 'maxPendingSignalsPerCreature'>,
+	simulationSeed: string
 ): Creature {
 	const newlyHeard = creature.recentHeard.filter((h) => h.heardAt === timeSeconds);
 	if (newlyHeard.length === 0) {
 		return creature;
 	}
-	const pendingBefore = creature.pendingSignals.length;
-	const pendingSignals = insertPendingFromHeard(creature.pendingSignals, newlyHeard, config);
-	const gained =
-		pendingSignals.length > pendingBefore ||
-		newlyHeard.some((h) => pendingSignals.some((p) => p.emissionId === h.emissionId));
+	const pendingSignals = insertPendingFromHeard({
+		pending: creature.pendingSignals,
+		heardSignals: newlyHeard,
+		config,
+		simulationSeed,
+		listenerId: creature.id,
+		curiosity: creature.curiosity
+	});
 
-	// Prompt prompt reconsider on next behaviour step while wandering so explore is not delayed.
+	const gainedAccepted = newlyHeard.some((h) =>
+		pendingSignals.some((p) => p.emissionId === h.emissionId && p.curiosityDecision === 'accepted')
+	);
+
+	// Prompt reconsider while wandering only when curiosity accepted an opportunity.
 	const nextReconsiderAt =
-		gained && creature.goal === 'wander'
+		gainedAccepted && creature.goal === 'wander'
 			? Math.min(creature.nextReconsiderAt, timeSeconds)
 			: creature.nextReconsiderAt;
 
@@ -257,12 +265,15 @@ export function ingestHeardIntoPending(
 }
 
 /**
- * After communication reception: ingest pending for every creature in array order.
+ * After communication reception: ingest opportunities for every creature in array order.
  */
 export function stepPostReceptionLearning(
 	creatures: readonly Creature[],
 	timeSeconds: number,
-	config: Pick<LearningStepConfig, 'pendingSignalLifetimeSeconds' | 'maxPendingSignalsPerCreature'>
+	config: Pick<LearningStepConfig, 'pendingSignalLifetimeSeconds' | 'maxPendingSignalsPerCreature'>,
+	simulationSeed: string
 ): Creature[] {
-	return creatures.map((creature) => ingestHeardIntoPending(creature, timeSeconds, config));
+	return creatures.map((creature) =>
+		ingestHeardIntoPending(creature, timeSeconds, config, simulationSeed)
+	);
 }

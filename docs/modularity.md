@@ -199,23 +199,29 @@ modularity thresholds.
 
 ### Workbench and route
 
-`HabitatWorkbench.svelte` owns seed/simulation controls and diagnostic panels;
-it composes `CreatureInspector.svelte` for the selected-creature surface and
-`PopulationCommunicationPanel.svelte` for observational population symbol metrics.
+`src/lib/workbench/` owns the domain-organised diagnostics workbench (presentation
+only). Responsibilities are split by product domain rather than stacked panels:
 
-`CreatureLexiconPanel.svelte` owns selected-creature evidence, exclusive lexicon
-and last-selection presentation (composed by the inspector).
+- `WorkbenchShell.svelte` / `WorkbenchTabs.svelte` — full-height shell, tab chrome,
+  compact status strip, presentation-only navigation intents;
+- `overview/` — run controls and aggregate wellbeing/behaviour/world snapshots;
+- `creatures/` — roster table and selected-creature sections;
+- `communication/` — symbol legend, funnel, lexicon matrix, symbol summaries,
+  live feed and investigations;
+- `world/` — structured habitat/resource tables;
+- `events/` — chronological rows from bounded histories with a reusable filter model;
+- `debug/` — raw `format*` diagnostics and copy/export helpers;
+- `view-models/` — pure structured builders (no Svelte, no prose parsing).
 
-`CreatureInspector.svelte` owns creature selection chips, needs/perception/
-communication/learning fields, candidates, and inspector-specific formatting/styling.
-Emission weight display is extracted to `CreatureEmissionWeights.svelte` to keep
-inspector growth within modularity headroom. Components read structured simulation
-evidence only and must not own domain algorithms.
+Tab selection, event filters and creature selection are presentation state and
+must never enter `SimulationState`. Components consume `$lib/simulation` public
+exports and shared `SymbolGlyph` / `symbol-presentation` only.
 
 `src/routes/+page.svelte` owns page-level simulation session state, rAF fixed-step
-catch-up, selected creature id (presentation only), and composition of the
-workbench with the viewport. It may remain a small application orchestrator, but
-domain algorithms and Three.js resource management must not migrate into it.
+catch-up, selected creature id and active workbench tab (presentation only), and
+composition of the workbench with the viewport. It may remain a small application
+orchestrator, but domain algorithms and Three.js resource management must not
+migrate into it.
 
 ## Extraction rules
 

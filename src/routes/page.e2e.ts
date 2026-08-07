@@ -25,6 +25,17 @@ async function waitForHabitatCanvas(page: Page): Promise<Locator> {
 	return canvas;
 }
 
+async function openWorkbenchTab(
+	page: Page,
+	tab: 'overview' | 'creatures' | 'communication' | 'world' | 'events' | 'debug'
+): Promise<void> {
+	const tabButton = page.getByTestId(`workbench-tab-${tab}`);
+	await tabButton.scrollIntoViewIfNeeded();
+	await tabButton.click();
+	await expect(tabButton).toHaveAttribute('aria-selected', 'true');
+	await expect(page.getByTestId(`workbench-panel-${tab}`)).toBeVisible();
+}
+
 test('loads the habitat surface, creatures and workbench controls', async ({ page }) => {
 	await page.goto('/');
 
@@ -39,15 +50,19 @@ test('loads the habitat surface, creatures and workbench controls', async ({ pag
 	expect(box!.width).toBeGreaterThan(0);
 	expect(box!.height).toBeGreaterThan(0);
 
+	// Overview holds run controls by default.
+	await expect(page.getByTestId('workbench-tab-overview')).toHaveAttribute('aria-selected', 'true');
 	await expect(page.getByTestId('habitat-seed-input')).toBeVisible();
 	await expect(page.getByTestId('habitat-regenerate')).toBeVisible();
 	await expect(page.getByTestId('habitat-random-seed')).toBeVisible();
 	await expect(page.getByTestId('simulation-pause-resume')).toBeVisible();
 	await expect(page.getByTestId('simulation-reset')).toBeVisible();
 	await expect(page.getByTestId('habitat-active-seed')).toHaveText('demo');
-	await expect(page.getByTestId('habitat-diagnostics')).toContainText('seed: demo');
 	await expect(page.getByTestId('simulation-creature-count')).toHaveText('12');
 	await expect(canvas).toHaveAttribute('data-creature-count', '12');
+
+	await openWorkbenchTab(page, 'debug');
+	await expect(page.getByTestId('habitat-diagnostics')).toContainText('seed: demo');
 });
 
 test('near-top-down perspective view keeps the entire habitat visible', async ({ page }) => {
@@ -71,17 +86,19 @@ test('regenerating the same seed keeps the active seed and diagnostics stable', 
 	page
 }) => {
 	await page.goto('/');
+	const canvas = await waitForHabitatCanvas(page);
 
-	const diagnostics = page.getByTestId('habitat-diagnostics');
-	const first = await diagnostics.textContent();
+	await openWorkbenchTab(page, 'debug');
+	const first = await page.getByTestId('habitat-diagnostics').textContent();
 
+	await openWorkbenchTab(page, 'overview');
 	await page.getByTestId('habitat-seed-input').fill('demo');
 	await page.getByTestId('habitat-regenerate').click();
 
 	await expect(page.getByTestId('habitat-active-seed')).toHaveText('demo');
-	await expect(diagnostics).toHaveText(first ?? '');
+	await openWorkbenchTab(page, 'debug');
+	await expect(page.getByTestId('habitat-diagnostics')).toHaveText(first ?? '');
 
-	const canvas = await waitForHabitatCanvas(page);
 	await expectHabitatFullyVisible(canvas);
 	await expect(canvas).toHaveAttribute('data-creature-count', '12');
 });
@@ -90,11 +107,14 @@ test('a new random seed changes the habitat while keeping it fully framed', asyn
 	await page.goto('/');
 
 	const beforeSeed = await page.getByTestId('habitat-active-seed').textContent();
+	await openWorkbenchTab(page, 'debug');
 	const beforeDiagnostics = await page.getByTestId('habitat-diagnostics').textContent();
 
+	await openWorkbenchTab(page, 'overview');
 	await page.getByTestId('habitat-random-seed').click();
 
 	await expect(page.getByTestId('habitat-active-seed')).not.toHaveText(beforeSeed ?? '');
+	await openWorkbenchTab(page, 'debug');
 	await expect(page.getByTestId('habitat-diagnostics')).not.toHaveText(beforeDiagnostics ?? '');
 	await expect(page.getByTestId('habitat-diagnostics')).toContainText('seed:');
 
@@ -113,8 +133,10 @@ test('pause, resume and reset controls work', async ({ page }) => {
 		.poll(async () => parseSimulationTime(await page.getByTestId('simulation-time').textContent()))
 		.toBeGreaterThan(0.05);
 
+	await openWorkbenchTab(page, 'debug');
 	const creaturesBefore = await page.getByTestId('simulation-diagnostics').textContent();
 
+	await openWorkbenchTab(page, 'overview');
 	await page.getByTestId('simulation-pause-resume').click();
 	await expect(page.getByTestId('simulation-status')).toHaveText('paused');
 	await expect(page.getByTestId('simulation-pause-resume')).toHaveText('Resume');
@@ -136,6 +158,7 @@ test('pause, resume and reset controls work', async ({ page }) => {
 	await expect(canvas).toHaveAttribute('data-creature-count', '12');
 
 	// Reset returns to initial creature state for the seed.
+	await openWorkbenchTab(page, 'debug');
 	const afterReset = await page.getByTestId('simulation-diagnostics').textContent();
 	expect(afterReset).toContain('time: 0.000 s');
 	expect(afterReset).toMatch(/goal=wander|goal=seek_/);
@@ -148,17 +171,25 @@ test('selecting a creature shows needs, goal, action and candidate scores', asyn
 	await page.goto('/');
 
 	await waitForHabitatCanvas(page);
+	await openWorkbenchTab(page, 'creatures');
 	await expect(page.getByTestId('creature-inspector-empty')).toHaveText('No creature selected.');
 
 	// Pause so inspection values are stable while we assert structure.
+	await openWorkbenchTab(page, 'overview');
 	await page.getByTestId('simulation-pause-resume').click();
 	await expect(page.getByTestId('simulation-status')).toHaveText('paused');
 
+	await openWorkbenchTab(page, 'debug');
 	const diagnosticsBefore = await page.getByTestId('simulation-diagnostics').textContent();
 	const timeBefore = await page.getByTestId('simulation-time').textContent();
 
+	await openWorkbenchTab(page, 'creatures');
 	await page.getByTestId('creature-select-creature-0').click();
 
+	await expect(page.getByTestId('workbench-tab-creatures')).toHaveAttribute(
+		'aria-selected',
+		'true'
+	);
 	await expect(page.getByTestId('inspector-id')).toHaveText('creature-0');
 	await expect(page.getByTestId('inspector-hunger')).toBeVisible();
 	await expect(page.getByTestId('inspector-thirst')).toBeVisible();
@@ -173,8 +204,10 @@ test('selecting a creature shows needs, goal, action and candidate scores', asyn
 
 	// Selection must not advance or mutate simulation while paused.
 	await expect(page.getByTestId('simulation-time')).toHaveText(timeBefore ?? '');
+	await openWorkbenchTab(page, 'debug');
 	await expect(page.getByTestId('simulation-diagnostics')).toHaveText(diagnosticsBefore ?? '');
 
+	await openWorkbenchTab(page, 'creatures');
 	await page.getByTestId('creature-clear-selection').click();
 	await expect(page.getByTestId('creature-inspector-empty')).toHaveText('No creature selected.');
 });
@@ -188,6 +221,7 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	await page.getByTestId('simulation-pause-resume').click();
 	await expect(page.getByTestId('simulation-status')).toHaveText('paused');
 
+	await openWorkbenchTab(page, 'creatures');
 	await page.getByTestId('creature-select-creature-0').click();
 
 	await expect(page.getByTestId('inspector-preferred-symbol')).toBeVisible();
@@ -206,7 +240,13 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	await expect(page.getByTestId('inspector-recent-learning')).toBeVisible();
 	await expect(page.getByTestId('inspector-candidate-investigate_signal')).toBeVisible();
 
-	// Population panel: observational convergence summaries without inspecting every creature.
+	// Preferred symbol uses shared glyph + stable id text.
+	await expect(
+		page.getByTestId('inspector-preferred-symbol').getByTestId(/symbol-glyph-/)
+	).toBeVisible();
+
+	// Communication tab owns population summaries and the shared glyph legend.
+	await openWorkbenchTab(page, 'communication');
 	await expect(page.getByTestId('population-communication-panel')).toBeVisible();
 	await expect(page.getByTestId('population-communication-hint')).toContainText('Observational');
 	const legend = page.getByTestId('symbol-presentation-legend');
@@ -221,17 +261,64 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	await expect(page.getByTestId('population-food-most-assigned')).toBeVisible();
 	await expect(page.getByTestId('population-food-highest-mean')).toBeVisible();
 	await expect(page.getByTestId('population-food-most-emitted')).toBeVisible();
-
-	// Preferred symbol uses shared glyph + stable id text.
-	await expect(
-		page.getByTestId('inspector-preferred-symbol').getByTestId(/symbol-glyph-/)
-	).toBeVisible();
+	await expect(page.getByTestId('communication-funnel')).toBeVisible();
 
 	// Canvas metadata is presentation-only; no need to wait for a natural discovery.
 	await expect(canvas).toHaveAttribute('data-active-emission-count', /\d+/);
 	await expect(canvas).toHaveAttribute('data-signal-structure-version', /\d+/);
 	await expect(canvas).toHaveAttribute('data-heard-cue-count', /\d+/);
 	await expect(canvas).toHaveAttribute('data-hearing-radius', /\d+(\.\d+)?/);
+});
+
+test('domain workbench tabs switch and layout stays full-height beside viewport', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto('/');
+
+	const workbench = page.getByTestId('habitat-workbench');
+	const viewport = page.getByTestId('three-viewport');
+	await expect(workbench).toBeVisible();
+	await expect(viewport).toBeVisible();
+
+	const wbBox = await workbench.boundingBox();
+	const vpBox = await viewport.boundingBox();
+	expect(wbBox).not.toBeNull();
+	expect(vpBox).not.toBeNull();
+	// Wider than the historical 20rem (~320px) stack.
+	expect(wbBox!.width).toBeGreaterThan(400);
+	// Side-by-side: workbench is to the right of the viewport, not a bottom panel.
+	expect(wbBox!.x).toBeGreaterThan(vpBox!.x);
+	expect(Math.abs(wbBox!.y - vpBox!.y)).toBeLessThan(80);
+
+	for (const tab of [
+		'overview',
+		'creatures',
+		'communication',
+		'world',
+		'events',
+		'debug'
+	] as const) {
+		await openWorkbenchTab(page, tab);
+		await expect(page.getByTestId(`workbench-tab-${tab}`)).toHaveAttribute('aria-selected', 'true');
+		await expect(page.getByTestId(`workbench-panel-${tab}`)).toBeVisible();
+	}
+
+	// Overview does not host the full communication funnel.
+	await openWorkbenchTab(page, 'overview');
+	await expect(page.getByTestId('overview-wellbeing')).toBeVisible();
+	await expect(page.getByTestId('communication-funnel')).toHaveCount(0);
+	await expect(page.getByTestId('simulation-diagnostics')).toHaveCount(0);
+
+	await openWorkbenchTab(page, 'world');
+	await expect(page.getByTestId('world-food-table')).toBeVisible();
+
+	await openWorkbenchTab(page, 'events');
+	await expect(page.getByTestId('events-table')).toBeVisible();
+
+	await openWorkbenchTab(page, 'debug');
+	await expect(page.getByTestId('simulation-diagnostics')).toBeVisible();
+	await expect(page.getByTestId('habitat-diagnostics')).toBeVisible();
 });
 
 test('creature movement does not rebuild static habitat presentation', async ({ page }) => {

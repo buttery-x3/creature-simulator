@@ -21,8 +21,7 @@ selection is presentation state only.
 | Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry |
 | Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation            |
 | Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                    |
-| Habitat workbench         | `src/lib/HabitatWorkbench.svelte`                     | Seed/controls, diagnostics; composes inspector + population symbol panel    |
-| Creature inspector        | `src/lib/CreatureInspector.svelte`                    | Selection chips, needs/perception/communication fields, candidates          |
+| Workbench UI              | `src/lib/workbench/`                                  | Domain-tab shell (Overview…Debug), pure view-models, presentation-only nav  |
 | WebGL presentation        | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state          |
 | Habitat presentation      | `src/lib/habitat-presentation.ts`                     | Static habitat mesh build/dispose                                           |
 | Creature presentation     | `src/lib/creature-presentation.ts`                    | Dynamic mesh reconcile + action visuals + investigation hop                 |
@@ -59,7 +58,7 @@ habitat      (layout generation only)
      ↑
 simulation   (SimulationState, create, step, behaviour, communication, learning)
      ↑
-routes / workbench  (session orchestration, controls, selection, diagnostics)
+routes / workbench  (session orchestration, domain-tab UI, selection, diagnostics)
      ↑
 presentation (ThreeViewport + habitat/creature/signal presentation modules)
 ```

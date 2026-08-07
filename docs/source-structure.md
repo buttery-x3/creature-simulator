@@ -75,11 +75,24 @@ src/
             population-symbol-diagnostics.ts
             population-symbol-diagnostics.spec.ts
 
-        HabitatWorkbench.svelte
-        CreatureInspector.svelte
-        CreatureEmissionWeights.svelte
-        CreatureLexiconPanel.svelte
-        PopulationCommunicationPanel.svelte
+        workbench/
+            index.ts
+            workbench-types.ts
+            WorkbenchShell.svelte
+            WorkbenchTabs.svelte
+            view-models/
+                overview-view-model.ts
+                creature-detail-view-model.ts
+                communication-view-model.ts
+                events-view-model.ts
+                *.spec.ts
+            overview/
+            creatures/
+            communication/
+            world/
+            events/
+            debug/
+
         SymbolGlyph.svelte
         ThreeViewport.svelte
         habitat-presentation.ts
@@ -105,30 +118,27 @@ Obsolete files should not remain in this topology merely because they were creat
 
 ## Current ownership
 
-| Area                                  | Owns                                                                                                                                                 | Does not own                                                         |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `src/lib/determinism/`                | Seeded PRNG and pure seed derivation for independent streams                                                                                         | Habitat layout, creature behaviour, UI                               |
-| `src/lib/habitat/`                    | Authoritative serialisable habitat data, seeded generation, geometry validation and habitat diagnostics                                              | Creatures, Three.js objects, Svelte state, browser controls          |
-| `src/lib/simulation/`                 | Authoritative simulation state, creature creation, fixed-step advance, public diagnostics                                                            | Three.js resources, Svelte components, browser rAF ownership         |
-| `simulation/behaviour/`               | Needs, goal decisions, actions, local perception, habitat-feature query, search, resource targets, per-creature behaviour step                       | Transmission/reception of signals, association updates, presentation |
-| `simulation/communication/`           | Arbitrary symbols, emission construction, lexicon/exploratory selection, hearing radius, reception records, emission expiry, communication histories | Evidence/lexicon mutation, listener semantics, presentation meshes   |
-| `simulation/learning/`                | Raw symbol evidence, exclusive lexicon resolution, pending investigation candidates, reinforcement, learning/lexicon history                         | Emission construction, reception range, goal selection, presentation |
-| `population-symbol-diagnostics.ts`    | Pure observational population evidence/lexicon/emission summaries                                                                                    | Authoritative creature state, selection policy                       |
-| `habitat-presentation.ts`             | Static habitat mesh construction and disposal                                                                                                        | Creature meshes, simulation stepping                                 |
-| `creature-presentation.ts`            | Dynamic creature mesh reconcile by id, action-derived visuals, presentation-only investigation hop                                                   | Authoritative creature state, habitat rebuilds                       |
-| `symbol-presentation.ts`              | Shared symbol→shape/label/color registry for viewport and UI                                                                                         | Simulation semantics, Three.js resources                             |
-| `SymbolGlyph.svelte`                  | Svelte icon + stable id from the shared registry                                                                                                     | Domain algorithms                                                    |
-| `signal-presentation.ts`              | Emission speech bubbles + thin hearing-radius rings + selected investigation overlay                                                                 | Authoritative reception, emission lifetime, association updates      |
-| `listener-cue-presentation.ts`        | Coalesced neutral `?` from recent hear (brief) and/or active investigation (held)                                                                    | Investigation decisions, emission construction                       |
-| `ThreeViewport.svelte`                | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal/listener presentation                                     | Authoritative habitat or creature state                              |
-| `habitat-camera.ts`                   | Pure camera-framing and visibility calculations                                                                                                      | Scene construction, simulation state or UI controls                  |
-| `HabitatWorkbench.svelte`             | Seed/simulation controls, diagnostics panels; composes creature inspector + population communication panel                                           | Domain algorithms, inspector field layout, renderer lifecycle        |
-| `CreatureInspector.svelte`            | Creature selection chips, needs/perception/communication fields, candidates, inspector formatting                                                    | Domain algorithms, simulation stepping, Three.js                     |
-| `CreatureLexiconPanel.svelte`         | Selected-creature raw evidence, exclusive lexicon, lexicon changes, last selection evidence                                                          | Evidence mutation, domain selection algorithm ownership              |
-| `PopulationCommunicationPanel.svelte` | Population-level observational evidence/lexicon/emission summaries                                                                                   | Domain algorithms, authoritative aggregates                          |
-| `src/routes/+page.svelte`             | Page composition, session simulation state, rAF catch-up, pause/reset, selected creature id                                                          | Domain algorithms, geometry rules or Three.js resource ownership     |
-| `ports.ts`                            | Reserved application and test ports                                                                                                                  | Runtime simulation configuration                                     |
-| `src/lib/index.ts`                    | Deliberate app-level public exports                                                                                                                  | Private implementation logic or universal re-export of every module  |
+| Area                               | Owns                                                                                                                                                 | Does not own                                                         |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `src/lib/determinism/`             | Seeded PRNG and pure seed derivation for independent streams                                                                                         | Habitat layout, creature behaviour, UI                               |
+| `src/lib/habitat/`                 | Authoritative serialisable habitat data, seeded generation, geometry validation and habitat diagnostics                                              | Creatures, Three.js objects, Svelte state, browser controls          |
+| `src/lib/simulation/`              | Authoritative simulation state, creature creation, fixed-step advance, public diagnostics                                                            | Three.js resources, Svelte components, browser rAF ownership         |
+| `simulation/behaviour/`            | Needs, goal decisions, actions, local perception, habitat-feature query, search, resource targets, per-creature behaviour step                       | Transmission/reception of signals, association updates, presentation |
+| `simulation/communication/`        | Arbitrary symbols, emission construction, lexicon/exploratory selection, hearing radius, reception records, emission expiry, communication histories | Evidence/lexicon mutation, listener semantics, presentation meshes   |
+| `simulation/learning/`             | Raw symbol evidence, exclusive lexicon resolution, pending investigation candidates, reinforcement, learning/lexicon history                         | Emission construction, reception range, goal selection, presentation |
+| `population-symbol-diagnostics.ts` | Pure observational population evidence/lexicon/emission summaries                                                                                    | Authoritative creature state, selection policy                       |
+| `habitat-presentation.ts`          | Static habitat mesh construction and disposal                                                                                                        | Creature meshes, simulation stepping                                 |
+| `creature-presentation.ts`         | Dynamic creature mesh reconcile by id, action-derived visuals, presentation-only investigation hop                                                   | Authoritative creature state, habitat rebuilds                       |
+| `symbol-presentation.ts`           | Shared symbol→shape/label/color registry for viewport and UI                                                                                         | Simulation semantics, Three.js resources                             |
+| `SymbolGlyph.svelte`               | Svelte icon + stable id from the shared registry                                                                                                     | Domain algorithms                                                    |
+| `signal-presentation.ts`           | Emission speech bubbles + thin hearing-radius rings + selected investigation overlay                                                                 | Authoritative reception, emission lifetime, association updates      |
+| `listener-cue-presentation.ts`     | Coalesced neutral `?` from recent hear (brief) and/or active investigation (held)                                                                    | Investigation decisions, emission construction                       |
+| `ThreeViewport.svelte`             | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal/listener presentation                                     | Authoritative habitat or creature state                              |
+| `habitat-camera.ts`                | Pure camera-framing and visibility calculations                                                                                                      | Scene construction, simulation state or UI controls                  |
+| `src/lib/workbench/`               | Domain-organised workbench UI: tab shell, Overview run controls, Creatures roster/detail, Communication, World, Events, Debug; pure view-models      | Authoritative simulation state, Three.js resources                   |
+| `src/routes/+page.svelte`          | Page composition, session simulation state, rAF catch-up, pause/reset, selected creature id                                                          | Domain algorithms, geometry rules or Three.js resource ownership     |
+| `ports.ts`                         | Reserved application and test ports                                                                                                                  | Runtime simulation configuration                                     |
+| `src/lib/index.ts`                 | Deliberate app-level public exports                                                                                                                  | Private implementation logic or universal re-export of every module  |
 
 ## Dependency direction
 
@@ -150,7 +160,7 @@ More explicitly:
 routes              -> simulation public entry point
 routes              -> habitat public entry point
 routes              -> workbench and viewport components
-workbench           -> habitat + simulation public entry points
+workbench           -> habitat + simulation public entry points; SymbolGlyph / symbol-presentation
 viewport            -> habitat public entry point
 viewport            -> simulation Creature / SignalEmission types
 viewport            -> habitat-presentation, creature-presentation, signal-presentation, habitat-camera

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import HabitatWorkbench from '$lib/HabitatWorkbench.svelte';
 	import ThreeViewport from '$lib/ThreeViewport.svelte';
+	import { WorkbenchShell, type WorkbenchTabId } from '$lib/workbench';
 	import { HabitatGenerationError, type Habitat } from '$lib/habitat';
 	import {
 		advanceSimulation,
@@ -66,6 +66,8 @@
 	let paused = $state(false);
 	/** Presentation-only selection; never written into simulation state. */
 	let selectedCreatureId = $state<string | null>(null);
+	/** Presentation-only workbench tab; never written into simulation state. */
+	let activeWorkbenchTab = $state<WorkbenchTabId>('overview');
 
 	// Accumulator lives outside reactive state so rAF ticks do not thrash Svelte.
 	let accumulator = 0;
@@ -135,8 +137,11 @@
 	}
 
 	function selectCreature(creatureId: string | null): void {
-		// Selection must not mutate simulation state — only presentation id.
+		// Selection must not mutate simulation state — only presentation id/tab.
 		selectedCreatureId = creatureId;
+		if (creatureId !== null) {
+			activeWorkbenchTab = 'creatures';
+		}
 	}
 
 	onMount(() => {
@@ -202,13 +207,17 @@
 				onSelectCreature={selectCreature}
 			/>
 		</section>
-		<HabitatWorkbench
+		<WorkbenchShell
 			{simulation}
 			{seedInput}
 			{errorMessage}
 			config={configForSeed(simulation.seed)}
 			{paused}
 			{selectedCreatureId}
+			activeTab={activeWorkbenchTab}
+			onActiveTabChange={(tab) => {
+				activeWorkbenchTab = tab;
+			}}
 			onSeedInput={(value) => {
 				seedInput = value;
 			}}

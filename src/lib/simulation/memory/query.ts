@@ -72,6 +72,49 @@ export function countMemoryEntries(
 	return memory.entries.filter((e) => e.kind === kind).length;
 }
 
+/**
+ * Resource observations, newest sequence first.
+ * Optional resourceKind filter. Does not apply empty/usability policy.
+ */
+export function listResourceObservations(
+	memory: CreatureMemory,
+	resourceKind?: 'food' | 'water'
+): ResourceObservationMemory[] {
+	const matched = memory.entries.filter(
+		(e): e is ResourceObservationMemory =>
+			e.kind === 'resource_observation' &&
+			(resourceKind === undefined || e.resourceKind === resourceKind)
+	);
+	return matched.sort((a, b) => b.sequence - a.sequence);
+}
+
+/**
+ * Heard-signal memories, newest sequence first.
+ * Policy-free recall — callers decide which signal to act on.
+ */
+export function listHeardSignalMemories(memory: CreatureMemory): HeardSignalMemory[] {
+	const matched = memory.entries.filter((e): e is HeardSignalMemory => e.kind === 'heard_signal');
+	return matched.sort((a, b) => b.sequence - a.sequence);
+}
+
+/**
+ * Newest resource observation usable as a navigation target for the given kind.
+ * Food: any observation. Water: only when last observed non-empty (`empty === false`).
+ */
+export function findNewestUsableResourceObservation(
+	memory: CreatureMemory,
+	resourceKind: 'food' | 'water'
+): ResourceObservationMemory | null {
+	const observations = listResourceObservations(memory, resourceKind);
+	for (const obs of observations) {
+		if (resourceKind === 'water' && obs.empty) {
+			continue;
+		}
+		return obs;
+	}
+	return null;
+}
+
 /** Used slots and capacity for diagnostics/UI. */
 export function memoryUsage(memory: CreatureMemory): { used: number; capacity: number } {
 	return { used: memory.entries.length, capacity: memory.capacity };

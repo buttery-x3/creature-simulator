@@ -31,11 +31,14 @@ export {
 export {
 	countMemoryEntries,
 	findHeardSignalMemory,
+	findNewestUsableResourceObservation,
 	findResourceAnnouncementMemory,
 	findResourceObservationMemory,
 	hasHeardSignalMemory,
 	hasResourceAnnouncementMemory,
 	hasResourceObservationMemory,
+	listHeardSignalMemories,
+	listResourceObservations,
 	memoryUsage
 } from './query';
 

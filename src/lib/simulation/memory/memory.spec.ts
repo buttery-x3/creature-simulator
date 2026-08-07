@@ -8,10 +8,13 @@ import {
 import {
 	countMemoryEntries,
 	findHeardSignalMemory,
+	findNewestUsableResourceObservation,
 	findResourceObservationMemory,
 	hasHeardSignalMemory,
 	hasResourceAnnouncementMemory,
 	hasResourceObservationMemory,
+	listHeardSignalMemories,
+	listResourceObservations,
 	memoryUsage
 } from './query';
 import {
@@ -627,5 +630,85 @@ describe('applyHeardSignalMemories', () => {
 		expect(countMemoryEntries(updated!.memory, 'heard_signal')).toBe(1);
 		[updated] = applyHeardSignalMemories([updated!], 3);
 		expect(countMemoryEntries(updated!.memory, 'heard_signal')).toBe(1);
+	});
+});
+
+describe('list / newest usable recall helpers', () => {
+	it('lists resource observations newest-first with optional kind filter', () => {
+		let memory = createEmptyMemory(8);
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 1,
+			featureId: 'food-1',
+			resourceKind: 'food',
+			position: { x: 0, y: 0 },
+			empty: false
+		});
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 2,
+			featureId: 'water-1',
+			resourceKind: 'water',
+			position: { x: 1, y: 1 },
+			empty: true
+		});
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 3,
+			featureId: 'food-2',
+			resourceKind: 'food',
+			position: { x: 2, y: 2 },
+			empty: false
+		});
+		const all = listResourceObservations(memory);
+		expect(all.map((e) => e.featureId)).toEqual(['food-2', 'water-1', 'food-1']);
+		expect(listResourceObservations(memory, 'food').map((e) => e.featureId)).toEqual([
+			'food-2',
+			'food-1'
+		]);
+	});
+
+	it('lists heard signals newest-first', () => {
+		let memory = createEmptyMemory(8);
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 1,
+			emissionId: 'em-old',
+			symbolId: 'glyph-0',
+			origin: { x: 0, y: 0 }
+		});
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 2,
+			emissionId: 'em-new',
+			symbolId: 'glyph-1',
+			origin: { x: 1, y: 1 }
+		});
+		expect(listHeardSignalMemories(memory).map((e) => e.emissionId)).toEqual(['em-new', 'em-old']);
+	});
+
+	it('finds newest usable observation and skips empty water', () => {
+		let memory = createEmptyMemory(8);
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 1,
+			featureId: 'water-old',
+			resourceKind: 'water',
+			position: { x: 0, y: 0 },
+			empty: false
+		});
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 2,
+			featureId: 'water-dry',
+			resourceKind: 'water',
+			position: { x: 1, y: 1 },
+			empty: true
+		});
+		// Newest water is empty — fall back to older non-empty.
+		expect(findNewestUsableResourceObservation(memory, 'water')?.featureId).toBe('water-old');
+		// Only empty water remains usable filter → null
+		memory = createEmptyMemory(8);
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 1,
+			featureId: 'water-dry',
+			resourceKind: 'water',
+			position: { x: 1, y: 1 },
+			empty: true
+		});
+		expect(findNewestUsableResourceObservation(memory, 'water')).toBeNull();
 	});
 });

@@ -21,6 +21,7 @@ selection is presentation state only.
 | Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets                 |
 | Announcement subdomain    | `src/lib/simulation/announcement/`                    | Resource opportunities, kind-level clarity, speaking position, preparation            |
 | Memory subdomain          | `src/lib/simulation/memory/`                          | First-class bounded creature memory; observations, heard signals, announcement recall |
+| Cognition subdomain       | `src/lib/simulation/cognition/`                       | Pure memory-aware intention arbitration (FLAME-79); not yet runtime-authoritative     |
 | Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry           |
 | Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation                      |
 | Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                              |
@@ -197,11 +198,11 @@ need values alone.
 
 Creatures use **local perception**, not global food/water knowledge.
 
-| Knowledge            | Rule                                                                                                                                                                                                     |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Home**             | Innate. Always targetable for rest regardless of sensing distance. Never stored in perception.                                                                                                           |
-| **Food / water**     | Selectable only when currently perceived or retained as the single short-lived tracked observation.                                                                                                      |
-| **Long-term memory** | First-class `creature.memory` (bounded capacity). Kinds: resource announcements, resource observations (position + water empty), heard signals (symbol + origin). Not yet used for navigation/decisions. |
+| Knowledge            | Rule                                                                                                                                                                                                                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Home**             | Innate. Always targetable for rest regardless of sensing distance. Never stored in perception.                                                                                                                                                                                                       |
+| **Food / water**     | Selectable only when currently perceived or retained as the single short-lived tracked observation.                                                                                                                                                                                                  |
+| **Long-term memory** | First-class `creature.memory` (bounded capacity). Kinds: resource announcements, resource observations (position + water empty), heard signals (symbol + origin). Pure cognition (`simulation/cognition/`) can target and score from these; runtime still uses legacy goal decisions until FLAME-80. |
 
 Sensing:
 
@@ -304,17 +305,36 @@ multi-context weighted sampling, and never speaker-success feedback.
 Memory is a named subdomain (`simulation/memory/`). It is **not** perception,
 announcement opportunity state, communication history, or lexicon evidence.
 
-| Concern          | Rule                                                                                                                                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Container**    | `creature.memory`: `capacity`, monotonic `nextSequence`, `entries[]`. Plain JSON-serialisable.                                                                                                        |
-| **Capacity**     | Integer sampled at creation from `memoryCapacityRange` via independent seed stream. ≥ 1. Not intelligence-derived. All kinds share one capacity.                                                      |
-| **Entry kinds**  | `resource_announcement`, `resource_observation` (feature + position + water `empty`), `heard_signal` (symbol + origin + emissionId; no sender).                                                       |
-| **Ops**          | Pure `remember` / `recall` / `evictToCapacity` — callers do not hand-edit `entries`. Oldest-sequence-first eviction when full. Observations refresh by featureId; heard signals dedupe by emissionId. |
-| **Write timing** | Observations after behaviour when a sensing pass ran; announcements after successful emissions; heard signals after reception this step.                                                              |
-| **Recall**       | Announcement creation consults `hasResourceAnnouncementMemory(featureId)`. Observation/heard entries are retained for future arbitration (not decision consumers yet).                                |
-| **Not in scope** | Memory-driven navigation/goals, salience, decay curves, probabilistic forgetting, sender provenance, confidence.                                                                                      |
+| Concern          | Rule                                                                                                                                                                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Container**    | `creature.memory`: `capacity`, monotonic `nextSequence`, `entries[]`. Plain JSON-serialisable.                                                                                                                                                                |
+| **Capacity**     | Integer sampled at creation from `memoryCapacityRange` via independent seed stream. ≥ 1. Not intelligence-derived. All kinds share one capacity.                                                                                                              |
+| **Entry kinds**  | `resource_announcement`, `resource_observation` (feature + position + water `empty`), `heard_signal` (symbol + origin + emissionId; no sender).                                                                                                               |
+| **Ops**          | Pure `remember` / `recall` / `evictToCapacity` — callers do not hand-edit `entries`. Oldest-sequence-first eviction when full. Observations refresh by featureId; heard signals dedupe by emissionId.                                                         |
+| **Write timing** | Observations after behaviour when a sensing pass ran; announcements after successful emissions; heard signals after reception this step.                                                                                                                      |
+| **Recall**       | Announcement creation consults `hasResourceAnnouncementMemory(featureId)`. Pure cognition recalls observations and heard signals for candidate targets/scores (`listResourceObservations`, `listHeardSignalMemories`, `findNewestUsableResourceObservation`). |
+| **Not in scope** | Salience curves, probabilistic forgetting, sender provenance, confidence, time-decay models.                                                                                                                                                                  |
 
-**Transitional:** `heard_signal` memory is the future authoritative retained hearing model. Legacy `pendingSignals` / curiosity investigation remains until cutover and must not be deepened as the retained model.
+### Cognition / intention arbitration (FLAME-79)
+
+Cognition is a named subdomain (`simulation/cognition/`). It is **pure**: given a
+body + perception + memory + current-intention snapshot it builds a small candidate
+set, scores simply, applies soft continuity, and returns an `ArbitrationRecord`.
+
+| Concern            | Rule                                                                                                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Placement**      | `simulation/cognition/` — not more helpers under capacity-full `behaviour/`.                                                                                                                   |
+| **Runtime status** | **Not yet authoritative.** Legacy `behaviour/decisions.ts` still owns live goal selection. FLAME-80 wires `arbitrate()` and deletes legacy locks/opportunities.                                |
+| **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `wander`. No predator/social/mating types.                                                              |
+| **Need targets**   | Perception first, then newest usable resource memory (water skips `empty: true`), else `target: null` + `search_fallback` (executor samples search). Feature targets when feature id is known. |
+| **Signal**         | From `heard_signal` memory only (newest sequence). Point target at origin. No lexicon, curiosity, confidence, or `pendingSignals`. Modest baseline + simple sequence recency.                  |
+| **Announce**       | Perceived available resource not suppressed by `resource_announcement` memory. Deterministic feature-id pick. Clarity/speaking-position remain executor concerns.                              |
+| **Continuity**     | Soft score bonus on the current intention’s matching candidate. No min-commitment, switch-margin gates, investigation/announcement locks, or explore exemptions.                               |
+| **Triggers**       | `ArbitrationTrigger` values request reconsideration only; they never force an intention.                                                                                                       |
+| **Evidence**       | Structured `ArbitrationRecord` / factors / reason codes — workbench may format later; UI strings are not authority.                                                                            |
+| **Non-deps**       | Must not import `behaviour/decisions` or `learning/signal-investigation` opportunity APIs.                                                                                                     |
+
+**Transitional:** `heard_signal` memory is the retained hearing model for new cognition. Legacy `pendingSignals` / curiosity investigation remains until FLAME-80 cutover and must not be deepened as the retained model.
 
 Fixed-step order (authoritative):
 

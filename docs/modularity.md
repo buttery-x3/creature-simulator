@@ -193,6 +193,24 @@ Announcement consults memory for suppression; step orchestration applies all
 memory writes (observations, announcements, heard signals). Communication must
 not become the general memory manager. Do not store memory inside perception or
 presentation. Do not deepen legacy `pendingSignals` as retained experience.
+Memory query helpers include newest-first list recall for cognition; scoring
+stays out of memory.
+
+Internal cognition subdomain (`simulation/cognition/`), pure memory-aware
+intention arbitration (FLAME-79; runtime cutover FLAME-80):
+
+- `types.ts` — intention kinds, candidates, ArbitrationRecord, triggers, config shape;
+- `score-constants.ts` — default baselines, continuity bonus, need thresholds;
+- `target-selection.ts` — perception-then-memory resource targets; signal/announce picks;
+- `build-candidates.ts` — baseline candidate set from body + perception + memory;
+- `select-intention.ts` — soft continuity, best-score + explicit tie-break;
+- `arbitrate.ts` — single pure entry `arbitrate(input) → ArbitrationRecord`;
+- `index.ts` — exports for simulation siblings.
+
+Does not own movement, emission, sensing, or memory writes. Must not import
+legacy `behaviour/decisions` or `learning` opportunity/curiosity APIs. Continuity
+is a score bonus on the current intention, not locks. Until FLAME-80, live
+stepping still uses `behaviour/decisions.ts`.
 
 Internal communication subdomain (`simulation/communication/`), introduced for
 transient arbitrary signals and local reception:

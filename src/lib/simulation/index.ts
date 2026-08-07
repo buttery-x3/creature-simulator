@@ -141,18 +141,44 @@ export {
 	createEmptyMemory,
 	ensureCreatureMemory,
 	findHeardSignalMemory,
+	findNewestUsableResourceObservation,
 	findResourceAnnouncementMemory,
 	findResourceObservationMemory,
 	hasHeardSignalMemory,
 	hasResourceAnnouncementMemory,
 	hasResourceObservationMemory,
 	isValidCreatureMemory,
+	listHeardSignalMemories,
+	listResourceObservations,
 	memoryUsage,
 	rememberHeardSignal,
 	rememberResourceAnnouncement,
 	rememberResourceObservation,
 	sampleMemoryCapacity
 } from './memory';
+
+export type {
+	ArbitrationInput,
+	ArbitrationRecord,
+	ArbitrationTrigger,
+	CandidateFactor,
+	CandidateReasonCode,
+	CandidateReference,
+	CognitionConfig,
+	IntentionCandidate,
+	IntentionKind,
+	PerceivedResource
+} from './cognition';
+
+export {
+	arbitrate,
+	buildCandidates,
+	DEFAULT_COGNITION_CONFIG,
+	INTENTION_RANK,
+	INTENTION_TIE_BREAK_ORDER,
+	mergeCognitionConfig,
+	selectBestCandidate as selectBestIntentionCandidate
+} from './cognition';
 
 export {
 	createInitialEnvironment,

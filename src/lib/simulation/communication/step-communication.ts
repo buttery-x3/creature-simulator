@@ -67,6 +67,22 @@ export function stepCommunication(
 			preferredSymbolId: sender.preferredSymbolId
 		});
 
+		const provenance =
+			request.opportunityId &&
+			request.perceptionEpisodeId &&
+			request.triggerFeatureId &&
+			request.triggerFeaturePosition &&
+			request.discoveredAt !== undefined
+				? {
+						opportunityId: request.opportunityId,
+						perceptionEpisodeId: request.perceptionEpisodeId,
+						triggerFeatureId: request.triggerFeatureId,
+						triggerFeaturePosition: { ...request.triggerFeaturePosition },
+						discoveredAt: request.discoveredAt,
+						clarityEvidence: request.clarityEvidence ?? null
+					}
+				: null;
+
 		const emission = buildEmission({
 			id: nextEmissionId(request.senderId, emissionCount),
 			symbolId: selection.symbolId,
@@ -77,7 +93,8 @@ export function stepCommunication(
 			context: request.context,
 			contextDetail: request.contextDetail,
 			symbolSelectionReason: selection.reasonText,
-			selectionEvidence: selection.evidence
+			selectionEvidence: selection.evidence,
+			provenance
 		});
 
 		const receivers = selectReceivers(

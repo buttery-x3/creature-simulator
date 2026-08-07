@@ -67,6 +67,14 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	perceptionIntervalSeconds: 0.25,
 	trackedObservationDurationSeconds: 4,
 
+	// Resource announcement: kind-level clarity + speaking position + bounded queue.
+	resourceAnnouncementClarityMargin: 0.75,
+	speakingPositionSearchRadius: 2.5,
+	speakingPositionSearchResolution: 3,
+	maxQueuedAnnouncementOpportunitiesPerCreature: 4,
+	recentAnnouncementOutcomeHistoryLimit: 8,
+	triggerFeatureCueFadeSeconds: 1.25,
+
 	// Communication: arbitrary symbols, short-lived local emissions.
 	// hearingRadius 12 is a practical finite default for the 20×20 habitat so
 	// announcements reach a meaningful share of the population without being global.
@@ -231,7 +239,10 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'learningHistoryLimit',
 		'maxPendingSignalsPerCreature',
 		'lexiconHistoryLimit',
-		'lexiconAssignmentMinEvidenceCount'
+		'lexiconAssignmentMinEvidenceCount',
+		'maxQueuedAnnouncementOpportunitiesPerCreature',
+		'recentAnnouncementOutcomeHistoryLimit',
+		'speakingPositionSearchResolution'
 	] as const) {
 		const value = config[key];
 		if (!Number.isInteger(value) || value < 1) {
@@ -247,7 +258,10 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'associationReinforcement',
 		'noEvidenceConfidenceReduction',
 		'recentEmissionDiagnosticsWindowSeconds',
-		'lexiconAssignmentMinStrength'
+		'lexiconAssignmentMinStrength',
+		'resourceAnnouncementClarityMargin',
+		'speakingPositionSearchRadius',
+		'triggerFeatureCueFadeSeconds'
 	] as const) {
 		const value = config[key];
 		if (typeof value !== 'number' || !(value >= 0) || !Number.isFinite(value)) {
@@ -257,6 +271,16 @@ function validateSimulationConfig(config: SimulationConfig): void {
 	if (!(config.recentEmissionDiagnosticsWindowSeconds > 0)) {
 		throw new SimulationCreationError(
 			`recentEmissionDiagnosticsWindowSeconds must be > 0, received ${config.recentEmissionDiagnosticsWindowSeconds}`
+		);
+	}
+	if (!(config.speakingPositionSearchRadius > 0)) {
+		throw new SimulationCreationError(
+			`speakingPositionSearchRadius must be > 0, received ${config.speakingPositionSearchRadius}`
+		);
+	}
+	if (!(config.triggerFeatureCueFadeSeconds > 0)) {
+		throw new SimulationCreationError(
+			`triggerFeatureCueFadeSeconds must be > 0, received ${config.triggerFeatureCueFadeSeconds}`
 		);
 	}
 	if (!(config.pendingSignalLifetimeSeconds > 0)) {
@@ -394,7 +418,11 @@ function createCreatures(
 			recentLexiconChanges: [],
 			pendingSignals: [],
 			activeInvestigation: null,
-			recentLearning: []
+			recentLearning: [],
+			announcementOpportunities: [],
+			announcementOpportunityCounter: 0,
+			recentAnnouncementOutcomes: [],
+			activeAnnouncementCue: null
 		};
 
 		const decision = commitDecision({

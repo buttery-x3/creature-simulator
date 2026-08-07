@@ -87,13 +87,15 @@ export function resolveInvestigationAtSite(
 	}
 
 	// Authoritative sensing at arrival — do not depend on a stale perception interval.
-	const perception = senseAt(
+	const sensed = senseAt(
 		creature.position,
 		habitat,
 		timeSeconds,
 		config,
-		creature.perception.tracked
+		creature.perception,
+		creature.id
 	);
+	const perception = sensed.perception;
 	const evidence = qualifyEvidenceNearOrigin(perception, active.origin, config);
 
 	const before = snapshotStrengths(creature, active.symbolId);

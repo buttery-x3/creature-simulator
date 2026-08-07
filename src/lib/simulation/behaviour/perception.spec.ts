@@ -14,9 +14,8 @@ const config = defaultSimulationConfig('perception');
 describe('perception', () => {
 	it('does not perceive food outside the sensing radius', () => {
 		const habitat = createSimulation(config).habitat;
-		// Far from all features at a corner far from home/food
 		const position = { x: 9, y: 9 };
-		const p = senseAt(position, habitat, 0, { sensingRadius: 1 });
+		const p = senseAt(position, habitat, 0, { sensingRadius: 1 }).perception;
 		expect(p.perceivedFoodIds).toHaveLength(0);
 		expect(p.perceivedWaterIds).toHaveLength(0);
 		expect(p.observations).toHaveLength(0);
@@ -25,7 +24,9 @@ describe('perception', () => {
 	it('perceives food when footprint intersects the sensing circle', () => {
 		const habitat = createSimulation(config).habitat;
 		const food = habitat.food[0]!;
-		const p = senseAt(food.position, habitat, 1, { sensingRadius: config.sensingRadius });
+		const p = senseAt(food.position, habitat, 1, {
+			sensingRadius: config.sensingRadius
+		}).perception;
 		expect(p.perceivedFoodIds).toContain(food.id);
 		expect(p.observations.some((o) => o.featureId === food.id && o.featureKind === 'food')).toBe(
 			true
@@ -36,15 +37,20 @@ describe('perception', () => {
 		const habitat = createSimulation(config).habitat;
 		const food = habitat.food[0]!;
 		let p = emptyPerception();
-		p = updatePerception(p, food.position, habitat, 0, config);
+		p = updatePerception(p, food.position, habitat, 0, config, 'creature-0').perception;
 		expect(p.lastUpdatedAt).toBe(0);
 		const firstIds = [...p.perceivedFoodIds];
-		// Move far away but interval not elapsed
-		p = updatePerception(p, { x: 9, y: 9 }, habitat, 0.1, config);
+		p = updatePerception(p, { x: 9, y: 9 }, habitat, 0.1, config, 'creature-0').perception;
 		expect(p.lastUpdatedAt).toBe(0);
 		expect(p.perceivedFoodIds).toEqual(firstIds);
-		// Interval elapsed
-		p = updatePerception(p, { x: 9, y: 9 }, habitat, config.perceptionIntervalSeconds, config);
+		p = updatePerception(
+			p,
+			{ x: 9, y: 9 },
+			habitat,
+			config.perceptionIntervalSeconds,
+			config,
+			'creature-0'
+		).perception;
 		expect(p.lastUpdatedAt).toBe(config.perceptionIntervalSeconds);
 		expect(p.perceivedFoodIds).toHaveLength(0);
 	});
@@ -68,7 +74,9 @@ describe('perception', () => {
 					observedAt: 0
 				}
 			],
-			tracked: null
+			tracked: null,
+			activeEpisodes: [],
+			episodeCounter: 0
 		};
 		const nearest = selectNearestPerceived({ x: 0, y: 0 }, perception, 'food');
 		expect(nearest?.featureId).toBe('food-b');
@@ -100,22 +108,36 @@ describe('perception', () => {
 	it('reacquiring a tracked target refreshes observedAt', () => {
 		const habitat = createSimulation(config).habitat;
 		const food = habitat.food[0]!;
-		let p = senseAt(food.position, habitat, 1, { sensingRadius: config.sensingRadius });
+		let p = senseAt(
+			food.position,
+			habitat,
+			1,
+			{ sensingRadius: config.sensingRadius },
+			null,
+			'c0'
+		).perception;
 		p = startTracking(p, {
 			featureId: food.id,
 			featureKind: 'food',
 			position: { ...food.position },
 			observedAt: 1
 		});
-		// Leave and return after interval
-		p = updatePerception(p, { x: 9, y: 9 }, habitat, 1 + config.perceptionIntervalSeconds, config);
+		p = updatePerception(
+			p,
+			{ x: 9, y: 9 },
+			habitat,
+			1 + config.perceptionIntervalSeconds,
+			config,
+			'c0'
+		).perception;
 		p = updatePerception(
 			p,
 			food.position,
 			habitat,
 			1 + config.perceptionIntervalSeconds * 2,
-			config
-		);
+			config,
+			'c0'
+		).perception;
 		expect(p.tracked?.featureId).toBe(food.id);
 		expect(p.tracked?.observedAt).toBe(1 + config.perceptionIntervalSeconds * 2);
 	});
@@ -126,5 +148,59 @@ describe('perception', () => {
 		expect(p).not.toHaveProperty('discovered');
 		expect(Array.isArray(p.observations)).toBe(true);
 		expect(p.tracked === null || typeof p.tracked === 'object').toBe(true);
+	});
+
+	it('creates one perception episode per continuous visibility and reports newly perceived', () => {
+		const habitat = createSimulation(config).habitat;
+		const food = habitat.food[0]!;
+		const first = senseAt(
+			food.position,
+			habitat,
+			0,
+			{ sensingRadius: config.sensingRadius },
+			null,
+			'creature-0'
+		);
+		expect(first.newlyPerceived.some((n) => n.featureId === food.id)).toBe(true);
+		expect(first.perception.activeEpisodes.some((e) => e.featureId === food.id)).toBe(true);
+		const episodeId = first.perception.activeEpisodes.find(
+			(e) => e.featureId === food.id
+		)!.episodeId;
+
+		const second = senseAt(
+			food.position,
+			habitat,
+			1,
+			{ sensingRadius: config.sensingRadius },
+			first.perception,
+			'creature-0'
+		);
+		expect(second.newlyPerceived.some((n) => n.featureId === food.id)).toBe(false);
+		expect(second.perception.activeEpisodes.find((e) => e.featureId === food.id)?.episodeId).toBe(
+			episodeId
+		);
+
+		const left = senseAt(
+			{ x: 9, y: 9 },
+			habitat,
+			2,
+			{ sensingRadius: 1 },
+			second.perception,
+			'creature-0'
+		);
+		expect(left.perception.activeEpisodes.some((e) => e.featureId === food.id)).toBe(false);
+
+		const reenter = senseAt(
+			food.position,
+			habitat,
+			3,
+			{ sensingRadius: config.sensingRadius },
+			left.perception,
+			'creature-0'
+		);
+		expect(reenter.newlyPerceived.some((n) => n.featureId === food.id)).toBe(true);
+		expect(
+			reenter.perception.activeEpisodes.find((e) => e.featureId === food.id)?.episodeId
+		).not.toBe(episodeId);
 	});
 });

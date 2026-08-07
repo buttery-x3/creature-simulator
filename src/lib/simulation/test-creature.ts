@@ -46,6 +46,10 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		pendingSignals: [],
 		activeInvestigation: null,
 		recentLearning: [],
+		announcementOpportunities: [],
+		announcementOpportunityCounter: 0,
+		recentAnnouncementOutcomes: [],
+		activeAnnouncementCue: null,
 		...overrides
 	};
 }

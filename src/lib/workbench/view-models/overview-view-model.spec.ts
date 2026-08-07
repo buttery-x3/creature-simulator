@@ -12,7 +12,14 @@ describe('buildOverviewViewModel', () => {
 		expect(vm.wellbeing.highestHunger?.creatureId).toMatch(/^creature-/);
 		expect(vm.behaviour.byGoal.wander + vm.behaviour.byGoal.seek_food).toBeGreaterThan(0);
 		expect(Object.keys(vm.behaviour.byGoal)).toEqual(
-			expect.arrayContaining(['wander', 'seek_food', 'seek_water', 'rest', 'investigate_signal'])
+			expect.arrayContaining([
+				'wander',
+				'seek_food',
+				'seek_water',
+				'rest',
+				'investigate_signal',
+				'prepare_announcement'
+			])
 		);
 		expect(vm.world.foodCount).toBe(state.habitat.food.length);
 		expect(vm.world.waterCount).toBe(state.habitat.water.length);

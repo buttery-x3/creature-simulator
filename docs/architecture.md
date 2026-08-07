@@ -18,6 +18,7 @@ selection is presentation state only.
 | Habitat model             | `src/lib/habitat/`                                    | Types, seeded generation, geometry validation, diagnostics                  |
 | Simulation                | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                    |
 | Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets       |
+| Announcement subdomain    | `src/lib/simulation/announcement/`                    | Resource opportunities, kind-level clarity, speaking position, preparation  |
 | Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry |
 | Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation            |
 | Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                    |
@@ -28,6 +29,7 @@ selection is presentation state only.
 | Symbol presentation       | `src/lib/symbol-presentation.ts`                      | Shared glyph shape/label/color registry (presentation only)                 |
 | Signal presentation       | `src/lib/signal-presentation.ts`                      | Speech bubbles + thin hearing-radius rings + investigation overlay          |
 | Listener cue presentation | `src/lib/listener-cue-presentation.ts`                | Neutral `?` on recent hear (brief) or while investigating (held)            |
+| Announcement cue          | `src/lib/announcement-cue-presentation.ts`            | Dashed creature→trigger-feature lines (presentation only)                   |
 | Habitat camera            | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                     |
 | Reserved ports            | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                         |
 
@@ -209,16 +211,32 @@ authoritative perception.
 Communication is a named subdomain under simulation (`simulation/communication/`).
 It is the first communication substrate: physical emission and local hearing only.
 
-| Concern             | Rule                                                                                                                                                                                                                                            |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Symbols**         | Small arbitrary inventory (`glyph-0` …). No global meaning; no hard-coded food/water/danger mapping.                                                                                                                                            |
-| **Emission**        | Authoritative transient `SignalEmission` on simulation state (id, symbol, sender, origin, times).                                                                                                                                               |
-| **Initial trigger** | Resource discovery only: search → move when food/water is first selected while seeking that resource.                                                                                                                                           |
-| **Cooldown**        | Configurable per-sender cooldown prevents rediscovery spam.                                                                                                                                                                                     |
-| **Symbol choice**   | Context-sensitive weighted selection from the emitter’s personal associations for the discovered resource (`food` → foodStrength, `water` → waterStrength) plus a configurable exploration floor. Preferred symbol is cold-start fallback only. |
-| **Reception**       | Finite circular hearing radius (default **12** on the 20×20 habitat — practical population reach, not structural global); omnidirectional; sender excluded; receivers ordered by creature id.                                                   |
-| **Heard result**    | Structured `HeardSignal` history only — **no** goal/action/need/target/perception change.                                                                                                                                                       |
-| **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                                                                                                                                              |
+| Concern             | Rule                                                                                                                                                                                          |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Symbols**         | Small arbitrary inventory (`glyph-0` …). No global meaning; no hard-coded food/water/danger mapping.                                                                                          |
+| **Emission**        | Authoritative transient `SignalEmission` on simulation state (id, symbol, sender, origin, times). Optional hidden `provenance` for announcement diagnostics.                                  |
+| **Initial trigger** | Resource-announcement lifecycle: newly perceived food/water feature → opportunity → kind-level clarity (reposition if needed) → emit from creature position. Need-independent.                |
+| **Cooldown**        | Configurable per-sender cooldown may delay queued opportunities; does not merge or discard them.                                                                                              |
+| **Symbol choice**   | Exact exclusive lexicon assignment for the announced kind when assigned; otherwise deterministic exploratory selection among unassigned symbols. No production floor or speaker feedback.     |
+| **Reception**       | Finite circular hearing radius (default **12** on the 20×20 habitat — practical population reach, not structural global); omnidirectional; sender excluded; receivers ordered by creature id. |
+| **Heard result**    | Structured `HeardSignal` history only — **no** goal/action/need/target/perception change; never carries trigger feature, clarity or episode id.                                               |
+| **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                                                                                            |
+
+### Resource announcement lifecycle
+
+Announcement is a named subdomain (`simulation/announcement/`). It replaces need-gated
+discovery emission.
+
+| Concern                 | Rule                                                                                                                                                                                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Feature vs kind**     | Feature id owns episodes, provenance, diagnostics and the dashed cue. Resource kind (`food`/`water`) owns clarity, symbol selection and learning meaning.                                                                                                        |
+| **Perception episodes** | Continuous per-feature visibility on the creature; enter creates one episode; stay does not re-create; leave ends episode; re-enter starts a new episode.                                                                                                        |
+| **Opportunities**       | One opportunity per episode; distinct same-kind features may each create opportunities; deterministic feature-id order; bounded queue.                                                                                                                           |
+| **Clarity**             | Pure kind-level rule: `d_opposite − d_announced ≥ clarityMargin` (or no opposite in scope). Same-kind features never compete. Scope = perception observations ∪ habitat food/water within max(sensing, speaking-search) radius.                                  |
+| **Preparation**         | Unclear contexts set goal `prepare_announcement`, move toward a deterministic speaking position; re-evaluate clarity each step; emit when clear and cooldown allows. Committed against ordinary replan (investigation travel still blocks starting preparation). |
+| **Signal origin**       | `SignalEmission.origin = creature.position` at emission time (never the resource).                                                                                                                                                                               |
+| **Hidden provenance**   | Opportunity id, episode id, trigger feature, clarity evidence on emission/request; not on `HeardSignal`.                                                                                                                                                         |
+| **Presentation cue**    | Thin dashed creature→trigger-feature line (`announcement-cue-presentation.ts`); active opportunity only; fades after emit; presentation-only.                                                                                                                    |
 
 ### Personal symbol learning and investigation
 
@@ -248,7 +266,7 @@ multi-context weighted sampling, and never speaker-success feedback.
 
 Fixed-step order (authoritative):
 
-1. Behaviour for all creatures (needs, perception, expire pending, decisions including investigation, movement or site inspection+completion, discovery emission requests).
+1. Behaviour for all creatures (needs, perception episodes, announcement opportunities/preparation, expire pending, decisions including investigation, movement or site inspection+completion, emission requests).
 2. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, write histories, expire active emissions.
 3. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into pending investigation candidates (may prompt wander reconsider).
 
@@ -292,6 +310,9 @@ Signal and communication visuals are presentation-only:
   creature when it has a recent `HeardSignal` (brief pulse) **or** while
   `activeInvestigation` is set (held for the full investigation). Coalesced per
   listener; not a symbol-identity cue.
+- **Announcement trigger cues** (`announcement-cue-presentation.ts`) draw a thin
+  dashed line from the announcing creature to the opportunity’s trigger feature
+  while preparing and briefly after emission. Omniscient diagnostics only.
 - **Investigation hop** (`creature-presentation.ts`) is a one-shot vertical
   presentation offset when `activeInvestigation` commitment changes. Authoritative
   position is never modified.
@@ -314,14 +335,15 @@ experiment history are future concerns.
 
 ## Static and dynamic presentation
 
-| Concern                      | Module                                 |
-| ---------------------------- | -------------------------------------- |
-| Static habitat meshes        | `src/lib/habitat-presentation.ts`      |
-| Dynamic creature reconcile   | `src/lib/creature-presentation.ts`     |
-| Symbol presentation registry | `src/lib/symbol-presentation.ts`       |
-| Dynamic signal reconcile     | `src/lib/signal-presentation.ts`       |
-| Heard-listener cue reconcile | `src/lib/listener-cue-presentation.ts` |
-| Scene / camera / pick        | `src/lib/ThreeViewport.svelte`         |
+| Concern                      | Module                                     |
+| ---------------------------- | ------------------------------------------ |
+| Static habitat meshes        | `src/lib/habitat-presentation.ts`          |
+| Dynamic creature reconcile   | `src/lib/creature-presentation.ts`         |
+| Symbol presentation registry | `src/lib/symbol-presentation.ts`           |
+| Dynamic signal reconcile     | `src/lib/signal-presentation.ts`           |
+| Heard-listener cue reconcile | `src/lib/listener-cue-presentation.ts`     |
+| Announcement trigger cues    | `src/lib/announcement-cue-presentation.ts` |
+| Scene / camera / pick        | `src/lib/ThreeViewport.svelte`             |
 
 The static habitat group rebuilds only when habitat data changes. Creature
 presentation maintains meshes keyed by creature id, updates transforms in place,

@@ -34,6 +34,7 @@ export const GOAL_TIE_BREAK_ORDER: readonly CreatureGoal[] = [
 	'seek_water',
 	'rest',
 	'investigate_signal',
+	'prepare_announcement',
 	'wander'
 ] as const;
 

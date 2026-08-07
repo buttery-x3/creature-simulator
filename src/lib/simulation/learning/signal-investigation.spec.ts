@@ -247,7 +247,9 @@ describe('evidence qualification', () => {
 					observedAt: 1
 				}
 			],
-			tracked: null
+			tracked: null,
+			activeEpisodes: [],
+			episodeCounter: 0
 		};
 		const evidence = qualifyEvidenceNearOrigin(
 			perception,

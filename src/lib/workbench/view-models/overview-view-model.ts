@@ -53,7 +53,8 @@ const GOALS: readonly CreatureGoal[] = [
 	'seek_food',
 	'seek_water',
 	'rest',
-	'investigate_signal'
+	'investigate_signal',
+	'prepare_announcement'
 ] as const;
 
 function emptyGoalCounts(): Record<CreatureGoal, number> {
@@ -62,7 +63,8 @@ function emptyGoalCounts(): Record<CreatureGoal, number> {
 		seek_food: 0,
 		seek_water: 0,
 		rest: 0,
-		investigate_signal: 0
+		investigate_signal: 0,
+		prepare_announcement: 0
 	};
 }
 

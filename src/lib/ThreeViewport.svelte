@@ -21,6 +21,12 @@
 		type HabitatVisibilityReport
 	} from './habitat-camera';
 	import {
+		clearAnnouncementCuePresentation,
+		createAnnouncementCuePresentationResources,
+		reconcileAnnouncementCues,
+		type AnnouncementCuePresentationResources
+	} from './announcement-cue-presentation';
+	import {
 		clearListenerCuePresentation,
 		createListenerCuePresentationResources,
 		reconcileHeardCues,
@@ -62,6 +68,8 @@
 		hearingRadius?: number;
 		/** Shared smooth falloff scale for ring opacity (presentation only). */
 		investigationDistanceScale?: number;
+		/** Authoritative post-emit fade window for trigger-feature dashed cues. */
+		triggerFeatureCueFadeSeconds?: number;
 		onSelectCreature?: (creatureId: string | null) => void;
 	};
 
@@ -74,6 +82,7 @@
 		sensingRadius = 3,
 		hearingRadius = 12,
 		investigationDistanceScale = 8,
+		triggerFeatureCueFadeSeconds = 1.25,
 		onSelectCreature
 	}: Props = $props();
 
@@ -125,6 +134,10 @@
 		const listenerCueResources: ListenerCuePresentationResources =
 			createListenerCuePresentationResources();
 		scene.add(listenerCueResources.root);
+
+		const announcementCueResources: AnnouncementCuePresentationResources =
+			createAnnouncementCuePresentationResources();
+		scene.add(announcementCueResources.root);
 
 		// Presentation-only sensing radius ring for the selected creature.
 		const sensingRingGeom = new THREE.RingGeometry(0.98, 1.02, 48);
@@ -250,6 +263,15 @@
 				investigation: selected?.activeInvestigation ?? null
 			});
 			reconcileHeardCues(listenerCueResources, list, simTime, { camera });
+			if (currentHabitat) {
+				reconcileAnnouncementCues(
+					announcementCueResources,
+					list,
+					currentHabitat,
+					simTime,
+					triggerFeatureCueFadeSeconds
+				);
+			}
 			publishCreatureMeta(list.length);
 			renderFrame();
 		};
@@ -269,6 +291,15 @@
 			});
 			// Keep heard cues in sync when only emissions/time update.
 			reconcileHeardCues(listenerCueResources, list, simTime, { camera });
+			if (currentHabitat) {
+				reconcileAnnouncementCues(
+					announcementCueResources,
+					list,
+					currentHabitat,
+					simTime,
+					triggerFeatureCueFadeSeconds
+				);
+			}
 			publishCreatureMeta(creatureResources.byId.size);
 			renderFrame();
 		};
@@ -337,6 +368,7 @@
 			clearCreaturePresentation(creatureResources);
 			clearSignalPresentation(signalResources);
 			clearListenerCuePresentation(listenerCueResources);
+			clearAnnouncementCuePresentation(announcementCueResources);
 			scene.remove(habitatResources.root);
 			scene.remove(creatureResources.root);
 			scene.remove(signalResources.root);

@@ -61,6 +61,12 @@ export type StepSimulationConfig = Pick<
 	| 'lexiconAssignmentMinStrength'
 	| 'lexiconAssignmentMinEvidenceCount'
 	| 'lexiconHistoryLimit'
+	| 'resourceAnnouncementClarityMargin'
+	| 'speakingPositionSearchRadius'
+	| 'speakingPositionSearchResolution'
+	| 'maxQueuedAnnouncementOpportunitiesPerCreature'
+	| 'recentAnnouncementOutcomeHistoryLimit'
+	| 'triggerFeatureCueFadeSeconds'
 >;
 
 /**

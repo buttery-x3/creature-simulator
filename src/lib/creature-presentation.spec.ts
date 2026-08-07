@@ -31,7 +31,9 @@ function creature(
 			perceivedFoodIds: [],
 			perceivedWaterIds: [],
 			observations: [],
-			tracked: null
+			tracked: null,
+			activeEpisodes: [],
+			episodeCounter: 0
 		},
 		hunger: 0.2,
 		thirst: 0.2,
@@ -85,7 +87,11 @@ function creature(
 		recentLexiconChanges: [],
 		pendingSignals: [],
 		activeInvestigation: null,
-		recentLearning: []
+		recentLearning: [],
+		announcementOpportunities: [],
+		announcementOpportunityCounter: 0,
+		recentAnnouncementOutcomes: [],
+		activeAnnouncementCue: null
 	};
 }
 

@@ -204,6 +204,7 @@
 				sensingRadius={simulationConfigBase.sensingRadius}
 				hearingRadius={simulationConfigBase.hearingRadius}
 				investigationDistanceScale={simulationConfigBase.investigationDistanceScale}
+				triggerFeatureCueFadeSeconds={simulationConfigBase.triggerFeatureCueFadeSeconds}
 				onSelectCreature={selectCreature}
 			/>
 		</section>

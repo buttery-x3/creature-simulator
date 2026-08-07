@@ -57,6 +57,14 @@ src/
                 resource-awareness.ts
                 step-creature-behaviour.ts
                 *.spec.ts
+            announcement/
+                index.ts
+                types.ts
+                clarity.ts
+                speaking-position.ts
+                opportunity-lifecycle.ts
+                step-announcement.ts
+                *.spec.ts
             communication/
                 index.ts
                 types.ts
@@ -100,6 +108,7 @@ src/
         symbol-presentation.ts
         signal-presentation.ts
         listener-cue-presentation.ts
+        announcement-cue-presentation.ts
         habitat-camera.ts
         habitat-camera.spec.ts
         creature-presentation.spec.ts
@@ -124,6 +133,7 @@ Obsolete files should not remain in this topology merely because they were creat
 | `src/lib/habitat/`                 | Authoritative serialisable habitat data, seeded generation, geometry validation and habitat diagnostics                                              | Creatures, Three.js objects, Svelte state, browser controls          |
 | `src/lib/simulation/`              | Authoritative simulation state, creature creation, fixed-step advance, public diagnostics                                                            | Three.js resources, Svelte components, browser rAF ownership         |
 | `simulation/behaviour/`            | Needs, goal decisions, actions, local perception, habitat-feature query, search, resource targets, per-creature behaviour step                       | Transmission/reception of signals, association updates, presentation |
+| `simulation/announcement/`         | Resource-announcement opportunities, kind-level clarity, speaking-position search, preparation lifecycle, emission handoff provenance fields         | Transmission range, lexicon mutation, presentation meshes            |
 | `simulation/communication/`        | Arbitrary symbols, emission construction, lexicon/exploratory selection, hearing radius, reception records, emission expiry, communication histories | Evidence/lexicon mutation, listener semantics, presentation meshes   |
 | `simulation/learning/`             | Raw symbol evidence, exclusive lexicon resolution, pending investigation candidates, reinforcement, learning/lexicon history                         | Emission construction, reception range, goal selection, presentation |
 | `population-symbol-diagnostics.ts` | Pure observational population evidence/lexicon/emission summaries                                                                                    | Authoritative creature state, selection policy                       |
@@ -133,7 +143,8 @@ Obsolete files should not remain in this topology merely because they were creat
 | `SymbolGlyph.svelte`               | Svelte icon + stable id from the shared registry                                                                                                     | Domain algorithms                                                    |
 | `signal-presentation.ts`           | Emission speech bubbles + thin hearing-radius rings + selected investigation overlay                                                                 | Authoritative reception, emission lifetime, association updates      |
 | `listener-cue-presentation.ts`     | Coalesced neutral `?` from recent hear (brief) and/or active investigation (held)                                                                    | Investigation decisions, emission construction                       |
-| `ThreeViewport.svelte`             | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal/listener presentation                                     | Authoritative habitat or creature state                              |
+| `announcement-cue-presentation.ts` | Dashed creature→trigger-feature lines for active announcement opportunities                                                                          | Clarity, speaking positions, emission construction                   |
+| `ThreeViewport.svelte`             | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal/listener/announcement presentation                        | Authoritative habitat or creature state                              |
 | `habitat-camera.ts`                | Pure camera-framing and visibility calculations                                                                                                      | Scene construction, simulation state or UI controls                  |
 | `src/lib/workbench/`               | Domain-organised workbench UI: tab shell, Overview run controls, Creatures roster/detail, Communication, World, Events, Debug; pure view-models      | Authoritative simulation state, Three.js resources                   |
 | `src/routes/+page.svelte`          | Page composition, session simulation state, rAF catch-up, pause/reset, selected creature id                                                          | Domain algorithms, geometry rules or Three.js resource ownership     |
@@ -147,7 +158,7 @@ determinism
         ↓
 habitat model and generation
         ↓
-simulation (creatures + behaviour + communication + learning + fixed-step advance)
+simulation (creatures + behaviour + announcement + communication + learning + fixed-step advance)
         ↓
 page-level application state (incl. selection id)
         ↓
@@ -163,11 +174,12 @@ routes              -> workbench and viewport components
 workbench           -> habitat + simulation public entry points; SymbolGlyph / symbol-presentation
 viewport            -> habitat public entry point
 viewport            -> simulation Creature / SignalEmission types
-viewport            -> habitat-presentation, creature-presentation, signal-presentation, habitat-camera
+viewport            -> habitat-presentation, creature-presentation, signal-presentation, announcement-cue-presentation, habitat-camera
 habitat-camera      -> habitat types
 habitat subsystem   -> determinism
 simulation          -> determinism + habitat
-simulation/behaviour -> simulation sibling modules + habitat (private to simulation); may construct EmissionRequest only; thin hooks into learning
+simulation/behaviour -> simulation sibling modules + habitat (private to simulation); may construct EmissionRequest only; thin hooks into learning/announcement
+simulation/announcement -> simulation types + habitat + behaviour habitat-feature-query (private); pure clarity/speaking search; emission requests only
 simulation/communication -> simulation types + determinism (private to simulation); reads association values from creature state only; no learning implementation imports
 simulation/learning -> simulation types + habitat Vec2 + communication SymbolId/HeardSignal shapes; no presentation
 population-symbol-diagnostics -> simulation state/types + communication emission shapes; pure; no mutation

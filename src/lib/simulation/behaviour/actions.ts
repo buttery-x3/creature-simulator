@@ -29,6 +29,10 @@ export function actionForGoal(
 	if (goal === 'investigate_signal') {
 		return arrived ? 'investigate' : 'move';
 	}
+	if (goal === 'prepare_announcement') {
+		// Stay at speaking point (or keep moving toward it); never consumptive.
+		return 'move';
+	}
 	if (goal === 'seek_food' || goal === 'seek_water') {
 		if (!hasUsableFeatureTarget) {
 			return 'search';
@@ -70,7 +74,7 @@ export type ApplyDecisionResult = {
 };
 
 function decisionHasFeatureTarget(target: CreatureTarget | null, goal: CreatureGoal): boolean {
-	if (goal === 'wander' || goal === 'investigate_signal') {
+	if (goal === 'wander' || goal === 'investigate_signal' || goal === 'prepare_announcement') {
 		return false;
 	}
 	if (goal === 'rest') {

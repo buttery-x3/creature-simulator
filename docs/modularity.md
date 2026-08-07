@@ -143,8 +143,24 @@ needs/goal/action state machine and local resource perception:
 - `index.ts` — exports for simulation siblings (not a separate app subsystem).
 
 This directory is at capacity for implementation files (hard limit 8 excluding
-tests). Further growth should restate ownership rather than add thin helpers.
-Do not move Three.js objects or Svelte components into this subsystem. Creatures must not live on `Habitat`.
+tests). Resource-announcement lifecycle lives in `simulation/announcement/` so
+behaviour does not absorb a second state machine. Further growth should restate
+ownership rather than add thin helpers. Do not move Three.js objects or Svelte
+components into this subsystem. Creatures must not live on `Habitat`.
+
+Internal announcement subdomain (`simulation/announcement/`), introduced for the
+resource-announcement opportunity lifecycle (FLAME-71):
+
+- `types.ts` — opportunities, episodes (re-export shapes), clarity/outcome records;
+- `clarity.ts` — pure kind-level clarity evaluation;
+- `speaking-position.ts` — pure deterministic speaking-position search;
+- `opportunity-lifecycle.ts` — create/queue/promote/invalidate opportunities;
+- `step-announcement.ts` — per-creature announcement advance and emission requests;
+- `index.ts` — exports for simulation siblings.
+
+Perception owns episode reconciliation; behaviour orchestration calls
+`stepAnnouncement`. Communication owns transmission. Do not couple future
+danger/predator signalling to resource-announcement preparation.
 
 Internal communication subdomain (`simulation/communication/`), introduced for
 transient arbitrary signals and local reception:
@@ -188,6 +204,7 @@ Three.js presentation is split:
 - `symbol-presentation.ts` — pure shared symbol presentation registry (shape/label/color);
 - `signal-presentation.ts` — emission speech bubbles, thin hearing-radius rings, selected investigation overlay;
 - `listener-cue-presentation.ts` — coalesced neutral `?` cues (brief on hear, held while investigating);
+- `announcement-cue-presentation.ts` — dashed creature→trigger-feature lines for active announcements;
 - `SymbolGlyph.svelte` — Svelte consumer of the symbol registry for diagnostics;
 - `ThreeViewport.svelte` — scene lifecycle, camera framing, pick ray, prop wiring;
 - `habitat-camera.ts` — pure framing and visibility calculations.

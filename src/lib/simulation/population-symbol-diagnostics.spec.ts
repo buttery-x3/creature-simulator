@@ -43,7 +43,8 @@ function emission(
 		context: 'resource_discovered',
 		contextDetail: partial.contextDetail,
 		symbolSelectionReason: 'test',
-		selectionEvidence: emptySelectionEvidence(partial.symbolId, partial.contextDetail)
+		selectionEvidence: emptySelectionEvidence(partial.symbolId, partial.contextDetail),
+		provenance: null
 	};
 }
 

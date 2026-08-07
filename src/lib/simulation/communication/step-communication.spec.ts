@@ -130,7 +130,8 @@ describe('expireEmissions', () => {
 				context: 'resource_discovered',
 				contextDetail: 'food',
 				symbolSelectionReason: 'exploratory',
-				selectionEvidence: testSelectionEvidence('glyph-0', 'food')
+				selectionEvidence: testSelectionEvidence('glyph-0', 'food'),
+				provenance: null
 			},
 			{
 				id: 'em-b-0',
@@ -142,7 +143,8 @@ describe('expireEmissions', () => {
 				context: 'resource_discovered',
 				contextDetail: 'water',
 				symbolSelectionReason: 'exploratory',
-				selectionEvidence: testSelectionEvidence('glyph-1', 'water')
+				selectionEvidence: testSelectionEvidence('glyph-1', 'water'),
+				provenance: null
 			}
 		];
 		expect(expireEmissions(emissions, 2.5).map((e) => e.id)).toEqual(['em-b-0']);
@@ -417,13 +419,14 @@ describe('stepCommunication', () => {
 });
 
 describe('discovery integration via stepSimulation', () => {
-	it('emits once on search→move discovery and not again while still on the resource', () => {
+	it('emits once per continuous perception episode of a resource, not repeatedly while visible', () => {
 		const config = {
 			...defaultSimulationConfig('disc-once'),
 			sensingRadius: 4,
 			perceptionIntervalSeconds: 0.01,
 			arrivalDistance: 0.1,
-			emissionCooldownSeconds: 0
+			emissionCooldownSeconds: 0,
+			resourceAnnouncementClarityMargin: 0
 		};
 		const base = createSimulation({ ...config, creatureCount: 1 });
 		const food = base.habitat.food[0]!;
@@ -456,17 +459,21 @@ describe('discovery integration via stepSimulation', () => {
 			recentEmissions: []
 		};
 
-		state = stepSimulation(state, config);
-		expect(state.recentEmissions).toHaveLength(1);
-		expect(state.creatures[0]!.action).toBe('move');
-		expect(state.creatures[1]!.recentHeard).toHaveLength(1);
+		// First sensing pass should create an opportunity and may emit when clear.
+		for (let i = 0; i < 10; i += 1) {
+			state = stepSimulation(state, config);
+			if (state.creatures[0]!.emissionCount > 0) {
+				break;
+			}
+		}
+		expect(state.creatures[0]!.emissionCount).toBeGreaterThanOrEqual(1);
+		const emissionsAfterFirst = state.creatures[0]!.emissionCount;
 
-		// Further steps while already moving to the resource must not re-emit
+		// Further steps while the same feature remains continuously visible must not re-emit that episode.
 		for (let i = 0; i < 5; i += 1) {
 			state = stepSimulation(state, config);
 		}
-		expect(state.creatures[0]!.emissionCount).toBe(1);
-		expect(state.recentEmissions).toHaveLength(1);
+		expect(state.creatures[0]!.emissionCount).toBe(emissionsAfterFirst);
 	});
 
 	it('selects symbol from exclusive food lexicon rather than preferred only', () => {
@@ -572,25 +579,29 @@ describe('discovery integration via stepSimulation', () => {
 		expect(next.creatures.find((c) => c.id === 'creature-1')!.recentHeard).toHaveLength(1);
 	});
 
-	it('does not emit for ordinary wandering', () => {
+	it('does not emit while no resource feature has entered perception', () => {
+		// Tiny sensing radius keeps home-spawned creatures from discovering food/water.
 		const config = {
-			...defaultSimulationConfig('no-wander-emit'),
+			...defaultSimulationConfig('no-perceive-emit'),
 			creatureCount: 2,
 			initialHunger: 0,
 			initialThirst: 0,
 			initialEnergy: 1,
 			hungerRisePerSecond: 0,
 			thirstRisePerSecond: 0,
-			energyDrainPerSecond: 0
+			energyDrainPerSecond: 0,
+			sensingRadius: 0.05,
+			perceptionIntervalSeconds: 0.05,
+			movementSpeed: { min: 0.01, max: 0.01 }
 		};
 		let state = createSimulation(config);
-		for (let i = 0; i < 60; i += 1) {
+		for (let i = 0; i < 30; i += 1) {
 			state = stepSimulation(state, config);
 		}
 		expect(state.recentEmissions).toHaveLength(0);
 		for (const c of state.creatures) {
 			expect(c.emissionCount).toBe(0);
-			expect(c.recentHeard).toHaveLength(0);
+			expect(c.announcementOpportunities).toHaveLength(0);
 		}
 	});
 });

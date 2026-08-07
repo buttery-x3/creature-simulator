@@ -5,6 +5,7 @@
 
 export { advanceNeeds, clampNeed, recoveryComplete } from './needs';
 export {
+	ensureSearchTarget,
 	foodTarget,
 	hasUsableResourceTarget,
 	homeTarget,
@@ -15,6 +16,7 @@ export {
 	pointTarget,
 	resolveFeature,
 	selectNearestFeature,
+	tryPerceiveAndPursue,
 	waterTarget
 } from './resource-awareness';
 export {

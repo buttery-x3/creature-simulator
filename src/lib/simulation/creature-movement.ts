@@ -101,6 +101,35 @@ export function sampleSearchTarget(
 }
 
 /**
+ * Turn toward a destination and translate for one fixed step, clamped to interior.
+ * Used by behaviour and announcement preparation movement.
+ */
+export function moveToward(
+	creature: Pick<Creature, 'position' | 'facing' | 'movementSpeed'>,
+	destination: Vec2,
+	dt: number,
+	bounds: WorldBounds,
+	config: Pick<SimulationConfig, 'maxTurnRate' | 'creatureRadius'>
+): Pick<Creature, 'position' | 'facing'> {
+	const desiredFacing = Math.atan2(
+		destination.y - creature.position.y,
+		destination.x - creature.position.x
+	);
+	const delta = shortestAngleDelta(creature.facing, desiredFacing);
+	const maxTurn = config.maxTurnRate * dt;
+	const turn = Math.max(-maxTurn, Math.min(maxTurn, delta));
+	const facing = normalizeAngle(creature.facing + turn);
+
+	const distance = creature.movementSpeed * dt;
+	let position = {
+		x: creature.position.x + Math.cos(facing) * distance,
+		y: creature.position.y + Math.sin(facing) * distance
+	};
+	position = clampToInterior(position, bounds, config.creatureRadius);
+	return { position, facing };
+}
+
+/**
  * Pure movement helper: turn toward a wander target, move, clamp, retarget.
  * Behavioural goals/actions are owned by `behaviour/step-creature-behaviour.ts`;
  * this remains available for focused movement tests.

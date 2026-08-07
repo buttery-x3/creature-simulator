@@ -33,7 +33,8 @@ function emission(id: string, symbolId: SignalEmission['symbolId'] = 'glyph-0'):
 			sample: 0.5,
 			usedFallback: false,
 			reason: 'exploratory_prefer_unassigned'
-		}
+		},
+		provenance: null
 	};
 }
 

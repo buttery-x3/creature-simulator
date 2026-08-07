@@ -55,7 +55,7 @@ describe('evaluateCandidates', () => {
 		const foodFeature = habitat.food[0]!;
 		const perception = senseAt(foodFeature.position, habitat, 1, {
 			sensingRadius: config.sensingRadius
-		});
+		}).perception;
 		const candidates = evaluateCandidates(
 			testCreature({
 				position: { ...foodFeature.position },

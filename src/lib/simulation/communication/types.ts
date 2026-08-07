@@ -4,6 +4,7 @@
  */
 
 import type { Vec2 } from '$lib/habitat';
+import type { ClarityEvidence } from '../announcement/types';
 
 /** Arbitrary symbol identity. Visual form is presentation-only; no built-in meaning. */
 export type SymbolId = 'glyph-0' | 'glyph-1' | 'glyph-2' | 'glyph-3';
@@ -73,6 +74,11 @@ export type SignalEmission = {
 	symbolSelectionReason: string;
 	/** Full selection evidence for inspection; never heard by listeners. */
 	selectionEvidence: SymbolSelectionEvidence;
+	/**
+	 * Hidden announcement provenance (opportunity / trigger feature / clarity).
+	 * Null for non-announcement emissions; never exposed to listeners.
+	 */
+	provenance: EmissionProvenance | null;
 };
 
 /** Per-receiver record of a heard emission. Plain serialisable. */
@@ -88,10 +94,32 @@ export type HeardSignal = {
 /**
  * Behaviour → communication handoff. Not stored on SimulationState.
  * Communication owns transmission, reception and lifetime.
+ *
+ * Provenance fields are developer diagnostics only — never copied to HeardSignal.
  */
 export type EmissionRequest = {
 	senderId: string;
 	origin: Vec2;
 	context: EmissionContext;
 	contextDetail: ResourceDiscoveryDetail;
+	/** Announcement opportunity id when emission completes a resource announcement. */
+	opportunityId?: string;
+	perceptionEpisodeId?: string;
+	triggerFeatureId?: string;
+	triggerFeaturePosition?: Vec2;
+	discoveredAt?: number;
+	clarityEvidence?: ClarityEvidence;
+};
+
+/**
+ * Hidden announcement provenance retained on SignalEmission for diagnostics.
+ * Must never appear on HeardSignal.
+ */
+export type EmissionProvenance = {
+	opportunityId: string;
+	perceptionEpisodeId: string;
+	triggerFeatureId: string;
+	triggerFeaturePosition: Vec2;
+	discoveredAt: number;
+	clarityEvidence: ClarityEvidence | null;
 };

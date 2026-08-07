@@ -22,7 +22,8 @@ const emission = (origin: { x: number; y: number }): SignalEmission => ({
 		sample: 0.5,
 		usedFallback: false,
 		reason: 'exploratory_prefer_unassigned'
-	}
+	},
+	provenance: null
 });
 
 describe('finite hearing radius default', () => {

@@ -10,6 +10,11 @@
  */
 
 import type { Habitat, HabitatFeatureKind, HabitatGenerationConfig, Vec2 } from '$lib/habitat';
+import type {
+	AnnouncementOpportunity,
+	AnnouncementOpportunityOutcome,
+	ResourceFeaturePerceptionEpisode
+} from './announcement/types';
 import type { HeardSignal, SignalEmission, SymbolId } from './communication/types';
 import type {
 	ActiveSignalInvestigation,
@@ -40,9 +45,19 @@ export type {
 	SymbolAssociation
 } from './learning/types';
 export { LEXICON_MEANINGS } from './learning/types';
+export type {
+	AnnouncementOpportunity,
+	AnnouncementOpportunityOutcome,
+	AnnouncementOpportunityState,
+	AnnouncementOutcomeReason,
+	ClarityEvidence,
+	NewlyPerceivedResource,
+	ResourceFeaturePerceptionEpisode
+} from './announcement/types';
 
 /** Outcome the creature is currently pursuing. */
-export type CreatureGoal = 'seek_food' | 'seek_water' | 'rest' | 'investigate_signal' | 'wander';
+export type CreatureGoal =
+	'seek_food' | 'seek_water' | 'rest' | 'investigate_signal' | 'prepare_announcement' | 'wander';
 
 /** Current step used to pursue the goal. Distinct from goal. */
 export type CreatureAction =
@@ -74,6 +89,13 @@ export type CreaturePerception = {
 	observations: ResourceObservation[];
 	/** Single briefly retained pursuit observation, if any. */
 	tracked: ResourceObservation | null;
+	/**
+	 * Continuous per-feature perception episodes (currently visible resources).
+	 * Used for announcement opportunity deduplication — not long-term memory.
+	 */
+	activeEpisodes: ResourceFeaturePerceptionEpisode[];
+	/** Monotonic counter for stable episode ids on this creature. */
+	episodeCounter: number;
 };
 
 /**
@@ -206,6 +228,27 @@ export type Creature = {
 	activeInvestigation: ActiveSignalInvestigation | null;
 	/** Recent learning outcomes, newest last, length-capped. */
 	recentLearning: LearningHistoryEntry[];
+
+	/**
+	 * Open resource-announcement opportunities (active + queued), newest not required.
+	 * Order is creation order; at most one is ready/repositioning at a time.
+	 */
+	announcementOpportunities: AnnouncementOpportunity[];
+	/** Monotonic counter for stable opportunity ids. */
+	announcementOpportunityCounter: number;
+	/** Bounded recent opportunity outcomes for local lifecycle diagnostics. */
+	recentAnnouncementOutcomes: AnnouncementOpportunityOutcome[];
+	/**
+	 * Presentation/diagnostic cue for the active (or just-emitted) opportunity.
+	 * Authoritative fade timing; presentation only reads this.
+	 */
+	activeAnnouncementCue: {
+		opportunityId: string;
+		triggerFeatureId: string;
+		triggerFeaturePosition: Vec2;
+		/** When set, cue is fading after emission; null while preparing. */
+		fadeStartedAt: number | null;
+	} | null;
 };
 
 export type SimulationState = {
@@ -298,6 +341,29 @@ export type SimulationConfig = {
 	 * How long a pursued food/water observation remains usable after last seeing it.
 	 */
 	trackedObservationDurationSeconds: number;
+
+	/**
+	 * Minimum opposite-kind − announced-kind distance for emitter-side clarity.
+	 * Ties and smaller deltas are unclear and require repositioning.
+	 */
+	resourceAnnouncementClarityMargin: number;
+	/**
+	 * Max distance from a same-kind feature centre when searching speaking positions.
+	 */
+	speakingPositionSearchRadius: number;
+	/**
+	 * Speaking-position polar grid density (rings; angular steps = 2× this value, min 4).
+	 */
+	speakingPositionSearchResolution: number;
+	/** Max open announcement opportunities per creature (active + queued). */
+	maxQueuedAnnouncementOpportunitiesPerCreature: number;
+	/** Max length of recentAnnouncementOutcomes (oldest dropped). */
+	recentAnnouncementOutcomeHistoryLimit: number;
+	/**
+	 * How long the trigger-feature dashed cue remains after emission before disposal
+	 * (authoritative fade window for presentation).
+	 */
+	triggerFeatureCueFadeSeconds: number;
 
 	/**
 	 * Arbitrary symbol inventory. No built-in semantic mapping to resources or danger.

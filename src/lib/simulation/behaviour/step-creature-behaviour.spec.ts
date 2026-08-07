@@ -217,12 +217,15 @@ describe('stepCreatureBehaviour integration', () => {
 		});
 		expect(next.perception.tracked?.featureId).toBe(food.id);
 		expect(next.recentTransitions.some((t) => t.reason.includes('food perceived'))).toBe(true);
-		expect(result.emissionRequest).toEqual({
+		expect(result.emissionRequest).toMatchObject({
 			senderId: creature.id,
 			origin: { x: creature.position.x, y: creature.position.y },
 			context: 'resource_discovered',
-			contextDetail: 'food'
+			contextDetail: 'food',
+			triggerFeatureId: food.id
 		});
+		expect(result.emissionRequest?.opportunityId).toBeTruthy();
+		expect(result.emissionRequest?.perceptionEpisodeId).toBeTruthy();
 	});
 
 	it('returns to search when tracked observation expires without reacquisition', () => {
@@ -253,7 +256,9 @@ describe('stepCreatureBehaviour integration', () => {
 					featureKind: 'food',
 					position: { ...food.position },
 					observedAt: 0
-				}
+				},
+				activeEpisodes: [],
+				episodeCounter: 0
 			},
 			nextReconsiderAt: 999
 		});

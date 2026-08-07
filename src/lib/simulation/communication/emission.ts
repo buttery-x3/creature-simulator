@@ -4,7 +4,13 @@
  */
 
 import { createSeededRng, deriveSeed } from '$lib/determinism';
-import type { HeardSignal, SignalEmission, SymbolId, SymbolSelectionEvidence } from './types';
+import type {
+	EmissionProvenance,
+	HeardSignal,
+	SignalEmission,
+	SymbolId,
+	SymbolSelectionEvidence
+} from './types';
 
 export function appendBounded<T>(history: readonly T[], entry: T, limit: number): T[] {
 	const next = [...history, entry];
@@ -58,6 +64,8 @@ export type BuildEmissionInput = {
 	contextDetail: SignalEmission['contextDetail'];
 	symbolSelectionReason: string;
 	selectionEvidence: SymbolSelectionEvidence;
+	/** Hidden announcement provenance; never copied to HeardSignal. */
+	provenance?: EmissionProvenance | null;
 };
 
 export function buildEmission(input: BuildEmissionInput): SignalEmission {
@@ -71,7 +79,8 @@ export function buildEmission(input: BuildEmissionInput): SignalEmission {
 		context: input.context,
 		contextDetail: input.contextDetail,
 		symbolSelectionReason: input.symbolSelectionReason,
-		selectionEvidence: input.selectionEvidence
+		selectionEvidence: input.selectionEvidence,
+		provenance: input.provenance ?? null
 	};
 }
 

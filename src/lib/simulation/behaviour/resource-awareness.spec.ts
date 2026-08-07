@@ -61,7 +61,9 @@ describe('resource-awareness', () => {
 		expect(
 			isTargetValid(habitat, target, emptyPerception(), 0, config.trackedObservationDurationSeconds)
 		).toBe(false);
-		const perceived = senseAt(food.position, habitat, 0, { sensingRadius: config.sensingRadius });
+		const perceived = senseAt(food.position, habitat, 0, {
+			sensingRadius: config.sensingRadius
+		}).perception;
 		expect(
 			isTargetValid(habitat, target, perceived, 0, config.trackedObservationDurationSeconds)
 		).toBe(true);
@@ -96,7 +98,9 @@ describe('resource-awareness', () => {
 				config.trackedObservationDurationSeconds
 			)
 		).toBeNull();
-		const perceived = senseAt(food.position, habitat, 1, { sensingRadius: config.sensingRadius });
+		const perceived = senseAt(food.position, habitat, 1, {
+			sensingRadius: config.sensingRadius
+		}).perception;
 		const target = foodTarget(
 			food.position,
 			habitat,
@@ -146,7 +150,9 @@ describe('resource-awareness', () => {
 				config.trackedObservationDurationSeconds
 			)
 		).toBeNull();
-		const perceived = senseAt(water.position, habitat, 0, { sensingRadius: config.sensingRadius });
+		const perceived = senseAt(water.position, habitat, 0, {
+			sensingRadius: config.sensingRadius
+		}).perception;
 		const target = waterTarget(
 			water.position,
 			habitat,

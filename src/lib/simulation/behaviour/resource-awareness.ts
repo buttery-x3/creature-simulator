@@ -7,14 +7,21 @@
  */
 
 import { featureRect, type Habitat, type HabitatFeature, type Vec2 } from '$lib/habitat';
+import { distanceSquared, sampleSearchTarget } from '../creature-movement';
 import type {
+	Creature,
 	CreaturePerception,
 	CreatureTarget,
 	ResourceObservation,
 	SimulationConfig
 } from '../types';
-import { distanceSquared } from '../creature-movement';
-import { isCurrentlyPerceived, isTrackedUsable, selectNearestPerceived } from './perception';
+import { appendTransition } from './actions';
+import {
+	isCurrentlyPerceived,
+	isTrackedUsable,
+	selectNearestPerceived,
+	startTracking
+} from './perception';
 
 export type TrackingConfig = Pick<SimulationConfig, 'trackedObservationDurationSeconds'>;
 
@@ -246,4 +253,100 @@ export function hasUsableResourceTarget(
 		return resolveFeature(habitat, target) !== null;
 	}
 	return isTargetValid(habitat, target, perception, timeSeconds, trackDurationSeconds);
+}
+
+/** Ensure search action has a deterministic search point target. */
+export function ensureSearchTarget(
+	creature: Creature,
+	simulationSeed: string,
+	habitat: Habitat,
+	config: Pick<SimulationConfig, 'creatureRadius'>
+): Pick<Creature, 'searchTarget' | 'searchDecisionIndex' | 'target'> {
+	const targetIsSearchPoint =
+		creature.target?.kind === 'point' &&
+		creature.target.position.x === creature.searchTarget.x &&
+		creature.target.position.y === creature.searchTarget.y;
+	if (creature.action === 'search' && targetIsSearchPoint) {
+		return {
+			searchTarget: creature.searchTarget,
+			searchDecisionIndex: creature.searchDecisionIndex,
+			target: creature.target
+		};
+	}
+	const searchDecisionIndex = creature.searchDecisionIndex + 1;
+	const searchTarget = sampleSearchTarget(
+		simulationSeed,
+		creature.id,
+		searchDecisionIndex,
+		habitat.bounds,
+		config.creatureRadius
+	);
+	return {
+		searchTarget,
+		searchDecisionIndex,
+		target: pointTarget(searchTarget)
+	};
+}
+
+/**
+ * Need-driven pursuit of perceived food/water while seeking.
+ * Does not emit — announcements are owned by the announcement subdomain.
+ */
+export function tryPerceiveAndPursue(
+	creature: Creature,
+	timeSeconds: number,
+	config: Pick<SimulationConfig, 'decisionHistoryLimit'>
+): Creature | null {
+	if (creature.goal !== 'seek_food' && creature.goal !== 'seek_water') {
+		return null;
+	}
+	if (creature.action !== 'search' && creature.action !== 'move') {
+		return null;
+	}
+	if (
+		creature.action === 'move' &&
+		creature.target?.kind === 'feature' &&
+		((creature.goal === 'seek_food' && creature.target.featureKind === 'food') ||
+			(creature.goal === 'seek_water' && creature.target.featureKind === 'water'))
+	) {
+		return null;
+	}
+
+	const kind = creature.goal === 'seek_food' ? 'food' : 'water';
+	const nearest = selectNearestPerceived(creature.position, creature.perception, kind);
+	if (!nearest) {
+		return null;
+	}
+
+	const featureTarget = {
+		kind: 'feature' as const,
+		featureId: nearest.featureId,
+		featureKind: nearest.featureKind
+	};
+
+	const fromAction = creature.action;
+	const recentTransitions = appendTransition(
+		creature.recentTransitions,
+		{
+			timeSeconds,
+			fromGoal: creature.goal,
+			toGoal: creature.goal,
+			fromAction,
+			toAction: 'move',
+			reason: kind === 'food' ? 'food perceived and selected' : 'water perceived and selected'
+		},
+		config.decisionHistoryLimit
+	);
+
+	return {
+		...creature,
+		action: 'move',
+		target: featureTarget,
+		actionStartedAt: timeSeconds,
+		perception: startTracking(creature.perception, {
+			...nearest,
+			observedAt: timeSeconds
+		}),
+		recentTransitions
+	};
 }

@@ -6,6 +6,7 @@
 		type SimulationState
 	} from '$lib/simulation';
 	import CreatureLexiconPanel from './CreatureLexiconPanel.svelte';
+	import SymbolGlyph from './SymbolGlyph.svelte';
 
 	type Props = {
 		simulation: SimulationState;
@@ -210,7 +211,7 @@
 			<div>
 				<dt>Preferred symbol</dt>
 				<dd data-testid="inspector-preferred-symbol">
-					{selectedCreature.preferredSymbolId}
+					<SymbolGlyph symbolId={selectedCreature.preferredSymbolId} />
 					<span class="muted">(cold-start fallback)</span>
 				</dd>
 			</div>
@@ -237,7 +238,7 @@
 						<ul class="signal-list">
 							{#each selectedCreature.recentEmitted as emission (emission.id)}
 								<li>
-									{emission.symbolId} @ ({emission.origin.x.toFixed(2)}, {emission.origin.y.toFixed(
+									<SymbolGlyph symbolId={emission.symbolId} /> @ ({emission.origin.x.toFixed(2)}, {emission.origin.y.toFixed(
 										2
 									)}) t={emission.emittedAt.toFixed(2)}s · context {emission.context}/{emission.contextDetail}
 									· {emission.symbolSelectionReason}
@@ -256,9 +257,9 @@
 						<ul class="signal-list">
 							{#each selectedCreature.recentHeard as heard (heard.emissionId + heard.heardAt)}
 								<li>
-									{heard.symbolId} from {heard.senderId} @ ({heard.origin.x.toFixed(2)}, {heard.origin.y.toFixed(
+									<SymbolGlyph symbolId={heard.symbolId} /> from {heard.senderId} @ ({heard.origin.x.toFixed(
 										2
-									)}) heard t={heard.heardAt.toFixed(2)}s
+									)}, {heard.origin.y.toFixed(2)}) heard t={heard.heardAt.toFixed(2)}s
 									<span class="muted">(listener-only; no emitter context)</span>
 								</li>
 							{/each}
@@ -275,9 +276,11 @@
 						<ul class="signal-list">
 							{#each selectedCreature.pendingSignals as pending (pending.emissionId)}
 								<li>
-									{pending.symbolId} from {pending.senderId} @ ({pending.origin.x.toFixed(2)}, {pending.origin.y.toFixed(
+									<SymbolGlyph symbolId={pending.symbolId} /> from {pending.senderId} @ ({pending.origin.x.toFixed(
 										2
-									)}) age={(simulation.timeSeconds - pending.heardAt).toFixed(2)}s expires@
+									)}, {pending.origin.y.toFixed(2)}) age={(
+										simulation.timeSeconds - pending.heardAt
+									).toFixed(2)}s expires@
 									{pending.expiresAt.toFixed(2)}s
 								</li>
 							{/each}
@@ -289,8 +292,8 @@
 				<dt>Active investigation</dt>
 				<dd data-testid="inspector-active-investigation">
 					{#if selectedCreature.activeInvestigation}
-						{selectedCreature.activeInvestigation.symbolId} emission={selectedCreature
-							.activeInvestigation.emissionId}
+						<SymbolGlyph symbolId={selectedCreature.activeInvestigation.symbolId} />
+						emission={selectedCreature.activeInvestigation.emissionId}
 						@ ({selectedCreature.activeInvestigation.origin.x.toFixed(2)}, {selectedCreature.activeInvestigation.origin.y.toFixed(
 							2
 						)}) started@
@@ -311,7 +314,7 @@
 								<li>
 									t={entry.timeSeconds.toFixed(2)}
 									{entry.outcome}
-									{entry.symbolId}: food {entry.foodStrengthBefore.toFixed(
+									<SymbolGlyph symbolId={entry.symbolId} />: food {entry.foodStrengthBefore.toFixed(
 										2
 									)}→{entry.foodStrengthAfter.toFixed(2)} water {entry.waterStrengthBefore.toFixed(
 										2

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Creature, CreatureAction } from '$lib/simulation';
-import { createCreaturePresentationResources, reconcileCreatures } from './creature-presentation';
+import {
+	INVESTIGATION_HOP_DURATION_SECONDS,
+	INVESTIGATION_HOP_HEIGHT,
+	clearCreaturePresentation,
+	createCreaturePresentationResources,
+	hopHeightFactor,
+	investigationHopKey,
+	reconcileCreatures
+} from './creature-presentation';
 
 function creature(
 	id: string,
@@ -118,12 +126,93 @@ describe('reconcileCreatures', () => {
 		expect(mats).toBeTruthy();
 		expect(mats!.body.color.getHex()).toBe(0x2a9d8f);
 
-		// Dispose shared resources used by the test harness.
-		resources.bodyGeometry.dispose();
-		resources.noseGeometry.dispose();
-		for (const materials of resources.materialsById.values()) {
-			materials.body.dispose();
-			materials.nose.dispose();
-		}
+		clearCreaturePresentation(resources);
+	});
+
+	it('triggers exactly one vertical hop when investigation is newly committed', () => {
+		const resources = createCreaturePresentationResources();
+		const base = creature('creature-0', 1, 2);
+		const withInv: Creature = {
+			...base,
+			goal: 'investigate_signal',
+			action: 'investigate',
+			activeInvestigation: {
+				emissionId: 'em-1',
+				symbolId: 'glyph-1',
+				senderId: 'creature-9',
+				origin: { x: 4, y: 0 },
+				startedAt: 5
+			}
+		};
+
+		// Commitment starts at t=5.0 presentation time; mid-hop has Z > 0.
+		reconcileCreatures(resources, [withInv], null, 5.0);
+		const hopKey = investigationHopKey(withInv.activeInvestigation);
+		expect(resources.hopById.get('creature-0')?.key).toBe(hopKey);
+		expect(resources.hopById.get('creature-0')?.startedAt).toBe(5.0);
+
+		const midTime = 5.0 + INVESTIGATION_HOP_DURATION_SECONDS * 0.5;
+		reconcileCreatures(resources, [withInv], null, midTime);
+		const group = resources.byId.get('creature-0')!;
+		const midZ = group.position.z;
+		expect(midZ).toBeGreaterThan(0.2);
+		expect(midZ).toBeLessThanOrEqual(INVESTIGATION_HOP_HEIGHT + 1e-6);
+		// Authoritative coordinates unchanged.
+		expect(withInv.position.x).toBe(1);
+		expect(withInv.position.y).toBe(2);
+		expect(group.position.x).toBeCloseTo(1);
+		expect(group.position.y).toBeCloseTo(2);
+
+		// Continuing the same investigation does not restart hop key.
+		reconcileCreatures(resources, [withInv], null, midTime + 0.05);
+		expect(resources.hopById.get('creature-0')?.key).toBe(hopKey);
+		expect(resources.hopById.get('creature-0')?.startedAt).toBe(5.0);
+
+		// After duration, hop offset settles to 0 while investigation remains.
+		reconcileCreatures(resources, [withInv], null, 5.0 + INVESTIGATION_HOP_DURATION_SECONDS + 0.01);
+		expect(group.position.z).toBeCloseTo(0);
+
+		// Hearing alone (no investigation) does not hop.
+		const heardOnly = creature('creature-1', 0, 0);
+		heardOnly.recentHeard = [
+			{
+				emissionId: 'em-x',
+				symbolId: 'glyph-0',
+				senderId: 's',
+				origin: { x: 0, y: 0 },
+				emittedAt: 10,
+				heardAt: 10
+			}
+		];
+		reconcileCreatures(resources, [heardOnly], null, 10.1);
+		expect(resources.byId.get('creature-1')!.position.z).toBeCloseTo(0);
+		expect(resources.hopById.has('creature-1')).toBe(false);
+
+		// Different investigation key may hop again.
+		const second: Creature = {
+			...withInv,
+			activeInvestigation: {
+				emissionId: 'em-2',
+				symbolId: 'glyph-2',
+				senderId: 'creature-9',
+				origin: { x: 1, y: 1 },
+				startedAt: 20
+			}
+		};
+		reconcileCreatures(resources, [second], null, 20.0);
+		expect(resources.hopById.get('creature-0')?.key).toBe(
+			investigationHopKey(second.activeInvestigation)
+		);
+		reconcileCreatures(resources, [second], null, 20.0 + INVESTIGATION_HOP_DURATION_SECONDS * 0.5);
+		expect(resources.byId.get('creature-0')!.position.z).toBeGreaterThan(0.2);
+
+		clearCreaturePresentation(resources);
+		expect(resources.hopById.size).toBe(0);
+	});
+
+	it('uses a rise-and-settle hop curve', () => {
+		expect(hopHeightFactor(0)).toBeCloseTo(0);
+		expect(hopHeightFactor(0.5)).toBeCloseTo(1);
+		expect(hopHeightFactor(1)).toBeCloseTo(0);
 	});
 });

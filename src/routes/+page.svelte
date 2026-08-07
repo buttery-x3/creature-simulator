@@ -197,6 +197,8 @@
 				timeSeconds={simulation.timeSeconds}
 				{selectedCreatureId}
 				sensingRadius={simulationConfigBase.sensingRadius}
+				hearingRadius={simulationConfigBase.hearingRadius}
+				investigationDistanceScale={simulationConfigBase.investigationDistanceScale}
 				onSelectCreature={selectCreature}
 			/>
 		</section>

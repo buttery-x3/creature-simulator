@@ -78,15 +78,21 @@ src/
         HabitatWorkbench.svelte
         CreatureInspector.svelte
         CreatureEmissionWeights.svelte
+        CreatureLexiconPanel.svelte
         PopulationCommunicationPanel.svelte
+        SymbolGlyph.svelte
         ThreeViewport.svelte
         habitat-presentation.ts
         creature-presentation.ts
+        symbol-presentation.ts
         signal-presentation.ts
+        listener-cue-presentation.ts
         habitat-camera.ts
         habitat-camera.spec.ts
         creature-presentation.spec.ts
+        symbol-presentation.spec.ts
         signal-presentation.spec.ts
+        listener-cue-presentation.spec.ts
         ports.ts
         index.ts
 
@@ -109,9 +115,12 @@ Obsolete files should not remain in this topology merely because they were creat
 | `simulation/learning/`                | Raw symbol evidence, exclusive lexicon resolution, pending investigation candidates, reinforcement, learning/lexicon history                         | Emission construction, reception range, goal selection, presentation |
 | `population-symbol-diagnostics.ts`    | Pure observational population evidence/lexicon/emission summaries                                                                                    | Authoritative creature state, selection policy                       |
 | `habitat-presentation.ts`             | Static habitat mesh construction and disposal                                                                                                        | Creature meshes, simulation stepping                                 |
-| `creature-presentation.ts`            | Dynamic creature mesh reconcile by id and action-derived visuals                                                                                     | Authoritative creature state, habitat rebuilds                       |
-| `signal-presentation.ts`              | Dynamic signal mesh reconcile by emission id (glyph + ring); selected investigation overlay                                                          | Authoritative reception, emission lifetime, association updates      |
-| `ThreeViewport.svelte`                | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal presentation                                              | Authoritative habitat or creature state                              |
+| `creature-presentation.ts`            | Dynamic creature mesh reconcile by id, action-derived visuals, presentation-only investigation hop                                                   | Authoritative creature state, habitat rebuilds                       |
+| `symbol-presentation.ts`              | Shared symbol→shape/label/color registry for viewport and UI                                                                                         | Simulation semantics, Three.js resources                             |
+| `SymbolGlyph.svelte`                  | Svelte icon + stable id from the shared registry                                                                                                     | Domain algorithms                                                    |
+| `signal-presentation.ts`              | Emission speech bubbles + thin hearing-radius rings + selected investigation overlay                                                                 | Authoritative reception, emission lifetime, association updates      |
+| `listener-cue-presentation.ts`        | Coalesced neutral heard-`?` cues from `recentHeard`                                                                                                  | Investigation decisions, emission construction                       |
+| `ThreeViewport.svelte`                | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal/listener presentation                                     | Authoritative habitat or creature state                              |
 | `habitat-camera.ts`                   | Pure camera-framing and visibility calculations                                                                                                      | Scene construction, simulation state or UI controls                  |
 | `HabitatWorkbench.svelte`             | Seed/simulation controls, diagnostics panels; composes creature inspector + population communication panel                                           | Domain algorithms, inspector field layout, renderer lifecycle        |
 | `CreatureInspector.svelte`            | Creature selection chips, needs/perception/communication fields, candidates, inspector formatting                                                    | Domain algorithms, simulation stepping, Three.js                     |

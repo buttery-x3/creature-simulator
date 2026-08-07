@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as THREE from 'three';
-	import type { Habitat } from '$lib/habitat';
+	import type { Habitat, Vec2 } from '$lib/habitat';
 	import type { Creature, SignalEmission } from '$lib/simulation';
 	import {
 		clearCreaturePresentation,
@@ -21,10 +21,17 @@
 		type HabitatVisibilityReport
 	} from './habitat-camera';
 	import {
+		clearListenerCuePresentation,
+		createListenerCuePresentationResources,
+		reconcileHeardCues,
+		type ListenerCuePresentationResources
+	} from './listener-cue-presentation';
+	import {
 		clearSignalPresentation,
 		createSignalPresentationResources,
 		reconcileSignals,
 		updateInvestigationOverlay,
+		updateSignalBillboards,
 		type SignalPresentationResources
 	} from './signal-presentation';
 
@@ -38,7 +45,8 @@
 	 *
 	 * Static habitat presentation rebuilds only when habitat identity changes.
 	 * Creature meshes are reconciled by id and updated in place.
-	 * Signal visuals mirror authoritative activeEmissions only.
+	 * Signal visuals mirror authoritative activeEmissions only (bubbles + thin rings).
+	 * Heard cues and investigation hops are presentation-only.
 	 * Selection is presentation state owned by the page, not simulation state.
 	 */
 
@@ -50,6 +58,10 @@
 		selectedCreatureId?: string | null;
 		/** Authoritative sensing radius from SimulationConfig (presentation overlay only). */
 		sensingRadius?: number;
+		/** Authoritative hearing radius — ring max radius (presentation only). */
+		hearingRadius?: number;
+		/** Shared smooth falloff scale for ring opacity (presentation only). */
+		investigationDistanceScale?: number;
 		onSelectCreature?: (creatureId: string | null) => void;
 	};
 
@@ -60,6 +72,8 @@
 		timeSeconds = 0,
 		selectedCreatureId = null,
 		sensingRadius = 3,
+		hearingRadius = 12,
+		investigationDistanceScale = 8,
 		onSelectCreature
 	}: Props = $props();
 
@@ -68,8 +82,17 @@
 	/** Set by onMount; used by $effect to sync presentation with props. */
 	let applyHabitat: ((data: Habitat) => void) | undefined = $state();
 	let applyCreatures:
-		((list: Creature[], selectedId: string | null, radius: number) => void) | undefined = $state();
-	let applySignals: ((emissions: SignalEmission[], simTime: number) => void) | undefined = $state();
+		| ((list: Creature[], selectedId: string | null, radius: number, simTime: number) => void)
+		| undefined = $state();
+	let applySignals:
+		| ((
+				emissions: SignalEmission[],
+				simTime: number,
+				list: Creature[],
+				hearR: number,
+				distScale: number
+		  ) => void)
+		| undefined = $state();
 	let publishSelection: ((id: string | null) => void) | undefined = $state();
 
 	onMount(() => {
@@ -99,6 +122,10 @@
 		const signalResources: SignalPresentationResources = createSignalPresentationResources();
 		scene.add(signalResources.root);
 
+		const listenerCueResources: ListenerCuePresentationResources =
+			createListenerCuePresentationResources();
+		scene.add(listenerCueResources.root);
+
 		// Presentation-only sensing radius ring for the selected creature.
 		const sensingRingGeom = new THREE.RingGeometry(0.98, 1.02, 48);
 		const sensingRingMat = new THREE.MeshBasicMaterial({
@@ -122,6 +149,15 @@
 		let habitatBuildCount = 0;
 		let currentSelectedId: string | null = null;
 		let currentSensingRadius = sensingRadius;
+		let currentHearingRadius = hearingRadius;
+
+		function creaturePositions(list: readonly Creature[]): Record<string, Vec2> {
+			const positions: Record<string, Vec2> = {};
+			for (const c of list) {
+				positions[c.id] = c.position;
+			}
+			return positions;
+		}
 
 		function publishVisibility(report: HabitatVisibilityReport): void {
 			const canvas = renderer.domElement;
@@ -140,9 +176,11 @@
 			canvas.dataset.creatureStructureVersion = String(creatureResources.structureVersion);
 			canvas.dataset.signalStructureVersion = String(signalResources.structureVersion);
 			canvas.dataset.activeEmissionCount = String(signalResources.byId.size);
+			canvas.dataset.heardCueCount = String(listenerCueResources.byCreatureId.size);
 			canvas.dataset.selectedCreatureId = currentSelectedId ?? '';
 			canvas.dataset.sensingOverlayVisible = sensingRing.visible ? 'true' : 'false';
 			canvas.dataset.sensingRadius = String(currentSensingRadius);
+			canvas.dataset.hearingRadius = String(currentHearingRadius);
 		}
 
 		function updateSensingOverlay(
@@ -178,6 +216,7 @@
 			const confirmed = assessHabitatVisibility(camera, currentHabitat.bounds);
 			publishVisibility(report.fullyVisible ? report : confirmed);
 
+			updateSignalBillboards(signalResources, camera);
 			renderer.render(scene, camera);
 		}
 
@@ -196,21 +235,40 @@
 			renderFrame();
 		};
 
-		applyCreatures = (list: Creature[], selectedId: string | null, radius: number) => {
+		applyCreatures = (
+			list: Creature[],
+			selectedId: string | null,
+			radius: number,
+			simTime: number
+		) => {
 			currentSelectedId = selectedId;
-			reconcileCreatures(creatureResources, list, selectedId);
+			reconcileCreatures(creatureResources, list, selectedId, simTime);
 			updateSensingOverlay(list, selectedId, radius);
 			const selected = selectedId ? (list.find((c) => c.id === selectedId) ?? null) : null;
 			updateInvestigationOverlay(signalResources, {
 				creaturePosition: selected ? selected.position : null,
 				investigation: selected?.activeInvestigation ?? null
 			});
+			reconcileHeardCues(listenerCueResources, list, simTime, { camera });
 			publishCreatureMeta(list.length);
 			renderFrame();
 		};
 
-		applySignals = (emissions: SignalEmission[], simTime: number) => {
-			reconcileSignals(signalResources, emissions, simTime);
+		applySignals = (
+			emissions: SignalEmission[],
+			simTime: number,
+			list: Creature[],
+			hearR: number,
+			distScale: number
+		) => {
+			currentHearingRadius = hearR;
+			reconcileSignals(signalResources, emissions, simTime, {
+				hearingRadius: hearR,
+				investigationDistanceScale: distScale,
+				creaturePositions: creaturePositions(list)
+			});
+			// Keep heard cues in sync when only emissions/time update.
+			reconcileHeardCues(listenerCueResources, list, simTime, { camera });
 			publishCreatureMeta(creatureResources.byId.size);
 			renderFrame();
 		};
@@ -256,8 +314,14 @@
 		renderer.domElement.addEventListener('click', onCanvasClick);
 
 		applyHabitat(habitat);
-		applyCreatures(creatures, selectedCreatureId, sensingRadius);
-		applySignals(activeEmissions, timeSeconds);
+		applyCreatures(creatures, selectedCreatureId, sensingRadius, timeSeconds);
+		applySignals(
+			activeEmissions,
+			timeSeconds,
+			creatures,
+			hearingRadius,
+			investigationDistanceScale
+		);
 
 		const observer = new ResizeObserver(renderFrame);
 		observer.observe(host);
@@ -272,9 +336,11 @@
 			clearHabitatPresentation(habitatResources);
 			clearCreaturePresentation(creatureResources);
 			clearSignalPresentation(signalResources);
+			clearListenerCuePresentation(listenerCueResources);
 			scene.remove(habitatResources.root);
 			scene.remove(creatureResources.root);
 			scene.remove(signalResources.root);
+			scene.remove(listenerCueResources.root);
 			scene.remove(sensingRing);
 			sensingRingGeom.dispose();
 			sensingRingMat.dispose();
@@ -292,13 +358,17 @@
 		const list = creatures;
 		const selected = selectedCreatureId;
 		const radius = sensingRadius;
-		applyCreatures?.(list, selected ?? null, radius);
+		const t = timeSeconds;
+		applyCreatures?.(list, selected ?? null, radius, t);
 	});
 
 	$effect(() => {
 		const emissions = activeEmissions;
 		const t = timeSeconds;
-		applySignals?.(emissions, t);
+		const list = creatures;
+		const hearR = hearingRadius;
+		const distScale = investigationDistanceScale;
+		applySignals?.(emissions, t, list, hearR, distScale);
 	});
 
 	$effect(() => {

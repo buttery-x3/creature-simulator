@@ -11,23 +11,26 @@ selection is presentation state only.
 
 ## Responsibilities present today
 
-| Area                    | Ownership                                             | Notes                                                                       |
-| ----------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
-| App shell               | SvelteKit routes under `src/routes/`                  | Desktop page; session simulation state, rAF stepping, creature selection id |
-| Determinism             | `src/lib/determinism/`                                | Seeded PRNG and pure seed derivation for independent streams                |
-| Habitat model           | `src/lib/habitat/`                                    | Types, seeded generation, geometry validation, diagnostics                  |
-| Simulation              | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                    |
-| Behaviour subdomain     | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets       |
-| Communication subdomain | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry |
-| Learning subdomain      | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation            |
-| Population diagnostics  | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                    |
-| Habitat workbench       | `src/lib/HabitatWorkbench.svelte`                     | Seed/controls, diagnostics; composes inspector + population symbol panel    |
-| Creature inspector      | `src/lib/CreatureInspector.svelte`                    | Selection chips, needs/perception/communication fields, candidates          |
-| WebGL presentation      | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state          |
-| Habitat presentation    | `src/lib/habitat-presentation.ts`                     | Static habitat mesh build/dispose                                           |
-| Creature presentation   | `src/lib/creature-presentation.ts`                    | Dynamic mesh reconcile + action-derived visuals                             |
-| Habitat camera          | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                     |
-| Reserved ports          | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                         |
+| Area                      | Ownership                                             | Notes                                                                       |
+| ------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| App shell                 | SvelteKit routes under `src/routes/`                  | Desktop page; session simulation state, rAF stepping, creature selection id |
+| Determinism               | `src/lib/determinism/`                                | Seeded PRNG and pure seed derivation for independent streams                |
+| Habitat model             | `src/lib/habitat/`                                    | Types, seeded generation, geometry validation, diagnostics                  |
+| Simulation                | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                    |
+| Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets       |
+| Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry |
+| Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation            |
+| Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                    |
+| Habitat workbench         | `src/lib/HabitatWorkbench.svelte`                     | Seed/controls, diagnostics; composes inspector + population symbol panel    |
+| Creature inspector        | `src/lib/CreatureInspector.svelte`                    | Selection chips, needs/perception/communication fields, candidates          |
+| WebGL presentation        | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state          |
+| Habitat presentation      | `src/lib/habitat-presentation.ts`                     | Static habitat mesh build/dispose                                           |
+| Creature presentation     | `src/lib/creature-presentation.ts`                    | Dynamic mesh reconcile + action visuals + investigation hop                 |
+| Symbol presentation       | `src/lib/symbol-presentation.ts`                      | Shared glyph shape/label/color registry (presentation only)                 |
+| Signal presentation       | `src/lib/signal-presentation.ts`                      | Speech bubbles + thin hearing-radius rings + investigation overlay          |
+| Listener cue presentation | `src/lib/listener-cue-presentation.ts`                | Brief neutral heard-`?` cues (coalesced per creature)                       |
+| Habitat camera            | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                     |
+| Reserved ports            | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                         |
 
 ## Habitat coordinate convention
 
@@ -274,7 +277,25 @@ create a shared dictionary. Workbench panels and text diagnostics must use
 observational language (“most assigned for food in lexicon”, “highest mean food
 evidence”, “most emitted in window”), never “the food symbol.”
 
-Signal visuals (`signal-presentation.ts`) reconcile meshes from `activeEmissions` and dispose when emissions leave that list. A selected-creature investigation line/marker is presentation-only.
+Signal and communication visuals are presentation-only:
+
+- **Shared registry** (`symbol-presentation.ts`) maps each inventory `SymbolId` to an
+  arbitrary shape (star/circle/triangle/square), label, and secondary color. Used by
+  Three.js signals, speech bubbles, and workbench diagnostics (`SymbolGlyph.svelte`).
+  Shape is primary identity; color is reinforcement only. No built-in resource meaning.
+- **Speech bubbles** (`signal-presentation.ts`) follow the sender’s current position
+  for the active emission lifetime (fallback: emission origin). Billboards face the camera.
+- **Thin propagation rings** expand from `SignalEmission.origin` toward configurable
+  `hearingRadius`. Opacity uses shared `distanceFalloffFactor` × lifetime fade. The
+  ring is an **illustrative** range/falloff cue — hearing remains instantaneous within
+  radius at emission time (no propagation delay).
+- **Heard cues** (`listener-cue-presentation.ts`) show a brief neutral `?` when a
+  creature has a recent `HeardSignal` (coalesced per listener). Does not imply
+  understanding or investigation.
+- **Investigation hop** (`creature-presentation.ts`) is a one-shot vertical
+  presentation offset when `activeInvestigation` commitment changes. Authoritative
+  position is never modified.
+- Selected-creature investigation line/marker remains presentation-only.
 
 ### Wandering and commitment
 
@@ -293,12 +314,14 @@ experiment history are future concerns.
 
 ## Static and dynamic presentation
 
-| Concern                    | Module                             |
-| -------------------------- | ---------------------------------- |
-| Static habitat meshes      | `src/lib/habitat-presentation.ts`  |
-| Dynamic creature reconcile | `src/lib/creature-presentation.ts` |
-| Dynamic signal reconcile   | `src/lib/signal-presentation.ts`   |
-| Scene / camera / pick      | `src/lib/ThreeViewport.svelte`     |
+| Concern                      | Module                                 |
+| ---------------------------- | -------------------------------------- |
+| Static habitat meshes        | `src/lib/habitat-presentation.ts`      |
+| Dynamic creature reconcile   | `src/lib/creature-presentation.ts`     |
+| Symbol presentation registry | `src/lib/symbol-presentation.ts`       |
+| Dynamic signal reconcile     | `src/lib/signal-presentation.ts`       |
+| Heard-listener cue reconcile | `src/lib/listener-cue-presentation.ts` |
+| Scene / camera / pick        | `src/lib/ThreeViewport.svelte`         |
 
 The static habitat group rebuilds only when habitat data changes. Creature
 presentation maintains meshes keyed by creature id, updates transforms in place,

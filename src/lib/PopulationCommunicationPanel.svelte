@@ -5,6 +5,8 @@
 		type SimulationConfig,
 		type SimulationState
 	} from '$lib/simulation';
+	import SymbolGlyph from './SymbolGlyph.svelte';
+	import { SYMBOL_PRESENTATIONS } from './symbol-presentation';
 
 	type Props = {
 		simulation: SimulationState;
@@ -32,6 +34,15 @@
 		creatures={diagnostics.creatureCount}
 	</p>
 
+	<div class="legend" data-testid="symbol-presentation-legend" aria-label="Symbol legend">
+		<span class="legend-title">Glyphs</span>
+		{#each SYMBOL_PRESENTATIONS as entry (entry.symbolId)}
+			<span class="legend-item">
+				<SymbolGlyph symbolId={entry.symbolId} />
+			</span>
+		{/each}
+	</div>
+
 	{#each [diagnostics.food, diagnostics.water] as ctx (ctx.context)}
 		<div class="context-block" data-testid={`population-context-${ctx.context}`}>
 			<h3 class="subhead">{ctx.context} context</h3>
@@ -39,7 +50,11 @@
 				<div>
 					<dt>Most assigned (lexicon)</dt>
 					<dd data-testid={`population-${ctx.context}-most-assigned`}>
-						{ctx.mostAssignedSymbolId ?? 'none'}
+						{#if ctx.mostAssignedSymbolId}
+							<SymbolGlyph symbolId={ctx.mostAssignedSymbolId} />
+						{:else}
+							none
+						{/if}
 						<span class="muted">(observational)</span>
 					</dd>
 				</div>
@@ -59,14 +74,22 @@
 				<div>
 					<dt>Highest mean evidence</dt>
 					<dd data-testid={`population-${ctx.context}-highest-mean`}>
-						{ctx.highestMeanAssociationSymbolId ?? 'none'}
+						{#if ctx.highestMeanAssociationSymbolId}
+							<SymbolGlyph symbolId={ctx.highestMeanAssociationSymbolId} />
+						{:else}
+							none
+						{/if}
 						<span class="muted">(raw evidence)</span>
 					</dd>
 				</div>
 				<div>
 					<dt>Most emitted in window</dt>
 					<dd data-testid={`population-${ctx.context}-most-emitted`}>
-						{ctx.mostEmittedSymbolId ?? 'none'}
+						{#if ctx.mostEmittedSymbolId}
+							<SymbolGlyph symbolId={ctx.mostEmittedSymbolId} />
+						{:else}
+							none
+						{/if}
 						<span class="muted">(observational)</span>
 					</dd>
 				</div>
@@ -99,7 +122,7 @@
 				{#each ctx.associations as assoc (assoc.symbolId)}
 					{@const emit = ctx.emissions.find((e) => e.symbolId === assoc.symbolId)}
 					<li data-testid={`population-${ctx.context}-row-${assoc.symbolId}`}>
-						<strong>{assoc.symbolId}</strong>
+						<strong><SymbolGlyph symbolId={assoc.symbolId} /></strong>
 						assigned={assoc.creaturesAssigned}/{diagnostics.creatureCount}
 						meanEvidence={assoc.meanStrength.toFixed(3)}
 						evidence={assoc.creaturesWithEvidence}/{diagnostics.creatureCount}
@@ -114,6 +137,31 @@
 </section>
 
 <style>
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.45rem 0.75rem;
+		padding: 0.35rem 0.45rem;
+		border: 1px solid #334155;
+		border-radius: 0.35rem;
+		background: #0f172a;
+		font-size: 0.75rem;
+		color: #cbd5e1;
+	}
+
+	.legend-title {
+		color: #94a3b8;
+		font-weight: 600;
+		letter-spacing: 0.03em;
+		text-transform: uppercase;
+		font-size: 0.65rem;
+	}
+
+	.legend-item {
+		display: inline-flex;
+	}
+
 	.panel {
 		display: flex;
 		flex-direction: column;

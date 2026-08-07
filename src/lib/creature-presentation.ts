@@ -4,6 +4,10 @@
  * Updates transforms in place during simulation steps. Does not own authoritative
  * creature state and must not rebuild static habitat geometry.
  * Visual action states derive only from authoritative `creature.action`.
+ *
+ * Investigation hop is presentation-only vertical motion triggered once when a
+ * creature commits to a new activeInvestigation (emissionId + startedAt key).
+ * Hearing a signal alone never hops. Authoritative position is never modified.
  */
 
 import * as THREE from 'three';
@@ -13,6 +17,10 @@ import type { Creature, CreatureAction } from '$lib/simulation';
 const CREATURE_HEIGHT = 0.55;
 const CREATURE_RADIUS = 0.18;
 const NOSE_LENGTH = 0.16;
+
+/** One-shot hop height (presentation Z) and duration (simulation seconds). */
+export const INVESTIGATION_HOP_HEIGHT = 0.28;
+export const INVESTIGATION_HOP_DURATION_SECONDS = 0.35;
 
 const ACTION_BODY_COLOR: Record<CreatureAction, number> = {
 	wander: 0xe9c46a,
@@ -34,6 +42,13 @@ const ACTION_NOSE_COLOR: Record<CreatureAction, number> = {
 	sleep: 0xa78bfa
 };
 
+type HopState = {
+	/** Stable key for the commitment that started this hop. */
+	key: string;
+	/** Simulation time when the hop presentation began. */
+	startedAt: number;
+};
+
 export type CreaturePresentationResources = {
 	root: THREE.Group;
 	/** Shared geometry used by all creatures; disposed with the resource set. */
@@ -43,6 +58,8 @@ export type CreaturePresentationResources = {
 	byId: Map<string, THREE.Group>;
 	/** Per-creature materials (action colors); disposed with the resource set. */
 	materialsById: Map<string, { body: THREE.MeshBasicMaterial; nose: THREE.MeshBasicMaterial }>;
+	/** Presentation-only hop state; never written to simulation. */
+	hopById: Map<string, HopState>;
 	/** Increments when a creature mesh is created or removed (not on transform updates). */
 	structureVersion: number;
 };
@@ -61,6 +78,7 @@ export function createCreaturePresentationResources(): CreaturePresentationResou
 		noseGeometry,
 		byId: new Map(),
 		materialsById: new Map(),
+		hopById: new Map(),
 		structureVersion: 0
 	};
 }
@@ -95,15 +113,32 @@ function createCreatureGroup(
 	return group;
 }
 
-function applyCreatureTransform(group: THREE.Group, creature: Creature): void {
-	group.position.set(creature.position.x, creature.position.y, 0);
+/** Build a stable hop key from active investigation fields. */
+export function investigationHopKey(investigation: Creature['activeInvestigation']): string | null {
+	if (!investigation) {
+		return null;
+	}
+	return `${investigation.emissionId}@${investigation.startedAt}`;
+}
+
+/**
+ * Ease for rise-and-settle hop: 0 → peak → 0 over [0, 1].
+ * Exported for unit tests.
+ */
+export function hopHeightFactor(progress: number): number {
+	const t = Math.max(0, Math.min(1, progress));
+	// Smooth sine hump (no continuous bounce).
+	return Math.sin(t * Math.PI);
+}
+
+function applyCreatureTransform(group: THREE.Group, creature: Creature, hopOffsetZ: number): void {
+	group.position.set(creature.position.x, creature.position.y, hopOffsetZ);
 	// Facing is radians on the XY ground plane (0 = +x). Three.js rotation about Z.
 	group.rotation.z = creature.facing;
 
 	// Sleep: lower / flatter pose; other actions upright.
 	if (creature.action === 'sleep') {
 		group.scale.set(1.05, 1.05, 0.55);
-		group.position.z = 0;
 	} else {
 		group.scale.set(1, 1, 1);
 	}
@@ -130,15 +165,52 @@ function applySelectionHighlight(group: THREE.Group, selected: boolean): void {
 	}
 }
 
+function resolveHopOffset(
+	resources: CreaturePresentationResources,
+	creature: Creature,
+	timeSeconds: number
+): number {
+	const key = investigationHopKey(creature.activeInvestigation);
+	if (!key) {
+		// No active investigation: leave any finished hop state until creature gone.
+		const existing = resources.hopById.get(creature.id);
+		if (existing) {
+			const age = timeSeconds - existing.startedAt;
+			if (age >= INVESTIGATION_HOP_DURATION_SECONDS) {
+				resources.hopById.delete(creature.id);
+				return 0;
+			}
+			return hopHeightFactor(age / INVESTIGATION_HOP_DURATION_SECONDS) * INVESTIGATION_HOP_HEIGHT;
+		}
+		return 0;
+	}
+
+	let hop = resources.hopById.get(creature.id);
+	if (!hop || hop.key !== key) {
+		// New commitment — start exactly one hop.
+		hop = { key, startedAt: timeSeconds };
+		resources.hopById.set(creature.id, hop);
+	}
+
+	const age = timeSeconds - hop.startedAt;
+	if (age >= INVESTIGATION_HOP_DURATION_SECONDS) {
+		return 0;
+	}
+	return hopHeightFactor(age / INVESTIGATION_HOP_DURATION_SECONDS) * INVESTIGATION_HOP_HEIGHT;
+}
+
 /**
  * Reconcile creature meshes with authoritative creature list.
  * Creates missing meshes, updates transforms, removes disposals for missing ids.
  * Does not recreate geometry on ordinary transform updates.
+ *
+ * @param timeSeconds simulation time for hop animation (presentation only)
  */
 export function reconcileCreatures(
 	resources: CreaturePresentationResources,
 	creatures: readonly Creature[],
-	selectedCreatureId: string | null = null
+	selectedCreatureId: string | null = null,
+	timeSeconds = 0
 ): void {
 	const seen = new Set<string>();
 
@@ -152,7 +224,8 @@ export function reconcileCreatures(
 			resources.structureVersion += 1;
 		}
 		applyActionMaterials(resources, creature.id, creature.action);
-		applyCreatureTransform(group, creature);
+		const hopZ = resolveHopOffset(resources, creature, timeSeconds);
+		applyCreatureTransform(group, creature, hopZ);
 		if (selectedCreatureId === creature.id) {
 			applySelectionHighlight(group, true);
 		}
@@ -162,6 +235,7 @@ export function reconcileCreatures(
 		if (!seen.has(id)) {
 			resources.root.remove(group);
 			resources.byId.delete(id);
+			resources.hopById.delete(id);
 			const materials = resources.materialsById.get(id);
 			if (materials) {
 				materials.body.dispose();
@@ -178,6 +252,7 @@ export function clearCreaturePresentation(resources: CreaturePresentationResourc
 		resources.root.remove(group);
 	}
 	resources.byId.clear();
+	resources.hopById.clear();
 	for (const materials of resources.materialsById.values()) {
 		materials.body.dispose();
 		materials.nose.dispose();

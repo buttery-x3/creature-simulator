@@ -209,6 +209,12 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	// Population panel: observational convergence summaries without inspecting every creature.
 	await expect(page.getByTestId('population-communication-panel')).toBeVisible();
 	await expect(page.getByTestId('population-communication-hint')).toContainText('Observational');
+	const legend = page.getByTestId('symbol-presentation-legend');
+	await expect(legend).toBeVisible();
+	await expect(legend.getByTestId('symbol-glyph-glyph-0')).toBeVisible();
+	await expect(legend.getByTestId('symbol-glyph-glyph-1')).toBeVisible();
+	await expect(legend.getByTestId('symbol-glyph-glyph-2')).toBeVisible();
+	await expect(legend.getByTestId('symbol-glyph-glyph-3')).toBeVisible();
 	await expect(page.getByTestId('population-context-food')).toBeVisible();
 	await expect(page.getByTestId('population-context-water')).toBeVisible();
 	await expect(page.getByTestId('population-food-row-glyph-0')).toBeVisible();
@@ -216,9 +222,16 @@ test('creature inspector and canvas expose communication wiring', async ({ page 
 	await expect(page.getByTestId('population-food-highest-mean')).toBeVisible();
 	await expect(page.getByTestId('population-food-most-emitted')).toBeVisible();
 
+	// Preferred symbol uses shared glyph + stable id text.
+	await expect(
+		page.getByTestId('inspector-preferred-symbol').getByTestId(/symbol-glyph-/)
+	).toBeVisible();
+
 	// Canvas metadata is presentation-only; no need to wait for a natural discovery.
 	await expect(canvas).toHaveAttribute('data-active-emission-count', /\d+/);
 	await expect(canvas).toHaveAttribute('data-signal-structure-version', /\d+/);
+	await expect(canvas).toHaveAttribute('data-heard-cue-count', /\d+/);
+	await expect(canvas).toHaveAttribute('data-hearing-radius', /\d+(\.\d+)?/);
 });
 
 test('creature movement does not rebuild static habitat presentation', async ({ page }) => {

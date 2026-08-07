@@ -184,13 +184,18 @@ root (`population-symbol-diagnostics.ts`), not authoritative state.
 Three.js presentation is split:
 
 - `habitat-presentation.ts` — static habitat mesh construction and disposal;
-- `creature-presentation.ts` — dynamic creature mesh reconcile by id and action visuals;
-- `signal-presentation.ts` — dynamic signal mesh reconcile by emission id (glyph + ring) and selected investigation overlay;
+- `creature-presentation.ts` — dynamic creature mesh reconcile by id, action visuals, and one-shot investigation hop;
+- `symbol-presentation.ts` — pure shared symbol presentation registry (shape/label/color);
+- `signal-presentation.ts` — emission speech bubbles, thin hearing-radius rings, selected investigation overlay;
+- `listener-cue-presentation.ts` — transient coalesced heard-`?` cues (separate lifecycle from emissions);
+- `SymbolGlyph.svelte` — Svelte consumer of the symbol registry for diagnostics;
 - `ThreeViewport.svelte` — scene lifecycle, camera framing, pick ray, prop wiring;
 - `habitat-camera.ts` — pure framing and visibility calculations.
 
-Selection overlays or heavier interaction should extract further if
-`ThreeViewport.svelte` approaches modularity thresholds.
+Do not fold heard cues, hop animation and emission rings into a single growing file
+when they have independently testable resource lifecycles. Selection overlays or
+heavier interaction should extract further if `ThreeViewport.svelte` approaches
+modularity thresholds.
 
 ### Workbench and route
 

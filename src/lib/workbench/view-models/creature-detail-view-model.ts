@@ -4,9 +4,12 @@
  */
 
 import type {
+	AnnouncementOpportunityDecision,
 	CandidateEvaluation,
 	Creature,
+	CreatureMemory,
 	CreatureTarget,
+	SignalEmission,
 	SignalInvestigationOpportunity,
 	SymbolId
 } from '$lib/simulation';
@@ -207,4 +210,70 @@ export function formatOpportunityDecision(
 		return '—';
 	}
 	return opportunity.curiosityDecision;
+}
+
+/** Row for the Creatures-tab Memory section (presentation only). */
+export type MemoryEntryView = {
+	kind: string;
+	subjectId: string;
+	resourceKind: 'food' | 'water' | null;
+	symbolId: SymbolId | null;
+	timeSeconds: number;
+	sequence: number;
+	emissionId: string | null;
+	opportunityId: string | null;
+};
+
+export type MemorySectionView = {
+	capacity: number;
+	used: number;
+	entries: MemoryEntryView[];
+};
+
+/**
+ * Build structured memory section for selected creature detail.
+ * Resolves emission symbols from the creature's recentEmitted history when present.
+ */
+export function buildMemorySectionView(creature: Creature): MemorySectionView {
+	const byEmission = new Map<string, SignalEmission>();
+	for (const emission of creature.recentEmitted) {
+		byEmission.set(emission.id, emission);
+	}
+
+	// Newest last in storage; show newest first in the UI.
+	// When additional entry kinds are added, extend this switch explicitly.
+	const entries: MemoryEntryView[] = [...creature.memory.entries]
+		.slice()
+		.reverse()
+		.map((entry) => {
+			const emission = byEmission.get(entry.emissionId);
+			return {
+				kind: 'resource announcement',
+				subjectId: entry.featureId,
+				resourceKind: entry.resourceKind,
+				symbolId: emission?.symbolId ?? null,
+				timeSeconds: entry.rememberedAt,
+				sequence: entry.sequence,
+				emissionId: entry.emissionId,
+				opportunityId: entry.opportunityId
+			};
+		});
+
+	return {
+		capacity: creature.memory.capacity,
+		used: creature.memory.entries.length,
+		entries
+	};
+}
+
+/** Serialised memory for Debug tab copy/inspect. */
+export function formatCreatureMemoryJson(memory: CreatureMemory): string {
+	return JSON.stringify(memory, null, 2);
+}
+
+export function lastAnnouncementOpportunityDecision(
+	creature: Creature
+): AnnouncementOpportunityDecision | null {
+	const list = creature.recentAnnouncementOpportunityDecisions;
+	return list.length > 0 ? (list[list.length - 1] ?? null) : null;
 }

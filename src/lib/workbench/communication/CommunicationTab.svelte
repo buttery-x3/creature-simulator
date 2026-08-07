@@ -206,6 +206,58 @@
 		</section>
 	{/each}
 
+	<section
+		class="block"
+		data-testid="announcement-memory-summary"
+		aria-label="Announcement memory and opportunities"
+	>
+		<h3>Announcement memory</h3>
+		<p class="hint">
+			Local opportunity state and retained announcement memories (not a full causal audit).
+		</p>
+		<div class="table-wrap">
+			<table class="table">
+				<thead>
+					<tr>
+						<th scope="col">Creature</th>
+						<th scope="col">Ann. memories</th>
+						<th scope="col">Active trigger</th>
+						<th scope="col">Queued</th>
+						<th scope="col">Last decision</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each vm.announcementMemorySummaries as row (row.creatureId)}
+						<tr data-testid={`announcement-memory-row-${row.creatureId}`}>
+							<td>
+								<button
+									type="button"
+									class="linkish"
+									onclick={() => onNavigate({ kind: 'creatures', creatureId: row.creatureId })}
+								>
+									{row.creatureId}
+								</button>
+							</td>
+							<td>{row.announcementMemoryCount}</td>
+							<td>{row.activeTriggerFeatureId ?? '—'}</td>
+							<td>{row.queuedCount}</td>
+							<td>
+								{#if row.lastDecisionReason}
+									{row.lastDecisionReason}
+									{#if row.lastDecisionFeatureId}
+										<span class="muted"> · {row.lastDecisionFeatureId}</span>
+									{/if}
+								{:else}
+									—
+								{/if}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	</section>
+
 	<section class="block" data-testid="live-communication-feed" aria-label="Live communication">
 		<h3>Live communication</h3>
 		{#if vm.liveFeed.length === 0}

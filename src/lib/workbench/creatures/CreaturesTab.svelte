@@ -4,6 +4,7 @@
 	import {
 		buildCandidateViews,
 		buildInvestigationOpportunitySummary,
+		buildMemorySectionView,
 		buildRosterRows,
 		formatTargetLabel,
 		lastEmittedSymbolId,
@@ -34,6 +35,9 @@
 	);
 	const candidates = $derived(
 		selectedCreature ? buildCandidateViews(selectedCreature, investigation) : []
+	);
+	const memorySection = $derived(
+		selectedCreature ? buildMemorySectionView(selectedCreature) : null
 	);
 </script>
 
@@ -152,6 +156,44 @@
 				</div>
 			</dl>
 		</section>
+
+		{#if memorySection}
+			<section class="block" data-testid="creature-memory" aria-label="Memory">
+				<h3>Memory</h3>
+				<dl class="meta">
+					<div>
+						<dt>Capacity</dt>
+						<dd data-testid="inspector-memory-capacity">{memorySection.capacity}</dd>
+					</div>
+					<div>
+						<dt>Used</dt>
+						<dd data-testid="inspector-memory-used">
+							{memorySection.used} / {memorySection.capacity}
+						</dd>
+					</div>
+				</dl>
+				<h4 class="subhead">Recent memories</h4>
+				{#if memorySection.entries.length === 0}
+					<p class="empty" data-testid="inspector-memory-empty">No retained memories.</p>
+				{:else}
+					<ul class="memory-list" data-testid="inspector-memory-list">
+						{#each memorySection.entries as entry (entry.sequence)}
+							<li data-testid="inspector-memory-entry">
+								<span class="memory-kind">{entry.kind}</span>
+								<span class="memory-sep">·</span>
+								<span class="memory-subject">{entry.subjectId}</span>
+								{#if entry.symbolId}
+									<span class="memory-sep">·</span>
+									<SymbolGlyph symbolId={entry.symbolId} />
+								{/if}
+								<span class="memory-sep">·</span>
+								<span class="memory-time">t={entry.timeSeconds.toFixed(2)}</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{/if}
 
 		<section class="block" data-testid="creature-behaviour" aria-label="Current behaviour">
 			<h3>Current behaviour</h3>
@@ -464,6 +506,37 @@
 		color: #94a3b8;
 		text-transform: uppercase;
 		letter-spacing: 0.03em;
+	}
+
+	.memory-list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+
+	.memory-list li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25rem;
+		font-size: 0.78rem;
+		color: #e5e7eb;
+	}
+
+	.memory-kind {
+		color: #a5b4fc;
+	}
+
+	.memory-sep {
+		color: #64748b;
+	}
+
+	.memory-time {
+		color: #94a3b8;
+		font-variant-numeric: tabular-nums;
 	}
 
 	.hint {

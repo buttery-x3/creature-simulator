@@ -89,6 +89,7 @@ export type BehaviourStepConfig = Pick<
 	| 'speakingPositionSearchResolution'
 	| 'maxQueuedAnnouncementOpportunitiesPerCreature'
 	| 'recentAnnouncementOutcomeHistoryLimit'
+	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
 	| 'triggerFeatureCueFadeSeconds'
 	| 'emissionCooldownSeconds'
 >;

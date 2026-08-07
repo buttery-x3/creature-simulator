@@ -34,4 +34,19 @@ describe('buildCommunicationViewModel', () => {
 		expect(vm.lexiconMatrix).toHaveLength(state.creatures.length);
 		expect(vm.population.creatureCount).toBe(state.creatures.length);
 	});
+
+	it('exposes announcement memory counts and opportunity triggers', () => {
+		const config = defaultSimulationConfig('demo');
+		const state = createSimulation(config);
+		const vm = buildCommunicationViewModel(state, {
+			symbolInventory: config.symbolInventory,
+			recentEmissionDiagnosticsWindowSeconds: config.recentEmissionDiagnosticsWindowSeconds
+		});
+		expect(vm.announcementMemorySummaries).toHaveLength(state.creatures.length);
+		expect(vm.announcementMemorySummaries[0]).toMatchObject({
+			creatureId: state.creatures[0]!.id,
+			announcementMemoryCount: 0,
+			activeTriggerFeatureId: null
+		});
+	});
 });

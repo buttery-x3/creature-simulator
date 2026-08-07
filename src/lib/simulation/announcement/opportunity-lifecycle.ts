@@ -2,6 +2,7 @@
  * Announcement opportunity creation, queueing, completion and invalidation.
  *
  * Pure state transitions — movement and emission handoff live in step-announcement.
+ * Memory storage lives in simulation/memory/; this module only consults it.
  */
 
 import type { Vec2 } from '$lib/habitat';
@@ -13,6 +14,8 @@ import type {
 	NewlyPerceivedResource
 } from './types';
 import type { SymbolId, SymbolSelectionMode } from '../communication/types';
+import type { AnnouncementOpportunityDecision, CreatureMemory } from '../memory/types';
+import { hasResourceAnnouncementMemory } from '../memory/query';
 
 export type CreateOpportunitiesConfig = {
 	maxQueuedAnnouncementOpportunitiesPerCreature: number;
@@ -25,6 +28,8 @@ export type CreateOpportunitiesResult = {
 	overflowOutcomes: AnnouncementOpportunityOutcome[];
 	/** Next opportunity sequence counter. */
 	opportunityCounter: number;
+	/** Structured create/suppress decisions for local diagnostics. */
+	decisions: AnnouncementOpportunityDecision[];
 };
 
 function nextOpportunityId(creatureId: string, counter: number): string {
@@ -33,7 +38,13 @@ function nextOpportunityId(creatureId: string, counter: number): string {
 
 /**
  * Create opportunities for newly perceived features in deterministic feature-ID order.
- * Skips features that already have an open opportunity for the same episode.
+ *
+ * Decision order per discovery:
+ * 1. open/queued opportunity for the same feature → skip
+ * 2. retained resource_announcement memory for the feature → skip
+ * 3. same continuous perception episode already handled → skip
+ * 4. else create (or queue_overflow)
+ *
  * Does not collapse same-kind features.
  */
 export function createOpportunitiesFromDiscoveries(input: {
@@ -42,14 +53,18 @@ export function createOpportunitiesFromDiscoveries(input: {
 	newlyPerceived: readonly NewlyPerceivedResource[];
 	existing: readonly AnnouncementOpportunity[];
 	opportunityCounter: number;
+	/** Creature memory consulted for announcement recall (not mutated here). */
+	memory: CreatureMemory;
 	config: CreateOpportunitiesConfig;
 }): CreateOpportunitiesResult {
-	const { creatureId, creaturePosition, existing, config } = input;
+	const { creatureId, creaturePosition, existing, config, memory } = input;
 	let counter = input.opportunityCounter;
 	const opportunities = [...existing];
 	const overflowOutcomes: AnnouncementOpportunityOutcome[] = [];
+	const decisions: AnnouncementOpportunityDecision[] = [];
 
 	const openEpisodeIds = new Set(existing.map((o) => o.perceptionEpisodeId));
+	const openFeatureIds = new Set(existing.map((o) => o.triggerFeatureId));
 
 	const sorted = [...input.newlyPerceived].sort((a, b) =>
 		a.featureId < b.featureId ? -1 : a.featureId > b.featureId ? 1 : 0
@@ -58,8 +73,42 @@ export function createOpportunitiesFromDiscoveries(input: {
 	const maxQueue = config.maxQueuedAnnouncementOpportunitiesPerCreature;
 
 	for (const discovery of sorted) {
+		// Same feature already open/queued (e.g. re-enter while old opportunity remains).
+		if (openFeatureIds.has(discovery.featureId)) {
+			decisions.push({
+				timeSeconds: discovery.discoveredAt,
+				featureId: discovery.featureId,
+				resourceKind: discovery.resourceKind,
+				perceptionEpisodeId: discovery.perceptionEpisodeId,
+				reason: 'open_or_queued',
+				opportunityId: null
+			});
+			continue;
+		}
+
+		// Successful prior announcement remembered for this exact feature.
+		if (hasResourceAnnouncementMemory(memory, discovery.featureId)) {
+			decisions.push({
+				timeSeconds: discovery.discoveredAt,
+				featureId: discovery.featureId,
+				resourceKind: discovery.resourceKind,
+				perceptionEpisodeId: discovery.perceptionEpisodeId,
+				reason: 'announcement_remembered',
+				opportunityId: null
+			});
+			continue;
+		}
+
 		// One opportunity per continuous perception episode (no duplicates).
 		if (openEpisodeIds.has(discovery.perceptionEpisodeId)) {
+			decisions.push({
+				timeSeconds: discovery.discoveredAt,
+				featureId: discovery.featureId,
+				resourceKind: discovery.resourceKind,
+				perceptionEpisodeId: discovery.perceptionEpisodeId,
+				reason: 'same_episode',
+				opportunityId: null
+			});
 			continue;
 		}
 
@@ -102,20 +151,38 @@ export function createOpportunitiesFromDiscoveries(input: {
 					productionMode: null
 				})
 			);
+			decisions.push({
+				timeSeconds: discovery.discoveredAt,
+				featureId: discovery.featureId,
+				resourceKind: discovery.resourceKind,
+				perceptionEpisodeId: discovery.perceptionEpisodeId,
+				reason: 'queue_overflow',
+				opportunityId: id
+			});
 			continue;
 		}
 
 		opportunities.push(opportunity);
 		openEpisodeIds.add(discovery.perceptionEpisodeId);
+		openFeatureIds.add(discovery.featureId);
+		decisions.push({
+			timeSeconds: discovery.discoveredAt,
+			featureId: discovery.featureId,
+			resourceKind: discovery.resourceKind,
+			perceptionEpisodeId: discovery.perceptionEpisodeId,
+			reason: 'created',
+			opportunityId: id
+		});
 	}
 
-	return promoteQueuedHead(opportunities, counter, overflowOutcomes);
+	return promoteQueuedHead(opportunities, counter, overflowOutcomes, decisions);
 }
 
 function promoteQueuedHead(
 	opportunities: AnnouncementOpportunity[],
 	opportunityCounter: number,
-	overflowOutcomes: AnnouncementOpportunityOutcome[]
+	overflowOutcomes: AnnouncementOpportunityOutcome[],
+	decisions: AnnouncementOpportunityDecision[]
 ): CreateOpportunitiesResult {
 	const hasActive = opportunities.some((o) => o.state === 'ready' || o.state === 'repositioning');
 	if (!hasActive) {
@@ -125,7 +192,7 @@ function promoteQueuedHead(
 			opportunities[headIndex] = { ...head, state: 'ready' };
 		}
 	}
-	return { opportunities, overflowOutcomes, opportunityCounter };
+	return { opportunities, overflowOutcomes, opportunityCounter, decisions };
 }
 
 /**
@@ -204,6 +271,21 @@ export function appendOutcome(
 	limit: number
 ): AnnouncementOpportunityOutcome[] {
 	const next = [...history, outcome];
+	if (next.length <= limit) {
+		return next;
+	}
+	return next.slice(next.length - limit);
+}
+
+export function appendOpportunityDecisions(
+	history: readonly AnnouncementOpportunityDecision[],
+	decisions: readonly AnnouncementOpportunityDecision[],
+	limit: number
+): AnnouncementOpportunityDecision[] {
+	if (decisions.length === 0) {
+		return history as AnnouncementOpportunityDecision[];
+	}
+	const next = [...history, ...decisions];
 	if (next.length <= limit) {
 		return next;
 	}

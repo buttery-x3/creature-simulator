@@ -18,6 +18,7 @@ import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 import { sampleSearchTarget, sampleWanderTarget } from './creature-movement';
 import { emptyLexicon } from './learning/lexicon-resolution';
 import { createEmptyAssociations } from './learning/signal-associations';
+import { createEmptyMemory, sampleMemoryCapacity } from './memory/create-memory';
 import type { Creature, SimulationConfig, SimulationState } from './types';
 
 export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
@@ -94,6 +95,10 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	maxPendingSignalsPerCreature: 4,
 	// Wide enough that an ordinary population has meaningfully different accept rates.
 	curiosityRange: { min: 0.2, max: 0.8 },
+	// Memory: large enough for the small habitat not to churn every announcement,
+	// while still proving bounded capacity (not intelligence-derived).
+	memoryCapacityRange: { min: 8, max: 16 },
+	recentAnnouncementOpportunityDecisionHistoryLimit: 12,
 	// Presentation-only signal-ring falloff scale (not curiosity / goal motivation).
 	investigationDistanceScale: 8,
 	learningEvidenceRadius: 3,
@@ -127,7 +132,8 @@ export function defaultSimulationConfig(seed = 'demo'): SimulationConfig {
 			waterSize: { ...habitat.waterSize }
 		},
 		movementSpeed: { ...DEFAULT_SIMULATION_CONFIG.movementSpeed },
-		curiosityRange: { ...DEFAULT_SIMULATION_CONFIG.curiosityRange }
+		curiosityRange: { ...DEFAULT_SIMULATION_CONFIG.curiosityRange },
+		memoryCapacityRange: { ...DEFAULT_SIMULATION_CONFIG.memoryCapacityRange }
 	};
 }
 
@@ -301,6 +307,25 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		);
 	}
 	if (
+		!config.memoryCapacityRange ||
+		!Number.isInteger(config.memoryCapacityRange.min) ||
+		!Number.isInteger(config.memoryCapacityRange.max) ||
+		config.memoryCapacityRange.min < 1 ||
+		config.memoryCapacityRange.max < config.memoryCapacityRange.min
+	) {
+		throw new SimulationCreationError(
+			'memoryCapacityRange.min/max must be integers with 1 <= min <= max'
+		);
+	}
+	if (
+		!Number.isInteger(config.recentAnnouncementOpportunityDecisionHistoryLimit) ||
+		config.recentAnnouncementOpportunityDecisionHistoryLimit < 1
+	) {
+		throw new SimulationCreationError(
+			`recentAnnouncementOpportunityDecisionHistoryLimit must be a positive integer, received ${config.recentAnnouncementOpportunityDecisionHistoryLimit}`
+		);
+	}
+	if (
 		!(config.associationStrengthMin < config.associationStrengthMax) ||
 		!Number.isFinite(config.associationStrengthMin) ||
 		!Number.isFinite(config.associationStrengthMax)
@@ -380,6 +405,8 @@ function createCreatures(
 			config.curiosityRange.min,
 			config.curiosityRange.max
 		);
+		// Independent memory-capacity stream — not curiosity or spawn order.
+		const memoryCapacity = sampleMemoryCapacity(config.seed, id, config.memoryCapacityRange);
 
 		const draft: Creature = {
 			id,
@@ -395,6 +422,9 @@ function createCreatures(
 			thirst: config.initialThirst,
 			energy: config.initialEnergy,
 			curiosity,
+			// Independent memory object per creature — never share references.
+			memory: createEmptyMemory(memoryCapacity),
+			recentAnnouncementOpportunityDecisions: [],
 			goal: 'wander',
 			action: 'wander',
 			target: pointTarget(wanderTarget),

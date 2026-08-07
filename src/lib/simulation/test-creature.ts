@@ -6,6 +6,7 @@
 import { emptyPerception } from './behaviour/perception';
 import { emptyLexicon } from './learning/lexicon-resolution';
 import { createEmptyAssociations } from './learning/signal-associations';
+import { createEmptyMemory } from './memory/create-memory';
 import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 import type { Creature } from './types';
 
@@ -26,6 +27,8 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		thirst: 0.2,
 		energy: 0.85,
 		curiosity: 0.45,
+		memory: createEmptyMemory(10),
+		recentAnnouncementOpportunityDecisions: [],
 		goal: 'wander',
 		action: 'wander',
 		target: { kind: 'point', position: { ...wanderTarget } },

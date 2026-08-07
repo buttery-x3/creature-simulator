@@ -19,6 +19,7 @@ selection is presentation state only.
 | Simulation                | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                    |
 | Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets       |
 | Announcement subdomain    | `src/lib/simulation/announcement/`                    | Resource opportunities, kind-level clarity, speaking position, preparation  |
+| Memory subdomain          | `src/lib/simulation/memory/`                          | First-class bounded creature memory; announcement recall; pure ops          |
 | Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry |
 | Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation            |
 | Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                    |
@@ -58,7 +59,7 @@ determinism  (seeded RNG + seed derivation; no domain state)
      ↑
 habitat      (layout generation only)
      ↑
-simulation   (SimulationState, create, step, behaviour, communication, learning)
+simulation   (SimulationState, create, step, behaviour, announcement, memory, communication, learning)
      ↑
 routes / workbench  (session orchestration, domain-tab UI, selection, diagnostics)
      ↑
@@ -95,6 +96,7 @@ Stream isolation:
   existing habitat layouts for current seeds remain stable.
 - Creature creation uses `deriveSeed(seed, 'creatures')`.
 - Each wander retarget uses `deriveSeed(seed, 'wander', creatureId, decisionIndex)`.
+- Memory capacity uses `deriveSeed(seed, 'memory-capacity', creatureId)`.
 - Closure-owned RNG state is never stored on `SimulationState`.
 
 ## Habitat generation ownership
@@ -115,30 +117,32 @@ silently reduced.
 
 ## Simulation ownership
 
-| Concern                             | Module                                                    |
-| ----------------------------------- | --------------------------------------------------------- |
-| Serializable types                  | `src/lib/simulation/types.ts`                             |
-| Create habitat + creatures          | `src/lib/simulation/create-simulation.ts`                 |
-| Fixed-step / catch-up advance       | `src/lib/simulation/step-simulation.ts`                   |
-| Turn, move, bound, retarget         | `src/lib/simulation/creature-movement.ts`                 |
-| Need progression                    | `src/lib/simulation/behaviour/needs.ts`                   |
-| Goal evaluation / commitment        | `src/lib/simulation/behaviour/decisions.ts`               |
-| Action transitions                  | `src/lib/simulation/behaviour/actions.ts`                 |
-| Habitat feature spatial query       | `src/lib/simulation/behaviour/habitat-feature-query.ts`   |
-| Local perception + tracking         | `src/lib/simulation/behaviour/perception.ts`              |
-| Resource target lookup              | `src/lib/simulation/behaviour/resource-awareness.ts`      |
-| Per-creature behaviour step         | `src/lib/simulation/behaviour/step-creature-behaviour.ts` |
-| Symbol inventory + emission helpers | `src/lib/simulation/communication/emission.ts`            |
-| Lexicon / exploratory symbol select | `src/lib/simulation/communication/symbol-selection.ts`    |
-| Local reception                     | `src/lib/simulation/communication/reception.ts`           |
-| Communication fixed-step            | `src/lib/simulation/communication/step-communication.ts`  |
-| Evidence init / reinforce           | `src/lib/simulation/learning/signal-associations.ts`      |
-| Exclusive lexicon resolution        | `src/lib/simulation/learning/lexicon-resolution.ts`       |
-| Pending / investigation score       | `src/lib/simulation/learning/signal-investigation.ts`     |
-| Learning fixed-step hooks           | `src/lib/simulation/learning/step-signal-learning.ts`     |
-| Population symbol diagnostics       | `src/lib/simulation/population-symbol-diagnostics.ts`     |
-| Diagnostic formatting               | `src/lib/simulation/diagnostics.ts`                       |
-| Public barrel                       | `src/lib/simulation/index.ts`                             |
+| Concern                                 | Module                                                    |
+| --------------------------------------- | --------------------------------------------------------- |
+| Serializable types                      | `src/lib/simulation/types.ts`                             |
+| Create habitat + creatures              | `src/lib/simulation/create-simulation.ts`                 |
+| Fixed-step / catch-up advance           | `src/lib/simulation/step-simulation.ts`                   |
+| Turn, move, bound, retarget             | `src/lib/simulation/creature-movement.ts`                 |
+| Need progression                        | `src/lib/simulation/behaviour/needs.ts`                   |
+| Goal evaluation / commitment            | `src/lib/simulation/behaviour/decisions.ts`               |
+| Action transitions                      | `src/lib/simulation/behaviour/actions.ts`                 |
+| Habitat feature spatial query           | `src/lib/simulation/behaviour/habitat-feature-query.ts`   |
+| Local perception + tracking             | `src/lib/simulation/behaviour/perception.ts`              |
+| Resource target lookup                  | `src/lib/simulation/behaviour/resource-awareness.ts`      |
+| Per-creature behaviour step             | `src/lib/simulation/behaviour/step-creature-behaviour.ts` |
+| Symbol inventory + emission helpers     | `src/lib/simulation/communication/emission.ts`            |
+| Lexicon / exploratory symbol select     | `src/lib/simulation/communication/symbol-selection.ts`    |
+| Local reception                         | `src/lib/simulation/communication/reception.ts`           |
+| Communication fixed-step                | `src/lib/simulation/communication/step-communication.ts`  |
+| Evidence init / reinforce               | `src/lib/simulation/learning/signal-associations.ts`      |
+| Exclusive lexicon resolution            | `src/lib/simulation/learning/lexicon-resolution.ts`       |
+| Pending / investigation score           | `src/lib/simulation/learning/signal-investigation.ts`     |
+| Learning fixed-step hooks               | `src/lib/simulation/learning/step-signal-learning.ts`     |
+| Memory types / create / query / mutate  | `src/lib/simulation/memory/`                              |
+| Announcement-memory post-emission write | `src/lib/simulation/memory/apply-announcement-memory.ts`  |
+| Population symbol diagnostics           | `src/lib/simulation/population-symbol-diagnostics.ts`     |
+| Diagnostic formatting                   | `src/lib/simulation/diagnostics.ts`                       |
+| Public barrel                           | `src/lib/simulation/index.ts`                             |
 
 Simulation advances with a **fixed timestep** (default 30 Hz). The browser
 session may use `requestAnimationFrame` with an accumulator; elapsed wall time
@@ -168,11 +172,11 @@ need values alone.
 
 Creatures use **local perception**, not global food/water knowledge.
 
-| Knowledge            | Rule                                                                                                |
-| -------------------- | --------------------------------------------------------------------------------------------------- |
-| **Home**             | Innate. Always targetable for rest regardless of sensing distance. Never stored in perception.      |
-| **Food / water**     | Selectable only when currently perceived or retained as the single short-lived tracked observation. |
-| **Long-term memory** | Not present. No permanent discovered-location map.                                                  |
+| Knowledge            | Rule                                                                                                                                           |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Home**             | Innate. Always targetable for rest regardless of sensing distance. Never stored in perception.                                                 |
+| **Food / water**     | Selectable only when currently perceived or retained as the single short-lived tracked observation.                                            |
+| **Long-term memory** | First-class `creature.memory` (bounded capacity). Baseline kind: successful resource announcements. No resource-location / navigation map yet. |
 
 Sensing:
 
@@ -231,7 +235,8 @@ discovery emission.
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Feature vs kind**     | Feature id owns episodes, provenance, diagnostics and the dashed cue. Resource kind (`food`/`water`) owns clarity, symbol selection and learning meaning.                                                                                                        |
 | **Perception episodes** | Continuous per-feature visibility on the creature; enter creates one episode; stay does not re-create; leave ends episode; re-enter starts a new episode.                                                                                                        |
-| **Opportunities**       | One opportunity per episode; distinct same-kind features may each create opportunities; deterministic feature-id order; bounded queue.                                                                                                                           |
+| **Opportunities**       | One opportunity per episode; distinct same-kind features may each create opportunities; deterministic feature-id order; bounded queue. Open feature or retained announcement memory suppresses rediscovery.                                                      |
+| **Announcement memory** | Successful accepted emissions write `resource_announcement` on `creature.memory` (feature id, not position). Suppresses new opportunities for that feature while retained. Oldest-first eviction.                                                                |
 | **Clarity**             | Pure kind-level rule: `d_opposite − d_announced ≥ clarityMargin` (or no opposite in scope). Same-kind features never compete. Scope = perception observations ∪ habitat food/water within max(sensing, speaking-search) radius.                                  |
 | **Preparation**         | Unclear contexts set goal `prepare_announcement`, move toward a deterministic speaking position; re-evaluate clarity each step; emit when clear and cooldown allows. Committed against ordinary replan (investigation travel still blocks starting preparation). |
 | **Signal origin**       | `SignalEmission.origin = creature.position` at emission time (never the resource).                                                                                                                                                                               |
@@ -264,11 +269,27 @@ multi-context weighted sampling, and never speaker-success feedback.
 | **No-evidence**       | Conservative: leave evidence unchanged by default (optional small reduction via config); still recompute lexicon.                                                                                           |
 | **Production**        | Communication emits `lexicon[context]` when assigned; otherwise exploratory among symbols not assigned to another meaning. Learning never mutates evidence because someone heard a signal.                  |
 
+### Creature memory
+
+Memory is a named subdomain (`simulation/memory/`). It is **not** perception,
+announcement queue state, communication history, or lexicon evidence.
+
+| Concern          | Rule                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Container**    | `creature.memory`: `capacity`, monotonic `nextSequence`, `entries[]`. Plain JSON-serialisable.                                 |
+| **Capacity**     | Integer sampled at creation from `memoryCapacityRange` via independent seed stream. ≥ 1. Not intelligence-derived.             |
+| **Entry kinds**  | Discriminated union; baseline only `resource_announcement`. Future kinds extend the union without replacing the container.     |
+| **Ops**          | Pure `remember` / `recall` / `evictToCapacity` — callers do not hand-edit `entries`. Oldest-sequence-first eviction when full. |
+| **Write timing** | After communication accepts an emission with announcement provenance (not on mere opportunity or failed request).              |
+| **Recall**       | Announcement creation consults `hasResourceAnnouncementMemory(featureId)` before creating opportunities.                       |
+| **Not in scope** | Resource-location navigation memory, salience, decay curves, probabilistic forgetting.                                         |
+
 Fixed-step order (authoritative):
 
-1. Behaviour for all creatures (needs, perception episodes, announcement opportunities/preparation, expire pending, decisions including investigation, movement or site inspection+completion, emission requests).
+1. Behaviour for all creatures (needs, perception episodes, announcement opportunities/preparation with memory consult, expire pending, decisions including investigation, movement or site inspection+completion, emission requests).
 2. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, write histories, expire active emissions.
-3. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into investigation opportunities with one-shot curiosity decisions (accepted may prompt wander reconsider).
+3. Memory: write `resource_announcement` entries for successful announcement-linked emissions this step.
+4. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into investigation opportunities with one-shot curiosity decisions (accepted may prompt wander reconsider).
 
 **Eligibility:** a signal heard in step _N_ becomes an opportunity at the end of step _N_ (curiosity decided then) and accepted opportunities are eligible for investigation from step _N+1_. No Svelte/renderer timing.
 

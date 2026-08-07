@@ -31,6 +31,7 @@ export {
 } from './speaking-position';
 
 export {
+	appendOpportunityDecisions,
 	appendOutcome,
 	buildOutcome,
 	createOpportunitiesFromDiscoveries,

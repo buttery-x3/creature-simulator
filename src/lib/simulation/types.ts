@@ -24,6 +24,7 @@ import type {
 	SignalInvestigationOpportunity,
 	SymbolAssociation
 } from './learning/types';
+import type { AnnouncementOpportunityDecision, CreatureMemory } from './memory/types';
 
 export type {
 	HeardSignal,
@@ -57,6 +58,13 @@ export type {
 	NewlyPerceivedResource,
 	ResourceFeaturePerceptionEpisode
 } from './announcement/types';
+export type {
+	AnnouncementOpportunityDecision,
+	AnnouncementOpportunityDecisionReason,
+	CreatureMemory,
+	CreatureMemoryEntry,
+	ResourceAnnouncementMemory
+} from './memory/types';
 
 /** Outcome the creature is currently pursuing. */
 export type CreatureGoal =
@@ -182,6 +190,17 @@ export type Creature = {
 	 * Primary source of unknown-symbol investigation interest.
 	 */
 	curiosity: number;
+
+	/**
+	 * First-class bounded memory of retained experience (not perception).
+	 * Capacity is sampled at creation; entries are kind-discriminated.
+	 */
+	memory: CreatureMemory;
+	/**
+	 * Bounded recent announcement opportunity create/suppress decisions
+	 * (local diagnostics before a global audit stream exists).
+	 */
+	recentAnnouncementOpportunityDecisions: AnnouncementOpportunityDecision[];
 
 	goal: CreatureGoal;
 	action: CreatureAction;
@@ -413,6 +432,14 @@ export type SimulationConfig = {
 	 * Curiosity is susceptibility to investigating a heard communication opportunity.
 	 */
 	curiosityRange: { min: number; max: number };
+	/**
+	 * Inclusive integer range for per-creature memory capacity sampled at creation
+	 * (independent `deriveSeed(seed, 'memory-capacity', id)` stream).
+	 * Min must be ≥ 1. Not derived from intelligence.
+	 */
+	memoryCapacityRange: { min: number; max: number };
+	/** Max length of recentAnnouncementOpportunityDecisions (oldest dropped). */
+	recentAnnouncementOpportunityDecisionHistoryLimit: number;
 	/**
 	 * Characteristic length for presentation-only smooth distance falloff on signal rings:
 	 * distanceFactor = 1 / (1 + distance / investigationDistanceScale).

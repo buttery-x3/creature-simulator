@@ -43,6 +43,8 @@ function creature(id: string, recentHeard: HeardSignal[] = []): Creature {
 		thirst: 0.2,
 		energy: 0.85,
 		curiosity: 0.45,
+		memory: { capacity: 10, nextSequence: 0, entries: [] },
+		recentAnnouncementOpportunityDecisions: [],
 		goal: 'wander',
 		action: 'wander',
 		target: { kind: 'point', position: { x: 2, y: 2 } },

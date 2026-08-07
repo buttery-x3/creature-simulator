@@ -72,6 +72,16 @@ export type CompletedOutcomeCounts = {
 	source: 'recent_history';
 };
 
+/** Light announcement-memory / opportunity state before full audit (FLAME-72). */
+export type AnnouncementMemorySummaryRow = {
+	creatureId: string;
+	announcementMemoryCount: number;
+	activeTriggerFeatureId: string | null;
+	queuedCount: number;
+	lastDecisionReason: string | null;
+	lastDecisionFeatureId: string | null;
+};
+
 export type CommunicationViewModel = {
 	population: PopulationSymbolDiagnostics;
 	funnel: FunnelStage[];
@@ -80,6 +90,7 @@ export type CommunicationViewModel = {
 	activeInvestigations: ActiveInvestigationRow[];
 	curiosityOpportunities: CuriosityOpportunityRow[];
 	completedOutcomes: CompletedOutcomeCounts;
+	announcementMemorySummaries: AnnouncementMemorySummaryRow[];
 };
 
 export type CommunicationViewConfig = Pick<
@@ -103,6 +114,7 @@ export function buildCommunicationViewModel(
 	const liveFeed = buildLiveFeed(state);
 	const activeInvestigations: ActiveInvestigationRow[] = [];
 	const curiosityOpportunities: CuriosityOpportunityRow[] = [];
+	const announcementMemorySummaries: AnnouncementMemorySummaryRow[] = [];
 	const completedOutcomes: CompletedOutcomeCounts = {
 		food_evidence: 0,
 		water_evidence: 0,
@@ -140,6 +152,25 @@ export function buildCommunicationViewModel(
 		for (const entry of creature.recentLearning) {
 			completedOutcomes[entry.outcome] = (completedOutcomes[entry.outcome] ?? 0) + 1;
 		}
+
+		const activeOpp =
+			creature.announcementOpportunities.find(
+				(o) => o.state === 'ready' || o.state === 'repositioning'
+			) ?? null;
+		const lastDecision =
+			creature.recentAnnouncementOpportunityDecisions[
+				creature.recentAnnouncementOpportunityDecisions.length - 1
+			] ?? null;
+		announcementMemorySummaries.push({
+			creatureId: creature.id,
+			announcementMemoryCount: creature.memory.entries.filter(
+				(e) => e.kind === 'resource_announcement'
+			).length,
+			activeTriggerFeatureId: activeOpp?.triggerFeatureId ?? null,
+			queuedCount: creature.announcementOpportunities.filter((o) => o.state === 'queued').length,
+			lastDecisionReason: lastDecision?.reason ?? null,
+			lastDecisionFeatureId: lastDecision?.featureId ?? null
+		});
 	}
 
 	curiosityOpportunities.sort((a, b) => b.heardAt - a.heardAt);
@@ -151,7 +182,8 @@ export function buildCommunicationViewModel(
 		liveFeed,
 		activeInvestigations,
 		curiosityOpportunities,
-		completedOutcomes
+		completedOutcomes,
+		announcementMemorySummaries
 	};
 }
 

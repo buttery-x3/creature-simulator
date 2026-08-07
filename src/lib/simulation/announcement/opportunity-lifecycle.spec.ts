@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { createEmptyMemory } from '../memory/create-memory';
+import { rememberResourceAnnouncement } from '../memory/mutate';
 import {
 	createOpportunitiesFromDiscoveries,
 	getActiveOpportunity,
@@ -18,15 +20,27 @@ function discovery(
 	};
 }
 
+const emptyMemory = () => createEmptyMemory(10);
+
+function createOpts(
+	partial: Partial<Parameters<typeof createOpportunitiesFromDiscoveries>[0]> &
+		Pick<Parameters<typeof createOpportunitiesFromDiscoveries>[0], 'newlyPerceived'>
+) {
+	return createOpportunitiesFromDiscoveries({
+		creatureId: 'creature-0',
+		creaturePosition: { x: 0, y: 0 },
+		existing: [],
+		opportunityCounter: 0,
+		memory: emptyMemory(),
+		config: { maxQueuedAnnouncementOpportunitiesPerCreature: 4 },
+		...partial
+	});
+}
+
 describe('createOpportunitiesFromDiscoveries', () => {
 	it('creates independent opportunities for distinct features in feature-id order', () => {
-		const result = createOpportunitiesFromDiscoveries({
-			creatureId: 'creature-0',
-			creaturePosition: { x: 0, y: 0 },
-			newlyPerceived: [discovery({ featureId: 'food-b' }), discovery({ featureId: 'food-a' })],
-			existing: [],
-			opportunityCounter: 0,
-			config: { maxQueuedAnnouncementOpportunitiesPerCreature: 4 }
+		const result = createOpts({
+			newlyPerceived: [discovery({ featureId: 'food-b' }), discovery({ featureId: 'food-a' })]
 		});
 		expect(result.opportunities).toHaveLength(2);
 		expect(result.opportunities[0]!.triggerFeatureId).toBe('food-a');
@@ -34,42 +48,80 @@ describe('createOpportunitiesFromDiscoveries', () => {
 		expect(result.opportunities[1]!.triggerFeatureId).toBe('food-b');
 		expect(result.opportunities[1]!.state).toBe('queued');
 		expect(result.opportunities[0]!.id).not.toBe(result.opportunities[1]!.id);
+		expect(result.decisions.every((d) => d.reason === 'created')).toBe(true);
 	});
 
 	it('does not duplicate the same perception episode', () => {
 		const d = discovery({ featureId: 'food-1', perceptionEpisodeId: 'ep-1' });
-		const first = createOpportunitiesFromDiscoveries({
-			creatureId: 'creature-0',
-			creaturePosition: { x: 0, y: 0 },
-			newlyPerceived: [d],
-			existing: [],
-			opportunityCounter: 0,
-			config: { maxQueuedAnnouncementOpportunitiesPerCreature: 4 }
-		});
-		const second = createOpportunitiesFromDiscoveries({
-			creatureId: 'creature-0',
-			creaturePosition: { x: 0, y: 0 },
+		const first = createOpts({ newlyPerceived: [d] });
+		const second = createOpts({
 			newlyPerceived: [d],
 			existing: first.opportunities,
-			opportunityCounter: first.opportunityCounter,
-			config: { maxQueuedAnnouncementOpportunitiesPerCreature: 4 }
+			opportunityCounter: first.opportunityCounter
 		});
 		expect(second.opportunities).toHaveLength(1);
+		// Open feature check fires before same_episode when opportunity still open.
+		expect(second.decisions[0]!.reason).toBe('open_or_queued');
+	});
+
+	it('suppresses rediscovery when announcement memory is retained', () => {
+		const memory = rememberResourceAnnouncement(emptyMemory(), {
+			rememberedAt: 5,
+			featureId: 'food-1',
+			resourceKind: 'food',
+			opportunityId: 'ann-creature-0-0',
+			emissionId: 'em-creature-0-0'
+		});
+		const result = createOpts({
+			newlyPerceived: [
+				discovery({ featureId: 'food-1', perceptionEpisodeId: 'ep-food-1-reenter' })
+			],
+			memory
+		});
+		expect(result.opportunities).toHaveLength(0);
+		expect(result.decisions).toEqual([
+			expect.objectContaining({
+				featureId: 'food-1',
+				reason: 'announcement_remembered'
+			})
+		]);
+	});
+
+	it('does not let food-1 memory suppress food-2', () => {
+		const memory = rememberResourceAnnouncement(emptyMemory(), {
+			rememberedAt: 5,
+			featureId: 'food-1',
+			resourceKind: 'food',
+			opportunityId: 'ann-0',
+			emissionId: 'em-0'
+		});
+		const result = createOpts({
+			newlyPerceived: [discovery({ featureId: 'food-2' })],
+			memory
+		});
+		expect(result.opportunities).toHaveLength(1);
+		expect(result.opportunities[0]!.triggerFeatureId).toBe('food-2');
+		expect(result.decisions[0]!.reason).toBe('created');
+	});
+
+	it('does not create a second open opportunity for the same feature', () => {
+		const first = createOpts({ newlyPerceived: [discovery({ featureId: 'food-1' })] });
+		const result = createOpts({
+			newlyPerceived: [discovery({ featureId: 'food-1', perceptionEpisodeId: 'ep-food-1-new' })],
+			existing: first.opportunities,
+			opportunityCounter: first.opportunityCounter
+		});
+		expect(result.opportunities).toHaveLength(1);
+		expect(result.decisions[0]!.reason).toBe('open_or_queued');
 	});
 
 	it('records overflow outcomes without merging kinds', () => {
-		const existing = createOpportunitiesFromDiscoveries({
-			creatureId: 'creature-0',
-			creaturePosition: { x: 0, y: 0 },
+		const existing = createOpts({
 			newlyPerceived: [discovery({ featureId: 'food-1' }), discovery({ featureId: 'food-2' })],
-			existing: [],
-			opportunityCounter: 0,
 			config: { maxQueuedAnnouncementOpportunitiesPerCreature: 2 }
 		}).opportunities;
 
-		const result = createOpportunitiesFromDiscoveries({
-			creatureId: 'creature-0',
-			creaturePosition: { x: 0, y: 0 },
+		const result = createOpts({
 			newlyPerceived: [discovery({ featureId: 'food-3', perceptionEpisodeId: 'ep-food-3' })],
 			existing,
 			opportunityCounter: 2,
@@ -79,16 +131,12 @@ describe('createOpportunitiesFromDiscoveries', () => {
 		expect(result.overflowOutcomes).toHaveLength(1);
 		expect(result.overflowOutcomes[0]!.reason).toBe('queue_overflow');
 		expect(result.overflowOutcomes[0]!.triggerFeatureId).toBe('food-3');
+		expect(result.decisions[0]!.reason).toBe('queue_overflow');
 	});
 
 	it('promotes the next queued opportunity after removal', () => {
-		const created = createOpportunitiesFromDiscoveries({
-			creatureId: 'creature-0',
-			creaturePosition: { x: 0, y: 0 },
-			newlyPerceived: [discovery({ featureId: 'food-1' }), discovery({ featureId: 'food-2' })],
-			existing: [],
-			opportunityCounter: 0,
-			config: { maxQueuedAnnouncementOpportunitiesPerCreature: 4 }
+		const created = createOpts({
+			newlyPerceived: [discovery({ featureId: 'food-1' }), discovery({ featureId: 'food-2' })]
 		});
 		const active = getActiveOpportunity(created.opportunities)!;
 		const remaining = removeOpportunityAndPromote(created.opportunities, active.id);

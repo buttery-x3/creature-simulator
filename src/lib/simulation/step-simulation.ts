@@ -4,7 +4,8 @@
  * Step order (authoritative):
  * 1. Behaviour for all creatures (needs, perception, learning evidence, decisions, movement)
  * 2. Communication: apply emission requests, reception, expire active emissions
- * 3. Learning post-reception: convert newly heard signals into pending investigation candidates
+ * 3. Memory: write resource_announcement entries for successful announcement emissions
+ * 4. Learning post-reception: convert newly heard signals into pending investigation candidates
  *
  * Eligibility: a signal heard in step N becomes pending at end of N and is investigable from N+1.
  */
@@ -13,6 +14,7 @@ import { stepCreatureBehaviour } from './behaviour/step-creature-behaviour';
 import { stepCommunication } from './communication/step-communication';
 import type { EmissionRequest } from './communication/types';
 import { stepPostReceptionLearning } from './learning/step-signal-learning';
+import { applySuccessfulAnnouncementMemories } from './memory/apply-announcement-memory';
 import type { SimulationConfig, SimulationState } from './types';
 
 export type StepSimulationConfig = Pick<
@@ -64,6 +66,7 @@ export type StepSimulationConfig = Pick<
 	| 'speakingPositionSearchResolution'
 	| 'maxQueuedAnnouncementOpportunitiesPerCreature'
 	| 'recentAnnouncementOutcomeHistoryLimit'
+	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
 	| 'triggerFeatureCueFadeSeconds'
 >;
 
@@ -111,15 +114,23 @@ export function stepSimulation(
 		config
 	);
 
+	// Successful announcement emissions this step → first-class memory (not perception).
+	const newEmissions = afterCommunication.recentEmissions.filter(
+		(e) => e.emittedAt === timeSeconds
+	);
+	const afterMemory: SimulationState = {
+		...afterCommunication,
+		creatures: applySuccessfulAnnouncementMemories(
+			afterCommunication.creatures,
+			newEmissions,
+			timeSeconds
+		)
+	};
+
 	// Opportunities from this step's hearing (eligible for investigation from next step).
 	return {
-		...afterCommunication,
-		creatures: stepPostReceptionLearning(
-			afterCommunication.creatures,
-			timeSeconds,
-			config,
-			state.seed
-		)
+		...afterMemory,
+		creatures: stepPostReceptionLearning(afterMemory.creatures, timeSeconds, config, state.seed)
 	};
 }
 

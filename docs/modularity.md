@@ -154,13 +154,27 @@ resource-announcement opportunity lifecycle (FLAME-71):
 - `types.ts` — opportunities, episodes (re-export shapes), clarity/outcome records;
 - `clarity.ts` — pure kind-level clarity evaluation;
 - `speaking-position.ts` — pure deterministic speaking-position search;
-- `opportunity-lifecycle.ts` — create/queue/promote/invalidate opportunities;
+- `opportunity-lifecycle.ts` — create/queue/promote/invalidate opportunities (consults memory);
 - `step-announcement.ts` — per-creature announcement advance and emission requests;
 - `index.ts` — exports for simulation siblings.
 
 Perception owns episode reconciliation; behaviour orchestration calls
 `stepAnnouncement`. Communication owns transmission. Do not couple future
 danger/predator signalling to resource-announcement preparation.
+
+Internal memory subdomain (`simulation/memory/`), introduced for first-class
+bounded creature memory and announcement recall (FLAME-74):
+
+- `types.ts` — `CreatureMemory`, entry union, opportunity-decision diagnostics;
+- `create-memory.ts` — empty memory + deterministic capacity sampling;
+- `query.ts` — pure recall / contains helpers;
+- `mutate.ts` — remember, forget, oldest-first eviction;
+- `apply-announcement-memory.ts` — post-emission write for successful announcements;
+- `index.ts` — exports for simulation siblings.
+
+Announcement consults memory for suppression; step orchestration applies writes
+after communication accepts emissions. Communication must not become the general
+memory manager. Do not store memory inside perception or presentation.
 
 Internal communication subdomain (`simulation/communication/`), introduced for
 transient arbitrary signals and local reception:

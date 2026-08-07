@@ -7,6 +7,7 @@
 		type SimulationConfig,
 		type SimulationState
 	} from '$lib/simulation';
+	import { formatCreatureMemoryJson } from '../view-models/creature-detail-view-model';
 
 	type Props = {
 		simulation: SimulationState;
@@ -41,6 +42,10 @@
 					symbolInventory: config.symbolInventory
 				})
 			: null
+	);
+
+	const creatureMemoryJson = $derived(
+		selectedCreature ? formatCreatureMemoryJson(selectedCreature.memory) : null
 	);
 
 	const configJson = $derived(JSON.stringify(config, null, 2));
@@ -100,6 +105,26 @@
 		</div>
 		{#if creatureInspection}
 			<pre data-testid="creature-inspection-text">{creatureInspection}</pre>
+		{:else}
+			<p class="empty">No creature selected.</p>
+		{/if}
+	</section>
+
+	<section class="block">
+		<div class="heading-row">
+			<h3>Selected creature memory</h3>
+			{#if creatureMemoryJson}
+				<button
+					type="button"
+					onclick={() => copyText(creatureMemoryJson, 'memory')}
+					data-testid="debug-copy-memory"
+				>
+					Copy
+				</button>
+			{/if}
+		</div>
+		{#if creatureMemoryJson}
+			<pre data-testid="debug-creature-memory">{creatureMemoryJson}</pre>
 		{:else}
 			<p class="empty">No creature selected.</p>
 		{/if}

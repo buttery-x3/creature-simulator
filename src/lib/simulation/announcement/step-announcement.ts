@@ -16,6 +16,7 @@ import { queryFeaturesNear } from '../behaviour/habitat-feature-query';
 import type { Creature, SimulationConfig } from '../types';
 import { evaluateKindClarity, type ClarityResourceCandidate } from './clarity';
 import {
+	appendOpportunityDecisions,
 	appendOutcome,
 	buildOutcome,
 	createOpportunitiesFromDiscoveries,
@@ -33,6 +34,7 @@ export type AnnouncementStepConfig = Pick<
 	| 'speakingPositionSearchResolution'
 	| 'maxQueuedAnnouncementOpportunitiesPerCreature'
 	| 'recentAnnouncementOutcomeHistoryLimit'
+	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
 	| 'triggerFeatureCueFadeSeconds'
 	| 'emissionCooldownSeconds'
 	| 'creatureRadius'
@@ -132,7 +134,7 @@ export function stepAnnouncement(input: {
 		creature = { ...creature, activeAnnouncementCue: null };
 	}
 
-	// 1. Create opportunities from discoveries (need-independent).
+	// 1. Create opportunities from discoveries (need-independent; consults memory).
 	if (input.newlyPerceived.length > 0) {
 		const created = createOpportunitiesFromDiscoveries({
 			creatureId: creature.id,
@@ -140,6 +142,7 @@ export function stepAnnouncement(input: {
 			newlyPerceived: input.newlyPerceived,
 			existing: creature.announcementOpportunities,
 			opportunityCounter: creature.announcementOpportunityCounter,
+			memory: creature.memory,
 			config
 		});
 		let outcomes = creature.recentAnnouncementOutcomes;
@@ -150,7 +153,12 @@ export function stepAnnouncement(input: {
 			...creature,
 			announcementOpportunities: created.opportunities,
 			announcementOpportunityCounter: created.opportunityCounter,
-			recentAnnouncementOutcomes: outcomes
+			recentAnnouncementOutcomes: outcomes,
+			recentAnnouncementOpportunityDecisions: appendOpportunityDecisions(
+				creature.recentAnnouncementOpportunityDecisions,
+				created.decisions,
+				config.recentAnnouncementOpportunityDecisionHistoryLimit
+			)
 		};
 	}
 

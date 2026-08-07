@@ -1,7 +1,12 @@
-import { createSimulation, defaultSimulationConfig } from '$lib/simulation';
+import {
+	createSimulation,
+	defaultSimulationConfig,
+	rememberResourceAnnouncement
+} from '$lib/simulation';
 import { describe, expect, it } from 'vitest';
 import {
 	buildInvestigationOpportunitySummary,
+	buildMemorySectionView,
 	buildRosterRows,
 	formatTargetLabel
 } from './creature-detail-view-model';
@@ -49,5 +54,53 @@ describe('creature-detail-view-model', () => {
 		expect(summary!.recentDecision).toBe('accepted');
 		expect(summary!.recentSample).toBeCloseTo(0.12);
 		expect(summary!.eligibleEmissionId).toBe('e-1');
+	});
+
+	it('builds a structured memory section with capacity and entries', () => {
+		const config = defaultSimulationConfig('demo');
+		const state = createSimulation(config);
+		const creature = {
+			...state.creatures[0]!,
+			memory: rememberResourceAnnouncement(state.creatures[0]!.memory, {
+				rememberedAt: 12.5,
+				featureId: 'food-3',
+				resourceKind: 'food',
+				opportunityId: 'ann-0',
+				emissionId: 'em-0'
+			}),
+			recentEmitted: [
+				{
+					id: 'em-0',
+					symbolId: 'glyph-0' as const,
+					senderId: state.creatures[0]!.id,
+					origin: { x: 0, y: 0 },
+					emittedAt: 12.5,
+					expiresAt: 14,
+					context: 'resource_discovered' as const,
+					contextDetail: 'food' as const,
+					symbolSelectionReason: 'test',
+					selectionEvidence: {
+						emissionContext: 'food' as const,
+						selectedSymbolId: 'glyph-0' as const,
+						assignedSymbolId: null,
+						mode: 'exploratory' as const,
+						candidates: [],
+						sample: 0.1,
+						usedFallback: false,
+						reason: 'test'
+					},
+					provenance: null
+				}
+			]
+		};
+		const section = buildMemorySectionView(creature);
+		expect(section.used).toBe(1);
+		expect(section.capacity).toBe(creature.memory.capacity);
+		expect(section.entries[0]).toMatchObject({
+			kind: 'resource announcement',
+			subjectId: 'food-3',
+			symbolId: 'glyph-0',
+			timeSeconds: 12.5
+		});
 	});
 });

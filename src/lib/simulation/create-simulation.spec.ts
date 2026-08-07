@@ -48,6 +48,27 @@ describe('createSimulation', () => {
 		}
 	});
 
+	it('samples independent empty memory capacities within range', () => {
+		const config = defaultSimulationConfig('memory-cap');
+		const state = createSimulation(config);
+		const capacities = new Set<number>();
+		for (let i = 0; i < state.creatures.length; i += 1) {
+			const creature = state.creatures[i]!;
+			expect(creature.memory.entries).toEqual([]);
+			expect(creature.memory.nextSequence).toBe(0);
+			expect(Number.isInteger(creature.memory.capacity)).toBe(true);
+			expect(creature.memory.capacity).toBeGreaterThanOrEqual(config.memoryCapacityRange.min);
+			expect(creature.memory.capacity).toBeLessThanOrEqual(config.memoryCapacityRange.max);
+			capacities.add(creature.memory.capacity);
+			// Independent object per creature (compare against a different index).
+			if (i > 0) {
+				expect(creature.memory).not.toBe(state.creatures[0]!.memory);
+				expect(creature.memory.entries).not.toBe(state.creatures[0]!.memory.entries);
+			}
+		}
+		expect(capacities.size).toBeGreaterThan(1);
+	});
+
 	it('places initial wander targets inside world bounds with margin', () => {
 		const config = defaultSimulationConfig('targets');
 		const state = createSimulation(config);

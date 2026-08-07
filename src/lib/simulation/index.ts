@@ -9,6 +9,8 @@
 export type {
 	ActiveSignalInvestigation,
 	AnnouncementOpportunity,
+	AnnouncementOpportunityDecision,
+	AnnouncementOpportunityDecisionReason,
 	AnnouncementOpportunityOutcome,
 	AnnouncementOpportunityState,
 	AnnouncementOutcomeReason,
@@ -19,6 +21,8 @@ export type {
 	CreatureAction,
 	CreatureGoal,
 	CreatureLexicon,
+	CreatureMemory,
+	CreatureMemoryEntry,
 	CreaturePerception,
 	CreatureTarget,
 	DecisionRecord,
@@ -30,6 +34,7 @@ export type {
 	LexiconMeaning,
 	NewlyPerceivedResource,
 	PendingSignal,
+	ResourceAnnouncementMemory,
 	ResourceFeaturePerceptionEpisode,
 	ResourceObservation,
 	SignalEmission,
@@ -121,3 +126,14 @@ export {
 	selectBestAcceptedOpportunity,
 	selectBestPendingSignal
 } from './learning';
+
+export {
+	applySuccessfulAnnouncementMemories,
+	countMemoryEntries,
+	createEmptyMemory,
+	findResourceAnnouncementMemory,
+	hasResourceAnnouncementMemory,
+	memoryUsage,
+	rememberResourceAnnouncement,
+	sampleMemoryCapacity
+} from './memory';

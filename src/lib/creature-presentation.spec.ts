@@ -39,6 +39,8 @@ function creature(
 		thirst: 0.2,
 		energy: 0.85,
 		curiosity: 0.45,
+		memory: { capacity: 10, nextSequence: 0, entries: [] },
+		recentAnnouncementOpportunityDecisions: [],
 		goal: action === 'wander' ? 'wander' : action === 'search' ? 'seek_food' : 'seek_food',
 		action,
 		target: { kind: 'point', position: { x: x + 1, y } },

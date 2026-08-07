@@ -65,6 +65,14 @@ src/
                 opportunity-lifecycle.ts
                 step-announcement.ts
                 *.spec.ts
+            memory/
+                index.ts
+                types.ts
+                create-memory.ts
+                query.ts
+                mutate.ts
+                apply-announcement-memory.ts
+                *.spec.ts
             communication/
                 index.ts
                 types.ts
@@ -133,8 +141,9 @@ Obsolete files should not remain in this topology merely because they were creat
 | `src/lib/habitat/`                 | Authoritative serialisable habitat data, seeded generation, geometry validation and habitat diagnostics                                              | Creatures, Three.js objects, Svelte state, browser controls          |
 | `src/lib/simulation/`              | Authoritative simulation state, creature creation, fixed-step advance, public diagnostics                                                            | Three.js resources, Svelte components, browser rAF ownership         |
 | `simulation/behaviour/`            | Needs, goal decisions, actions, local perception, habitat-feature query, search, resource targets, per-creature behaviour step                       | Transmission/reception of signals, association updates, presentation |
-| `simulation/announcement/`         | Resource-announcement opportunities, kind-level clarity, speaking-position search, preparation lifecycle, emission handoff provenance fields         | Transmission range, lexicon mutation, presentation meshes            |
-| `simulation/communication/`        | Arbitrary symbols, emission construction, lexicon/exploratory selection, hearing radius, reception records, emission expiry, communication histories | Evidence/lexicon mutation, listener semantics, presentation meshes   |
+| `simulation/announcement/`         | Resource-announcement opportunities, kind-level clarity, speaking-position search, preparation lifecycle, emission handoff provenance fields         | Memory storage semantics, transmission range, presentation meshes    |
+| `simulation/memory/`               | First-class bounded creature memory container, pure remember/recall/evict, capacity sampling, post-emission announcement memory writes               | Perception, opportunity lifecycle, transmission, lexicon learning    |
+| `simulation/communication/`        | Arbitrary symbols, emission construction, lexicon/exploratory selection, hearing radius, reception records, emission expiry, communication histories | Evidence/lexicon mutation, memory storage, presentation meshes       |
 | `simulation/learning/`             | Raw symbol evidence, exclusive lexicon resolution, pending investigation candidates, reinforcement, learning/lexicon history                         | Emission construction, reception range, goal selection, presentation |
 | `population-symbol-diagnostics.ts` | Pure observational population evidence/lexicon/emission summaries                                                                                    | Authoritative creature state, selection policy                       |
 | `habitat-presentation.ts`          | Static habitat mesh construction and disposal                                                                                                        | Creature meshes, simulation stepping                                 |
@@ -158,7 +167,7 @@ determinism
         ↓
 habitat model and generation
         ↓
-simulation (creatures + behaviour + announcement + communication + learning + fixed-step advance)
+simulation (creatures + behaviour + announcement + memory + communication + learning + fixed-step advance)
         ↓
 page-level application state (incl. selection id)
         ↓
@@ -179,8 +188,9 @@ habitat-camera      -> habitat types
 habitat subsystem   -> determinism
 simulation          -> determinism + habitat
 simulation/behaviour -> simulation sibling modules + habitat (private to simulation); may construct EmissionRequest only; thin hooks into learning/announcement
-simulation/announcement -> simulation types + habitat + behaviour habitat-feature-query (private); pure clarity/speaking search; emission requests only
-simulation/communication -> simulation types + determinism (private to simulation); reads association values from creature state only; no learning implementation imports
+simulation/announcement -> simulation types + habitat + behaviour habitat-feature-query + memory query (private); pure clarity/speaking search; emission requests only
+simulation/memory -> simulation types + communication emission shapes + determinism (capacity); pure ops; no presentation
+simulation/communication -> simulation types + determinism (private to simulation); reads association values from creature state only; no learning/memory manager role
 simulation/learning -> simulation types + habitat Vec2 + communication SymbolId/HeardSignal shapes; no presentation
 population-symbol-diagnostics -> simulation state/types + communication emission shapes; pure; no mutation
 determinism         -> no Svelte, Three.js, habitat or simulation modules

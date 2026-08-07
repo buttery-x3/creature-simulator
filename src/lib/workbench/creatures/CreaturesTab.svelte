@@ -182,6 +182,10 @@
 								<span class="memory-kind">{entry.kind}</span>
 								<span class="memory-sep">·</span>
 								<span class="memory-subject">{entry.subjectId}</span>
+								{#if entry.positionLabel}
+									<span class="memory-sep">·</span>
+									<span class="memory-position">{entry.positionLabel}</span>
+								{/if}
 								{#if entry.symbolId}
 									<span class="memory-sep">·</span>
 									<SymbolGlyph symbolId={entry.symbolId} />

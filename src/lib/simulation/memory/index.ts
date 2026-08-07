@@ -11,8 +11,12 @@ export type {
 	CreatureMemory,
 	CreatureMemoryEntry,
 	CreatureMemoryEntryKind,
+	HeardSignalMemory,
+	HeardSignalMemoryDraft,
 	ResourceAnnouncementMemory,
-	ResourceAnnouncementMemoryDraft
+	ResourceAnnouncementMemoryDraft,
+	ResourceObservationMemory,
+	ResourceObservationMemoryDraft
 } from './types';
 
 export {
@@ -26,11 +30,28 @@ export {
 
 export {
 	countMemoryEntries,
+	findHeardSignalMemory,
 	findResourceAnnouncementMemory,
+	findResourceObservationMemory,
+	hasHeardSignalMemory,
 	hasResourceAnnouncementMemory,
+	hasResourceObservationMemory,
 	memoryUsage
 } from './query';
 
-export { evictToCapacity, forgetEntries, rememberResourceAnnouncement } from './mutate';
+export {
+	evictToCapacity,
+	forgetEntries,
+	rememberHeardSignal,
+	rememberResourceAnnouncement,
+	rememberResourceObservation
+} from './mutate';
 
 export { applySuccessfulAnnouncementMemories } from './apply-announcement-memory';
+
+export {
+	applyHeardSignalMemories,
+	applyResourceObservationMemories,
+	isSensingPassDue,
+	isSensingPassThisStep
+} from './apply-sensory-memory';

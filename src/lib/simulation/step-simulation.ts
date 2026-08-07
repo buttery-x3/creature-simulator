@@ -4,9 +4,12 @@
  * Step order (authoritative):
  * 1. Resources/weather: rain schedule/refill, food spawn, eat/drink consumption grants
  * 2. Behaviour for all creatures (needs apply grants; perception sees post-consumption world)
- * 3. Communication: apply emission requests, reception, expire active emissions
- * 4. Memory: write resource_announcement entries for successful announcement emissions
- * 5. Learning post-reception: convert newly heard signals into pending investigation candidates
+ * 3. Memory: resource_observation writes/refreshes from sensing (empty water geography included)
+ * 4. Communication: apply emission requests, reception, expire active emissions
+ * 5. Memory: resource_announcement from successful announcement emissions
+ * 6. Memory: heard_signal from this step's reception (no sender; no interpretation)
+ * 7. Learning post-reception: convert newly heard signals into pending investigation candidates
+ *    (pendingSignals is transitional until cutover; heard_signal memory is the retained model)
  *
  * Eligibility: a signal heard in step N becomes pending at end of N and is investigable from N+1.
  */
@@ -16,6 +19,10 @@ import { stepCommunication } from './communication/step-communication';
 import type { EmissionRequest } from './communication/types';
 import { stepPostReceptionLearning } from './learning/step-signal-learning';
 import { applySuccessfulAnnouncementMemories } from './memory/apply-announcement-memory';
+import {
+	applyHeardSignalMemories,
+	applyResourceObservationMemories
+} from './memory/apply-sensory-memory';
 import { emptyGrant, stepResources } from './resources';
 import type { SimulationConfig, SimulationState } from './types';
 
@@ -115,12 +122,20 @@ export function stepSimulation(
 	// Stable request order by sender id (not array iteration accidents).
 	emissionRequests.sort((a, b) => (a.senderId < b.senderId ? -1 : a.senderId > b.senderId ? 1 : 0));
 
+	// Resource observations from this step's sensing (available food + water geography).
+	const afterObservationMemory = applyResourceObservationMemories(
+		creatures,
+		habitat,
+		timeSeconds,
+		config
+	);
+
 	const afterBehaviour: SimulationState = {
 		...state,
 		timeSeconds,
 		habitat,
 		environment,
-		creatures
+		creatures: afterObservationMemory
 	};
 
 	const { state: afterCommunication, emittedThisStep } = stepCommunication(
@@ -132,19 +147,19 @@ export function stepSimulation(
 
 	// Successful announcement emissions this step → first-class memory (not perception).
 	// Use authoritative emittedThisStep — never reconstruct from bounded recentEmissions.
-	const afterMemory: SimulationState = {
-		...afterCommunication,
-		creatures: applySuccessfulAnnouncementMemories(
-			afterCommunication.creatures,
-			emittedThisStep,
-			timeSeconds
-		)
-	};
+	const afterAnnouncementMemory = applySuccessfulAnnouncementMemories(
+		afterCommunication.creatures,
+		emittedThisStep,
+		timeSeconds
+	);
+
+	// Heard-signal retained memory (future model). pendingSignals still written next.
+	const afterHeardMemory = applyHeardSignalMemories(afterAnnouncementMemory, timeSeconds);
 
 	// Opportunities from this step's hearing (eligible for investigation from next step).
 	return {
-		...afterMemory,
-		creatures: stepPostReceptionLearning(afterMemory.creatures, timeSeconds, config, state.seed)
+		...afterCommunication,
+		creatures: stepPostReceptionLearning(afterHeardMemory, timeSeconds, config, state.seed)
 	};
 }
 

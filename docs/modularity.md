@@ -178,19 +178,21 @@ Perception owns episode reconciliation; behaviour orchestration calls
 `stepAnnouncement`. Communication owns transmission. Do not couple future
 danger/predator signalling to resource-announcement preparation.
 
-Internal memory subdomain (`simulation/memory/`), introduced for first-class
-bounded creature memory and announcement recall (FLAME-74):
+Internal memory subdomain (`simulation/memory/`), first-class bounded creature
+memory (FLAME-74 baseline; FLAME-78 observation + heard-signal kinds):
 
-- `types.ts` — `CreatureMemory`, entry union, opportunity-decision diagnostics;
+- `types.ts` — `CreatureMemory`, entry union (announcement / observation / heard), opportunity-decision diagnostics;
 - `create-memory.ts` — empty memory + deterministic capacity sampling;
 - `query.ts` — pure recall / contains helpers;
-- `mutate.ts` — remember, forget, oldest-first eviction;
+- `mutate.ts` — remember (insert/refresh/dedupe), forget, oldest-first eviction;
 - `apply-announcement-memory.ts` — post-emission write for successful announcements;
+- `apply-sensory-memory.ts` — post-behaviour resource observations + post-reception heard signals;
 - `index.ts` — exports for simulation siblings.
 
-Announcement consults memory for suppression; step orchestration applies writes
-after communication accepts emissions. Communication must not become the general
-memory manager. Do not store memory inside perception or presentation.
+Announcement consults memory for suppression; step orchestration applies all
+memory writes (observations, announcements, heard signals). Communication must
+not become the general memory manager. Do not store memory inside perception or
+presentation. Do not deepen legacy `pendingSignals` as retained experience.
 
 Internal communication subdomain (`simulation/communication/`), introduced for
 transient arbitrary signals and local reception:

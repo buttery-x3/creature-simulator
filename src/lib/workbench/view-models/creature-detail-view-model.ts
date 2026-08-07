@@ -224,6 +224,10 @@ export type MemoryEntryView = {
 	sequence: number;
 	emissionId: string | null;
 	opportunityId: string | null;
+	/** Water observation empty flag; null when not applicable. */
+	empty: boolean | null;
+	/** Compact position label for observation/heard entries. */
+	positionLabel: string | null;
 };
 
 export type MemorySectionView = {
@@ -232,9 +236,13 @@ export type MemorySectionView = {
 	entries: MemoryEntryView[];
 };
 
+function formatPositionLabel(position: { x: number; y: number }): string {
+	return `(${position.x.toFixed(1)}, ${position.y.toFixed(1)})`;
+}
+
 /**
  * Build structured memory section for selected creature detail.
- * Resolves emission symbols from the creature's recentEmitted history when present.
+ * Resolves announcement emission symbols from recentEmitted when present.
  */
 export function buildMemorySectionView(creature: Creature): MemorySectionView {
 	const safe = ensureCreatureMemory(creature);
@@ -244,21 +252,53 @@ export function buildMemorySectionView(creature: Creature): MemorySectionView {
 	}
 
 	// Newest last in storage; show newest first in the UI.
-	// When additional entry kinds are added, extend this switch explicitly.
 	const entries: MemoryEntryView[] = [...safe.memory.entries]
 		.slice()
 		.reverse()
 		.map((entry) => {
-			const emission = byEmission.get(entry.emissionId);
+			if (entry.kind === 'resource_announcement') {
+				const emission = byEmission.get(entry.emissionId);
+				return {
+					kind: 'resource announcement',
+					subjectId: entry.featureId,
+					resourceKind: entry.resourceKind,
+					symbolId: emission?.symbolId ?? null,
+					timeSeconds: entry.rememberedAt,
+					sequence: entry.sequence,
+					emissionId: entry.emissionId,
+					opportunityId: entry.opportunityId,
+					empty: null,
+					positionLabel: null
+				};
+			}
+			if (entry.kind === 'resource_observation') {
+				const emptyLabel =
+					entry.resourceKind === 'water' ? (entry.empty ? ' empty' : ' available') : '';
+				return {
+					kind: `resource observation${emptyLabel}`,
+					subjectId: entry.featureId,
+					resourceKind: entry.resourceKind,
+					symbolId: null,
+					timeSeconds: entry.rememberedAt,
+					sequence: entry.sequence,
+					emissionId: null,
+					opportunityId: null,
+					empty: entry.resourceKind === 'water' ? entry.empty : null,
+					positionLabel: formatPositionLabel(entry.position)
+				};
+			}
+			// heard_signal — no sender identity in display either
 			return {
-				kind: 'resource announcement',
-				subjectId: entry.featureId,
-				resourceKind: entry.resourceKind,
-				symbolId: emission?.symbolId ?? null,
+				kind: 'heard signal',
+				subjectId: entry.emissionId,
+				resourceKind: null,
+				symbolId: entry.symbolId,
 				timeSeconds: entry.rememberedAt,
 				sequence: entry.sequence,
 				emissionId: entry.emissionId,
-				opportunityId: entry.opportunityId
+				opportunityId: null,
+				empty: null,
+				positionLabel: formatPositionLabel(entry.origin)
 			};
 		});
 

@@ -53,10 +53,13 @@ describe('announcement memory integration', () => {
 				remembered = true;
 				const entry = c.memory.entries.find(
 					(e) => e.kind === 'resource_announcement' && e.featureId === food.id
-				)!;
-				expect(entry.opportunityId).toMatch(/^ann-creature-0-/);
-				expect(entry.emissionId).toMatch(/^em-creature-0-/);
-				expect(entry.resourceKind).toBe('food');
+				);
+				expect(entry?.kind).toBe('resource_announcement');
+				if (entry?.kind === 'resource_announcement') {
+					expect(entry.opportunityId).toMatch(/^ann-creature-0-/);
+					expect(entry.emissionId).toMatch(/^em-creature-0-/);
+					expect(entry.resourceKind).toBe('food');
+				}
 				// Same feature is not remembered twice after further steps.
 				const sameFeatureBefore = c.memory.entries.filter(
 					(e) => e.kind === 'resource_announcement' && e.featureId === food.id
@@ -157,9 +160,12 @@ describe('announcement memory integration', () => {
 			expect(hasResourceAnnouncementMemory(creature.memory, featureId)).toBe(true);
 			const entry = creature.memory.entries.find(
 				(e) => e.kind === 'resource_announcement' && e.featureId === featureId
-			)!;
-			expect(entry.opportunityId).toBe(`ann-creature-${i}-0`);
-			expect(entry.emissionId).toBe(`em-creature-${i}-0`);
+			);
+			expect(entry?.kind).toBe('resource_announcement');
+			if (entry?.kind === 'resource_announcement') {
+				expect(entry.opportunityId).toBe(`ann-creature-${i}-0`);
+				expect(entry.emissionId).toBe(`em-creature-${i}-0`);
+			}
 		}
 
 		// Same authoritative memories if history limit is large enough to retain all.

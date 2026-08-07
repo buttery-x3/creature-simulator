@@ -64,7 +64,9 @@ export type {
 	AnnouncementOpportunityDecisionReason,
 	CreatureMemory,
 	CreatureMemoryEntry,
-	ResourceAnnouncementMemory
+	HeardSignalMemory,
+	ResourceAnnouncementMemory,
+	ResourceObservationMemory
 } from './memory/types';
 
 /** Outcome the creature is currently pursuing. */

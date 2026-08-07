@@ -36,9 +36,11 @@ export type {
 	LexiconMeaning,
 	NewlyPerceivedResource,
 	PendingSignal,
+	HeardSignalMemory,
 	ResourceAnnouncementMemory,
 	ResourceFeaturePerceptionEpisode,
 	ResourceObservation,
+	ResourceObservationMemory,
 	SignalEmission,
 	SignalInvestigationOpportunity,
 	SimulationConfig,
@@ -132,15 +134,23 @@ export {
 } from './learning';
 
 export {
+	applyHeardSignalMemories,
+	applyResourceObservationMemories,
 	applySuccessfulAnnouncementMemories,
 	countMemoryEntries,
 	createEmptyMemory,
 	ensureCreatureMemory,
+	findHeardSignalMemory,
 	findResourceAnnouncementMemory,
+	findResourceObservationMemory,
+	hasHeardSignalMemory,
 	hasResourceAnnouncementMemory,
+	hasResourceObservationMemory,
 	isValidCreatureMemory,
 	memoryUsage,
+	rememberHeardSignal,
 	rememberResourceAnnouncement,
+	rememberResourceObservation,
 	sampleMemoryCapacity
 } from './memory';
 

@@ -100,7 +100,55 @@ describe('creature-detail-view-model', () => {
 			kind: 'resource announcement',
 			subjectId: 'food-3',
 			symbolId: 'glyph-0',
-			timeSeconds: 12.5
+			timeSeconds: 12.5,
+			empty: null,
+			positionLabel: null
+		});
+	});
+
+	it('formats resource observations and heard signals', () => {
+		const state = createSimulation(defaultSimulationConfig('demo'));
+		const creature = {
+			...state.creatures[0]!,
+			memory: {
+				capacity: 8,
+				nextSequence: 2,
+				entries: [
+					{
+						kind: 'resource_observation' as const,
+						sequence: 0,
+						rememberedAt: 4,
+						featureId: 'water-2',
+						resourceKind: 'water' as const,
+						position: { x: 1.25, y: -2.5 },
+						empty: true
+					},
+					{
+						kind: 'heard_signal' as const,
+						sequence: 1,
+						rememberedAt: 5,
+						emissionId: 'em-7',
+						symbolId: 'glyph-2' as const,
+						origin: { x: 3, y: 4 }
+					}
+				]
+			}
+		};
+		const section = buildMemorySectionView(creature);
+		expect(section.entries).toHaveLength(2);
+		// newest first
+		expect(section.entries[0]).toMatchObject({
+			kind: 'heard signal',
+			subjectId: 'em-7',
+			symbolId: 'glyph-2',
+			positionLabel: '(3.0, 4.0)'
+		});
+		expect(JSON.stringify(section.entries[0])).not.toContain('sender');
+		expect(section.entries[1]).toMatchObject({
+			kind: 'resource observation empty',
+			subjectId: 'water-2',
+			empty: true,
+			positionLabel: '(1.3, -2.5)'
 		});
 	});
 });

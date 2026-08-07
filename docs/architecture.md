@@ -11,29 +11,29 @@ selection is presentation state only.
 
 ## Responsibilities present today
 
-| Area                      | Ownership                                             | Notes                                                                               |
-| ------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| App shell                 | SvelteKit routes under `src/routes/`                  | Desktop page; session simulation state, rAF stepping, creature selection id         |
-| Determinism               | `src/lib/determinism/`                                | Seeded PRNG and pure seed derivation for independent streams                        |
-| Habitat model             | `src/lib/habitat/`                                    | Types (incl. food/water amount/capacity), seeded generation, placement, diagnostics |
-| Simulation                | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                            |
-| Resources subdomain       | `src/lib/simulation/resources/`                       | Availability, consumption grants, food spawn, minimal rain weather                  |
-| Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets               |
-| Announcement subdomain    | `src/lib/simulation/announcement/`                    | Resource opportunities, kind-level clarity, speaking position, preparation          |
-| Memory subdomain          | `src/lib/simulation/memory/`                          | First-class bounded creature memory; announcement recall; pure ops                  |
-| Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry         |
-| Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation                    |
-| Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                            |
-| Workbench UI              | `src/lib/workbench/`                                  | Domain-tab shell (Overview…Debug), pure view-models, presentation-only nav          |
-| WebGL presentation        | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state                  |
-| Habitat presentation      | `src/lib/habitat-presentation.ts`                     | Static habitat mesh build/dispose                                                   |
-| Creature presentation     | `src/lib/creature-presentation.ts`                    | Dynamic mesh reconcile + action visuals + investigation hop                         |
-| Symbol presentation       | `src/lib/symbol-presentation.ts`                      | Shared glyph shape/label/color registry (presentation only)                         |
-| Signal presentation       | `src/lib/signal-presentation.ts`                      | Speech bubbles + thin hearing-radius rings + investigation overlay                  |
-| Listener cue presentation | `src/lib/listener-cue-presentation.ts`                | Neutral `?` on recent hear (brief) or while investigating (held)                    |
-| Announcement cue          | `src/lib/announcement-cue-presentation.ts`            | Dashed creature→trigger-feature lines (presentation only)                           |
-| Habitat camera            | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                             |
-| Reserved ports            | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                                 |
+| Area                      | Ownership                                             | Notes                                                                                 |
+| ------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| App shell                 | SvelteKit routes under `src/routes/`                  | Desktop page; session simulation state, rAF stepping, creature selection id           |
+| Determinism               | `src/lib/determinism/`                                | Seeded PRNG and pure seed derivation for independent streams                          |
+| Habitat model             | `src/lib/habitat/`                                    | Types (incl. food/water amount/capacity), seeded generation, placement, diagnostics   |
+| Simulation                | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                              |
+| Resources subdomain       | `src/lib/simulation/resources/`                       | Availability, consumption grants, food spawn, minimal rain weather                    |
+| Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets                 |
+| Announcement subdomain    | `src/lib/simulation/announcement/`                    | Resource opportunities, kind-level clarity, speaking position, preparation            |
+| Memory subdomain          | `src/lib/simulation/memory/`                          | First-class bounded creature memory; observations, heard signals, announcement recall |
+| Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry           |
+| Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation                      |
+| Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                              |
+| Workbench UI              | `src/lib/workbench/`                                  | Domain-tab shell (Overview…Debug), pure view-models, presentation-only nav            |
+| WebGL presentation        | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state                    |
+| Habitat presentation      | `src/lib/habitat-presentation.ts`                     | Static habitat mesh build/dispose                                                     |
+| Creature presentation     | `src/lib/creature-presentation.ts`                    | Dynamic mesh reconcile + action visuals + investigation hop                           |
+| Symbol presentation       | `src/lib/symbol-presentation.ts`                      | Shared glyph shape/label/color registry (presentation only)                           |
+| Signal presentation       | `src/lib/signal-presentation.ts`                      | Speech bubbles + thin hearing-radius rings + investigation overlay                    |
+| Listener cue presentation | `src/lib/listener-cue-presentation.ts`                | Neutral `?` on recent hear (brief) or while investigating (held)                      |
+| Announcement cue          | `src/lib/announcement-cue-presentation.ts`            | Dashed creature→trigger-feature lines (presentation only)                             |
+| Habitat camera            | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                               |
+| Reserved ports            | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                                   |
 
 ## Habitat coordinate convention
 
@@ -168,9 +168,11 @@ Authoritative fixed-step order:
 
 1. Resources/weather (rain, food spawn, eat/drink consumption grants)
 2. Behaviour (needs apply grants; perception sees post-consumption world)
-3. Communication
-4. Successful-announcement memory
-5. Post-reception learning
+3. Resource-observation memory (sensing pass only; empty water via geography query)
+4. Communication
+5. Successful-announcement memory
+6. Heard-signal memory (from this step’s reception; no sender identity)
+7. Post-reception learning (pendingSignals — transitional until cutover)
 
 ### Needs, goals, actions and targets
 
@@ -195,11 +197,11 @@ need values alone.
 
 Creatures use **local perception**, not global food/water knowledge.
 
-| Knowledge            | Rule                                                                                                                                           |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Home**             | Innate. Always targetable for rest regardless of sensing distance. Never stored in perception.                                                 |
-| **Food / water**     | Selectable only when currently perceived or retained as the single short-lived tracked observation.                                            |
-| **Long-term memory** | First-class `creature.memory` (bounded capacity). Baseline kind: successful resource announcements. No resource-location / navigation map yet. |
+| Knowledge            | Rule                                                                                                                                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Home**             | Innate. Always targetable for rest regardless of sensing distance. Never stored in perception.                                                                                                           |
+| **Food / water**     | Selectable only when currently perceived or retained as the single short-lived tracked observation.                                                                                                      |
+| **Long-term memory** | First-class `creature.memory` (bounded capacity). Kinds: resource announcements, resource observations (position + water empty), heard signals (symbol + origin). Not yet used for navigation/decisions. |
 
 Sensing:
 
@@ -302,23 +304,27 @@ multi-context weighted sampling, and never speaker-success feedback.
 Memory is a named subdomain (`simulation/memory/`). It is **not** perception,
 announcement opportunity state, communication history, or lexicon evidence.
 
-| Concern          | Rule                                                                                                                           |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Container**    | `creature.memory`: `capacity`, monotonic `nextSequence`, `entries[]`. Plain JSON-serialisable.                                 |
-| **Capacity**     | Integer sampled at creation from `memoryCapacityRange` via independent seed stream. ≥ 1. Not intelligence-derived.             |
-| **Entry kinds**  | Discriminated union; baseline only `resource_announcement`. Future kinds extend the union without replacing the container.     |
-| **Ops**          | Pure `remember` / `recall` / `evictToCapacity` — callers do not hand-edit `entries`. Oldest-sequence-first eviction when full. |
-| **Write timing** | After communication accepts an emission with announcement provenance (not on mere opportunity or failed request).              |
-| **Recall**       | Announcement creation consults `hasResourceAnnouncementMemory(featureId)` before creating opportunities.                       |
-| **Not in scope** | Resource-location navigation memory, salience, decay curves, probabilistic forgetting.                                         |
+| Concern          | Rule                                                                                                                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Container**    | `creature.memory`: `capacity`, monotonic `nextSequence`, `entries[]`. Plain JSON-serialisable.                                                                                                        |
+| **Capacity**     | Integer sampled at creation from `memoryCapacityRange` via independent seed stream. ≥ 1. Not intelligence-derived. All kinds share one capacity.                                                      |
+| **Entry kinds**  | `resource_announcement`, `resource_observation` (feature + position + water `empty`), `heard_signal` (symbol + origin + emissionId; no sender).                                                       |
+| **Ops**          | Pure `remember` / `recall` / `evictToCapacity` — callers do not hand-edit `entries`. Oldest-sequence-first eviction when full. Observations refresh by featureId; heard signals dedupe by emissionId. |
+| **Write timing** | Observations after behaviour when a sensing pass ran; announcements after successful emissions; heard signals after reception this step.                                                              |
+| **Recall**       | Announcement creation consults `hasResourceAnnouncementMemory(featureId)`. Observation/heard entries are retained for future arbitration (not decision consumers yet).                                |
+| **Not in scope** | Memory-driven navigation/goals, salience, decay curves, probabilistic forgetting, sender provenance, confidence.                                                                                      |
+
+**Transitional:** `heard_signal` memory is the future authoritative retained hearing model. Legacy `pendingSignals` / curiosity investigation remains until cutover and must not be deepened as the retained model.
 
 Fixed-step order (authoritative):
 
 1. Resources/weather: advance rain schedule (refill basins on rain start), food-spawn opportunities, resolve eat/drink consumption grants against habitat (deterministic creature-id order).
 2. Behaviour for all creatures (needs apply consumption grants; perception episodes when not investigation-locked, single active announcement opportunity/preparation with memory consult, expire pending, decisions including investigation, movement or learning-only site inspection+completion, emission requests).
-3. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, produce authoritative `emittedThisStep`, write bounded histories, expire active emissions.
-4. Memory: write `resource_announcement` entries from **`emittedThisStep` only** (not from bounded `recentEmissions` / diagnostic retention).
-5. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into investigation opportunities with one-shot curiosity decisions (accepted may prompt wander reconsider).
+3. Memory: `resource_observation` writes/refreshes for creatures whose perception sensing ran this step (available food from snapshot; water via `availableOnly: false` geography query; forget food when re-sensing proves feature gone).
+4. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, produce authoritative `emittedThisStep`, write bounded histories, expire active emissions.
+5. Memory: write `resource_announcement` entries from **`emittedThisStep` only** (not from bounded `recentEmissions` / diagnostic retention).
+6. Memory: write `heard_signal` entries from `recentHeard` with `heardAt === timeSeconds` (no sender identity).
+7. Learning post-reception: convert newly heard signals into investigation opportunities with one-shot curiosity decisions (accepted may prompt wander reconsider).
 
 **Eligibility:** a signal heard in step _N_ becomes an opportunity at the end of step _N_ (curiosity decided then) and accepted opportunities are eligible for investigation from step _N+1_. No Svelte/renderer timing.
 

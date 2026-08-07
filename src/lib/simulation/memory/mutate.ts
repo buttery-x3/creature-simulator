@@ -4,15 +4,21 @@
  * Eviction policy (baseline): oldest-entry-first by ascending `sequence`.
  * No salience, decay, or probabilistic forgetting.
  *
- * Replacement: at most one `resource_announcement` per featureId — a second
- * remember for the same feature is a no-op (returns the existing memory).
+ * Keying:
+ * - resource_announcement: at most one per featureId; second remember is a no-op
+ * - resource_observation: at most one per featureId; remember refreshes (new sequence)
+ * - heard_signal: at most one per emissionId; second remember is a no-op
  */
 
 import type {
 	CreatureMemory,
 	CreatureMemoryEntry,
+	HeardSignalMemory,
+	HeardSignalMemoryDraft,
 	ResourceAnnouncementMemory,
-	ResourceAnnouncementMemoryDraft
+	ResourceAnnouncementMemoryDraft,
+	ResourceObservationMemory,
+	ResourceObservationMemoryDraft
 } from './types';
 
 /**
@@ -39,6 +45,61 @@ export function rememberResourceAnnouncement(
 		resourceKind: draft.resourceKind,
 		opportunityId: draft.opportunityId,
 		emissionId: draft.emissionId
+	};
+
+	return insertEntry(memory, entry);
+}
+
+/**
+ * Insert or refresh a resource-observation memory keyed by featureId.
+ * Refresh drops the prior observation for that feature and inserts a new entry
+ * with the next sequence so the observation becomes most recent.
+ */
+export function rememberResourceObservation(
+	memory: CreatureMemory,
+	draft: ResourceObservationMemoryDraft
+): CreatureMemory {
+	const withoutPrior = forgetEntries(
+		memory,
+		(e) => e.kind === 'resource_observation' && e.featureId === draft.featureId
+	);
+
+	const entry: ResourceObservationMemory = {
+		kind: 'resource_observation',
+		sequence: withoutPrior.nextSequence,
+		rememberedAt: draft.rememberedAt,
+		featureId: draft.featureId,
+		resourceKind: draft.resourceKind,
+		position: { x: draft.position.x, y: draft.position.y },
+		empty: draft.empty
+	};
+
+	return insertEntry(withoutPrior, entry);
+}
+
+/**
+ * Insert a heard-signal memory for one emission.
+ * No-op if this emissionId is already retained.
+ * Does not store sender identity.
+ */
+export function rememberHeardSignal(
+	memory: CreatureMemory,
+	draft: HeardSignalMemoryDraft
+): CreatureMemory {
+	const already = memory.entries.some(
+		(e) => e.kind === 'heard_signal' && e.emissionId === draft.emissionId
+	);
+	if (already) {
+		return memory;
+	}
+
+	const entry: HeardSignalMemory = {
+		kind: 'heard_signal',
+		sequence: memory.nextSequence,
+		rememberedAt: draft.rememberedAt,
+		emissionId: draft.emissionId,
+		symbolId: draft.symbolId,
+		origin: { x: draft.origin.x, y: draft.origin.y }
 	};
 
 	return insertEntry(memory, entry);

@@ -68,11 +68,10 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	perceptionIntervalSeconds: 0.25,
 	trackedObservationDurationSeconds: 4,
 
-	// Resource announcement: kind-level clarity + speaking position + bounded queue.
+	// Resource announcement: kind-level clarity + speaking position (single active opportunity).
 	resourceAnnouncementClarityMargin: 0.75,
 	speakingPositionSearchRadius: 2.5,
 	speakingPositionSearchResolution: 3,
-	maxQueuedAnnouncementOpportunitiesPerCreature: 4,
 	recentAnnouncementOutcomeHistoryLimit: 8,
 	triggerFeatureCueFadeSeconds: 1.25,
 
@@ -245,7 +244,6 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'maxPendingSignalsPerCreature',
 		'lexiconHistoryLimit',
 		'lexiconAssignmentMinEvidenceCount',
-		'maxQueuedAnnouncementOpportunitiesPerCreature',
 		'recentAnnouncementOutcomeHistoryLimit',
 		'speakingPositionSearchResolution'
 	] as const) {
@@ -446,7 +444,7 @@ function createCreatures(
 			pendingSignals: [],
 			activeInvestigation: null,
 			recentLearning: [],
-			announcementOpportunities: [],
+			activeAnnouncementOpportunity: null,
 			announcementOpportunityCounter: 0,
 			recentAnnouncementOutcomes: [],
 			activeAnnouncementCue: null

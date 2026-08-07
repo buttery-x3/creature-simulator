@@ -154,7 +154,7 @@ resource-announcement opportunity lifecycle (FLAME-71):
 - `types.ts` — opportunities, episodes (re-export shapes), clarity/outcome records;
 - `clarity.ts` — pure kind-level clarity evaluation;
 - `speaking-position.ts` — pure deterministic speaking-position search;
-- `opportunity-lifecycle.ts` — create/queue/promote/invalidate opportunities (consults memory);
+- `opportunity-lifecycle.ts` — create/complete/invalidate the single active opportunity (consults memory; no deferred queue);
 - `step-announcement.ts` — per-creature announcement advance and emission requests;
 - `index.ts` — exports for simulation siblings.
 

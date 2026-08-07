@@ -67,7 +67,7 @@ describe('stepAnnouncement integration', () => {
 
 		const c = state.creatures[0]!;
 		expect(
-			c.recentAnnouncementOutcomes.length + c.announcementOpportunities.length
+			c.recentAnnouncementOutcomes.length + (c.activeAnnouncementOpportunity !== null ? 1 : 0)
 		).toBeGreaterThan(0);
 		// When emission happened, provenance and exact lexicon.
 		if (c.emissionCount > 0) {
@@ -78,7 +78,10 @@ describe('stepAnnouncement integration', () => {
 			expect(state.recentEmissions[0]!.origin.y).toBeCloseTo(c.position.y);
 		} else {
 			// At least opportunity exists for the food feature.
-			const open = c.announcementOpportunities.find((o) => o.triggerFeatureId === food.id);
+			const open =
+				c.activeAnnouncementOpportunity?.triggerFeatureId === food.id
+					? c.activeAnnouncementOpportunity
+					: null;
 			const done = c.recentAnnouncementOutcomes.find((o) => o.triggerFeatureId === food.id);
 			expect(open || done).toBeTruthy();
 		}
@@ -117,7 +120,9 @@ describe('stepAnnouncement integration', () => {
 		}
 		const c = state.creatures[0]!;
 		const foodOps = [
-			...c.announcementOpportunities.filter((o) => o.triggerFeatureId === food.id),
+			...(c.activeAnnouncementOpportunity?.triggerFeatureId === food.id
+				? [c.activeAnnouncementOpportunity]
+				: []),
 			...c.recentAnnouncementOutcomes.filter((o) => o.triggerFeatureId === food.id)
 		];
 		// One continuous episode → at most one opportunity lifecycle for that feature.
@@ -144,7 +149,7 @@ describe('stepAnnouncement integration', () => {
 			],
 			config
 		});
-		const open = result.creature.announcementOpportunities[0];
+		const open = result.creature.activeAnnouncementOpportunity;
 		const done = result.creature.recentAnnouncementOutcomes[0];
 		const triggerId = open?.triggerFeatureId ?? done?.triggerFeatureId;
 		expect(triggerId).toBe(food.id);
@@ -203,10 +208,117 @@ describe('stepAnnouncement integration', () => {
 		const created = result.creature.recentAnnouncementOpportunityDecisions.some(
 			(d) => d.reason === 'created'
 		);
-		const open = result.creature.announcementOpportunities.some(
-			(o) => o.triggerFeatureId === food.id
-		);
+		const open = result.creature.activeAnnouncementOpportunity?.triggerFeatureId === food.id;
 		expect(created || open || result.creature.recentAnnouncementOutcomes.length > 0).toBe(true);
+	});
+
+	it('does not retain a second simultaneous discovery after the first completes', () => {
+		const config = {
+			...defaultSimulationConfig('ann-no-promote'),
+			// Keep the current opportunity open so we can assert single-slot semantics.
+			emissionCooldownSeconds: 100,
+			resourceAnnouncementClarityMargin: 0
+		};
+		const habitat = createSimulation(config).habitat;
+		const foodA = habitat.food[0]!;
+		const foodB = habitat.food.find((f) => f.id !== foodA.id) ?? habitat.water[0] ?? null;
+		expect(foodB).not.toBeNull();
+		const creature = testCreature({
+			id: 'creature-0',
+			position: { ...foodA.position },
+			lastEmissionAt: 0
+		});
+		const created = stepAnnouncement({
+			creature,
+			habitat,
+			timeSeconds: 1,
+			newlyPerceived: [
+				{
+					featureId: foodA.id,
+					resourceKind: 'food',
+					position: { ...foodA.position },
+					perceptionEpisodeId: `ep-${foodA.id}-0`,
+					discoveredAt: 1
+				},
+				{
+					featureId: foodB!.id,
+					resourceKind: foodB!.kind === 'water' ? 'water' : 'food',
+					position: { ...foodB!.position },
+					perceptionEpisodeId: `ep-${foodB!.id}-0`,
+					discoveredAt: 1
+				}
+			],
+			config
+		});
+		expect(created.creature.activeAnnouncementOpportunity).not.toBeNull();
+		const selectedId = created.creature.activeAnnouncementOpportunity!.triggerFeatureId;
+		const otherId = selectedId === foodA.id ? foodB!.id : foodA.id;
+		expect(
+			created.creature.recentAnnouncementOpportunityDecisions.some(
+				(d) =>
+					d.featureId === otherId &&
+					(d.reason === 'not_selected_same_perception_pass' || d.reason === 'announcement_busy')
+			)
+		).toBe(true);
+
+		// Clear active (simulate completion) — other feature must not auto-promote.
+		const after = stepAnnouncement({
+			creature: {
+				...created.creature,
+				activeAnnouncementOpportunity: null,
+				lastEmissionAt: 1
+			},
+			habitat,
+			timeSeconds: 2,
+			newlyPerceived: [],
+			config
+		});
+		expect(after.creature.activeAnnouncementOpportunity).toBeNull();
+	});
+
+	it('does not create announcement opportunities while investigation is locked', () => {
+		const config = {
+			...defaultSimulationConfig('ann-invest-lock'),
+			sensingRadius: 10,
+			perceptionIntervalSeconds: 0.01,
+			emissionCooldownSeconds: 0,
+			creatureCount: 1
+		};
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		const creature = testCreature({
+			id: 'creature-0',
+			position: { ...food.position },
+			movementSpeed: 0,
+			goal: 'investigate_signal',
+			action: 'move',
+			target: { kind: 'point', position: { x: food.position.x + 0.5, y: food.position.y } },
+			activeInvestigation: {
+				emissionId: 'em-lock',
+				symbolId: 'glyph-0',
+				senderId: 'creature-9',
+				origin: { x: food.position.x + 0.5, y: food.position.y },
+				startedAt: 0
+			},
+			nextReconsiderAt: 999
+		});
+		let state: SimulationState = {
+			...base,
+			creatures: [creature],
+			activeEmissions: [],
+			recentEmissions: []
+		};
+		for (let i = 0; i < 15; i += 1) {
+			state = stepSimulation(state, config);
+		}
+		const c = state.creatures[0]!;
+		// Still investigating or just finished — must never have queued deferred announcements.
+		expect(c.activeAnnouncementOpportunity).toBeNull();
+		expect(c.recentAnnouncementOutcomes).toHaveLength(0);
+		// Ordinary discovery episodes frozen while locked: no episodes for food while investigating.
+		if (c.goal === 'investigate_signal') {
+			expect(c.perception.activeEpisodes).toHaveLength(0);
+		}
 	});
 
 	it('keeps memory defined across multi-step simulation with discoveries', () => {

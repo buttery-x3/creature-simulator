@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyMemory } from '../memory/create-memory';
 import { rememberResourceAnnouncement } from '../memory/mutate';
-import {
-	createOpportunitiesFromDiscoveries,
-	getActiveOpportunity,
-	removeOpportunityAndPromote
-} from './opportunity-lifecycle';
+import { createOpportunitiesFromDiscoveries, getActiveOpportunity } from './opportunity-lifecycle';
 import type { NewlyPerceivedResource } from './types';
 
 function discovery(
@@ -29,39 +25,51 @@ function createOpts(
 	return createOpportunitiesFromDiscoveries({
 		creatureId: 'creature-0',
 		creaturePosition: { x: 0, y: 0 },
-		existing: [],
+		activeOpportunity: null,
 		opportunityCounter: 0,
 		memory: emptyMemory(),
-		config: { maxQueuedAnnouncementOpportunitiesPerCreature: 4 },
 		...partial
 	});
 }
 
 describe('createOpportunitiesFromDiscoveries', () => {
-	it('creates independent opportunities for distinct features in feature-id order', () => {
+	it('selects one opportunity for simultaneous discoveries in feature-id order', () => {
 		const result = createOpts({
 			newlyPerceived: [discovery({ featureId: 'food-b' }), discovery({ featureId: 'food-a' })]
 		});
-		expect(result.opportunities).toHaveLength(2);
-		expect(result.opportunities[0]!.triggerFeatureId).toBe('food-a');
-		expect(result.opportunities[0]!.state).toBe('ready');
-		expect(result.opportunities[1]!.triggerFeatureId).toBe('food-b');
-		expect(result.opportunities[1]!.state).toBe('queued');
-		expect(result.opportunities[0]!.id).not.toBe(result.opportunities[1]!.id);
-		expect(result.decisions.every((d) => d.reason === 'created')).toBe(true);
+		expect(result.activeOpportunity).not.toBeNull();
+		expect(result.activeOpportunity!.triggerFeatureId).toBe('food-a');
+		expect(result.activeOpportunity!.state).toBe('ready');
+		expect(result.decisions).toEqual([
+			expect.objectContaining({ featureId: 'food-a', reason: 'created' }),
+			expect.objectContaining({
+				featureId: 'food-b',
+				reason: 'not_selected_same_perception_pass'
+			})
+		]);
 	});
 
-	it('does not duplicate the same perception episode', () => {
+	it('does not create a second opportunity while one is already active', () => {
+		const first = createOpts({ newlyPerceived: [discovery({ featureId: 'food-1' })] });
+		const result = createOpts({
+			newlyPerceived: [discovery({ featureId: 'food-2' })],
+			activeOpportunity: first.activeOpportunity,
+			opportunityCounter: first.opportunityCounter
+		});
+		expect(result.activeOpportunity!.triggerFeatureId).toBe('food-1');
+		expect(result.decisions[0]!.reason).toBe('announcement_busy');
+	});
+
+	it('records already_active when the same feature rediscovers while open', () => {
 		const d = discovery({ featureId: 'food-1', perceptionEpisodeId: 'ep-1' });
 		const first = createOpts({ newlyPerceived: [d] });
 		const second = createOpts({
 			newlyPerceived: [d],
-			existing: first.opportunities,
+			activeOpportunity: first.activeOpportunity,
 			opportunityCounter: first.opportunityCounter
 		});
-		expect(second.opportunities).toHaveLength(1);
-		// Open feature check fires before same_episode when opportunity still open.
-		expect(second.decisions[0]!.reason).toBe('open_or_queued');
+		expect(second.activeOpportunity!.id).toBe(first.activeOpportunity!.id);
+		expect(second.decisions[0]!.reason).toBe('already_active');
 	});
 
 	it('suppresses rediscovery when announcement memory is retained', () => {
@@ -78,7 +86,7 @@ describe('createOpportunitiesFromDiscoveries', () => {
 			],
 			memory
 		});
-		expect(result.opportunities).toHaveLength(0);
+		expect(result.activeOpportunity).toBeNull();
 		expect(result.decisions).toEqual([
 			expect.objectContaining({
 				featureId: 'food-1',
@@ -99,48 +107,23 @@ describe('createOpportunitiesFromDiscoveries', () => {
 			newlyPerceived: [discovery({ featureId: 'food-2' })],
 			memory
 		});
-		expect(result.opportunities).toHaveLength(1);
-		expect(result.opportunities[0]!.triggerFeatureId).toBe('food-2');
+		expect(result.activeOpportunity!.triggerFeatureId).toBe('food-2');
 		expect(result.decisions[0]!.reason).toBe('created');
 	});
 
-	it('does not create a second open opportunity for the same feature', () => {
-		const first = createOpts({ newlyPerceived: [discovery({ featureId: 'food-1' })] });
-		const result = createOpts({
-			newlyPerceived: [discovery({ featureId: 'food-1', perceptionEpisodeId: 'ep-food-1-new' })],
-			existing: first.opportunities,
-			opportunityCounter: first.opportunityCounter
-		});
-		expect(result.opportunities).toHaveLength(1);
-		expect(result.decisions[0]!.reason).toBe('open_or_queued');
-	});
-
-	it('records overflow outcomes without merging kinds', () => {
-		const existing = createOpts({
-			newlyPerceived: [discovery({ featureId: 'food-1' }), discovery({ featureId: 'food-2' })],
-			config: { maxQueuedAnnouncementOpportunitiesPerCreature: 2 }
-		}).opportunities;
-
-		const result = createOpts({
-			newlyPerceived: [discovery({ featureId: 'food-3', perceptionEpisodeId: 'ep-food-3' })],
-			existing,
-			opportunityCounter: 2,
-			config: { maxQueuedAnnouncementOpportunitiesPerCreature: 2 }
-		});
-		expect(result.opportunities).toHaveLength(2);
-		expect(result.overflowOutcomes).toHaveLength(1);
-		expect(result.overflowOutcomes[0]!.reason).toBe('queue_overflow');
-		expect(result.overflowOutcomes[0]!.triggerFeatureId).toBe('food-3');
-		expect(result.decisions[0]!.reason).toBe('queue_overflow');
-	});
-
-	it('promotes the next queued opportunity after removal', () => {
+	it('does not promote a prior simultaneous discovery after the active one is cleared', () => {
 		const created = createOpts({
 			newlyPerceived: [discovery({ featureId: 'food-1' }), discovery({ featureId: 'food-2' })]
 		});
-		const active = getActiveOpportunity(created.opportunities)!;
-		const remaining = removeOpportunityAndPromote(created.opportunities, active.id);
-		expect(getActiveOpportunity(remaining)?.triggerFeatureId).toBe('food-2');
-		expect(getActiveOpportunity(remaining)?.state).toBe('ready');
+		expect(created.activeOpportunity!.triggerFeatureId).toBe('food-1');
+		// Completing the active opportunity leaves null — no deferred food-2 task.
+		const afterClear = getActiveOpportunity(null);
+		expect(afterClear).toBeNull();
+		const later = createOpts({
+			newlyPerceived: [],
+			activeOpportunity: null,
+			opportunityCounter: created.opportunityCounter
+		});
+		expect(later.activeOpportunity).toBeNull();
 	});
 });

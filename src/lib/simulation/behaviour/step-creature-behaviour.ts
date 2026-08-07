@@ -87,7 +87,6 @@ export type BehaviourStepConfig = Pick<
 	| 'resourceAnnouncementClarityMargin'
 	| 'speakingPositionSearchRadius'
 	| 'speakingPositionSearchResolution'
-	| 'maxQueuedAnnouncementOpportunitiesPerCreature'
 	| 'recentAnnouncementOutcomeHistoryLimit'
 	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
 	| 'triggerFeatureCueFadeSeconds'
@@ -245,24 +244,32 @@ export function stepCreatureBehaviour(
 	let next: Creature = { ...creature, ...needs };
 	let emissionRequest: EmissionRequest | null = null;
 
-	// 2. Perception tick (episodes + newly perceived for announcements)
-	const perceived = updatePerception(
-		next.perception,
-		next.position,
-		habitat,
-		timeSeconds,
-		config,
-		next.id
-	);
-	next = { ...next, perception: perceived.perception };
+	// 2. Perception tick (episodes + newly perceived for announcements).
+	// While committed to signal investigation, freeze ordinary resource-discovery
+	// episodes so resources passed en route do not create announcement work or
+	// pollute continuous-episode state for later rediscovery.
+	const investigationLockedEarly = isInvestigationLocked(next);
+	let newlyPerceived: ReturnType<typeof updatePerception>['newlyPerceived'] = [];
+	if (!investigationLockedEarly) {
+		const perceived = updatePerception(
+			next.perception,
+			next.position,
+			habitat,
+			timeSeconds,
+			config,
+			next.id
+		);
+		next = { ...next, perception: perceived.perception };
+		newlyPerceived = perceived.newlyPerceived;
+	}
 
-	// 2a. Resource announcement lifecycle (need-independent opportunity creation)
+	// 2a. Resource announcement lifecycle (need-independent; at most one active)
 	const announcementConfig = config as AnnouncementStepConfig;
 	const announced = stepAnnouncement({
 		creature: next,
 		habitat,
 		timeSeconds,
-		newlyPerceived: perceived.newlyPerceived,
+		newlyPerceived,
 		config: announcementConfig
 	});
 	next = announced.creature;
@@ -465,7 +472,7 @@ export function stepCreatureBehaviour(
 	next = { ...next, ...moved };
 
 	// After movement, re-check announcement clarity (emit mid-reposition when clear).
-	if (announcementLocked || next.announcementOpportunities.length > 0) {
+	if (announcementLocked || next.activeAnnouncementOpportunity !== null) {
 		const afterMove = stepAnnouncement({
 			creature: next,
 			habitat,

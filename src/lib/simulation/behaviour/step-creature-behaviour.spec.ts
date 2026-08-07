@@ -328,28 +328,26 @@ describe('announcement preparation lock and exit replan', () => {
 			hunger: 0.1,
 			thirst: 0.1,
 			energy: 0.95,
-			announcementOpportunities: [
-				{
-					id: 'ann-creature-0-0',
-					creatureId: 'creature-0',
-					triggerFeatureId: 'food-0',
-					resourceKind: 'food',
-					triggerFeaturePosition: { x: 2, y: 0 },
-					perceptionEpisodeId: 'ep-food-0-0',
-					discoveredAt: 0,
-					discoveryCreaturePosition: { x: 0, y: 0 },
-					state: 'repositioning',
-					speakingTarget: { ...speakingTarget },
-					initialClarity: {
-						announcedKind: 'food',
-						nearestAnnouncedKindDistance: 2,
-						nearestOppositeKindDistance: 2.1,
-						clarityMargin: 0.75,
-						clear: false,
-						reason: 'unclear_margin'
-					}
+			activeAnnouncementOpportunity: {
+				id: 'ann-creature-0-0',
+				creatureId: 'creature-0',
+				triggerFeatureId: 'food-0',
+				resourceKind: 'food',
+				triggerFeaturePosition: { x: 2, y: 0 },
+				perceptionEpisodeId: 'ep-food-0-0',
+				discoveredAt: 0,
+				discoveryCreaturePosition: { x: 0, y: 0 },
+				state: 'repositioning',
+				speakingTarget: { ...speakingTarget },
+				initialClarity: {
+					announcedKind: 'food',
+					nearestAnnouncedKindDistance: 2,
+					nearestOppositeKindDistance: 2.1,
+					clarityMargin: 0.75,
+					clear: false,
+					reason: 'unclear_margin'
 				}
-			],
+			},
 			announcementOpportunityCounter: 1,
 			activeAnnouncementCue: {
 				opportunityId: 'ann-creature-0-0',
@@ -381,14 +379,12 @@ describe('announcement preparation lock and exit replan', () => {
 			position: mid,
 			target: { kind: 'point', position: mid },
 			movementSpeed: 0,
-			announcementOpportunities: [
-				{
-					...preparingCreature().announcementOpportunities[0]!,
-					triggerFeatureId: food.id,
-					triggerFeaturePosition: { ...food.position },
-					speakingTarget: mid
-				}
-			],
+			activeAnnouncementOpportunity: {
+				...preparingCreature().activeAnnouncementOpportunity!,
+				triggerFeatureId: food.id,
+				triggerFeaturePosition: { ...food.position },
+				speakingTarget: mid
+			},
 			activeAnnouncementCue: {
 				opportunityId: 'ann-creature-0-0',
 				triggerFeatureId: food.id,
@@ -424,15 +420,13 @@ describe('announcement preparation lock and exit replan', () => {
 			target: { kind: 'point', position: { ...food.position } },
 			// Stale far-future timer that must not survive exit.
 			nextReconsiderAt: 9999,
-			announcementOpportunities: [
-				{
-					...preparingCreature().announcementOpportunities[0]!,
-					triggerFeatureId: food.id,
-					triggerFeaturePosition: { ...food.position },
-					state: 'repositioning',
-					speakingTarget: { ...food.position }
-				}
-			],
+			activeAnnouncementOpportunity: {
+				...preparingCreature().activeAnnouncementOpportunity!,
+				triggerFeatureId: food.id,
+				triggerFeaturePosition: { ...food.position },
+				state: 'repositioning',
+				speakingTarget: { ...food.position }
+			},
 			activeAnnouncementCue: {
 				opportunityId: 'ann-creature-0-0',
 				triggerFeatureId: food.id,
@@ -467,13 +461,11 @@ describe('announcement preparation lock and exit replan', () => {
 		// Trigger feature id does not exist → invalidate.
 		const creature = preparingCreature({
 			nextReconsiderAt: 8888,
-			announcementOpportunities: [
-				{
-					...preparingCreature().announcementOpportunities[0]!,
-					triggerFeatureId: 'missing-food-feature',
-					state: 'repositioning'
-				}
-			]
+			activeAnnouncementOpportunity: {
+				...preparingCreature().activeAnnouncementOpportunity!,
+				triggerFeatureId: 'missing-food-feature',
+				state: 'repositioning'
+			}
 		});
 		const timeSeconds = 5;
 		const next = stepCreatureBehaviour(
@@ -489,7 +481,7 @@ describe('announcement preparation lock and exit replan', () => {
 			next.recentAnnouncementOutcomes.some((o) => o.reason === 'invalid_trigger_feature')
 		).toBe(true);
 		// The invalidated opportunity must not remain open.
-		expect(next.announcementOpportunities.some((o) => o.id === 'ann-creature-0-0')).toBe(false);
+		expect(next.activeAnnouncementOpportunity).toBeNull();
 		expect(next.lastDecision).not.toBeNull();
 		expect(next.lastDecision?.trigger).toBe('action_complete');
 		expect(next.nextReconsiderAt).toBeCloseTo(timeSeconds + config.reconsiderIntervalSeconds);
@@ -523,13 +515,11 @@ describe('announcement preparation lock and exit replan', () => {
 					curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
 				}
 			],
-			announcementOpportunities: [
-				{
-					...preparingCreature().announcementOpportunities[0]!,
-					triggerFeatureId: 'gone-feature',
-					state: 'repositioning'
-				}
-			]
+			activeAnnouncementOpportunity: {
+				...preparingCreature().activeAnnouncementOpportunity!,
+				triggerFeatureId: 'gone-feature',
+				state: 'repositioning'
+			}
 		});
 		const timeSeconds = 3;
 		const next = stepCreatureBehaviour(

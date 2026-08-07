@@ -2,12 +2,13 @@
  * Fixed-step learning advance hooks.
  *
  * - Mid-step: expire pending only (evidence is resolved on arrival, not while travelling).
- * - Arrival resolution: force perception, classify evidence, reinforce once, clear investigation.
+ * - Arrival resolution: ephemeral local inspection for evidence only (no FLAME-71
+ *   perception episodes or resource-announcement opportunities), reinforce once, clear investigation.
  * - Post-reception: convert newly heard signals into pending candidates.
  */
 
 import type { Habitat } from '$lib/habitat';
-import { senseAt } from '../behaviour/perception';
+import { queryFeaturesNear } from '../behaviour/habitat-feature-query';
 import type { Creature, SimulationConfig } from '../types';
 import { applyLexiconResolution } from './lexicon-resolution';
 import {
@@ -19,8 +20,7 @@ import {
 	appendLearningHistory,
 	insertPendingFromHeard,
 	expirePendingSignals,
-	outcomeFromEvidenceFlags,
-	qualifyEvidenceNearOrigin
+	outcomeFromEvidenceFlags
 } from './signal-investigation';
 import type { LearningHistoryEntry, LearningOutcome } from './types';
 
@@ -43,6 +43,34 @@ export type LearningStepConfig = Pick<
 	| 'lexiconAssignmentMinEvidenceCount'
 	| 'lexiconHistoryLimit'
 >;
+
+/**
+ * Ephemeral arrival inspection: food/water near the signal origin for learning only.
+ * Does not mutate creature perception episodes or create announcement opportunities.
+ */
+function inspectEvidenceNearOrigin(
+	habitat: Habitat,
+	origin: { x: number; y: number },
+	evidenceRadius: number
+): { food: boolean; water: boolean; foodFeatureIds: string[]; waterFeatureIds: string[] } {
+	const nearby = queryFeaturesNear(habitat, origin, evidenceRadius, ['food', 'water']);
+	const foodFeatureIds: string[] = [];
+	const waterFeatureIds: string[] = [];
+	const ordered = [...nearby].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+	for (const feature of ordered) {
+		if (feature.kind === 'food') {
+			foodFeatureIds.push(feature.id);
+		} else if (feature.kind === 'water') {
+			waterFeatureIds.push(feature.id);
+		}
+	}
+	return {
+		food: foodFeatureIds.length > 0,
+		water: waterFeatureIds.length > 0,
+		foodFeatureIds,
+		waterFeatureIds
+	};
+}
 
 function snapshotStrengths(
 	creature: Creature,
@@ -72,7 +100,9 @@ export function advanceActiveLearning(
 }
 
 /**
- * Resolve investigation at the origin: force local perception, reinforce once, clear active.
+ * Resolve investigation at the origin: ephemeral local inspection for learning
+ * evidence, reinforce once, clear active. Does not create FLAME-71 perception
+ * episodes or resource-announcement opportunities.
  * Call only when action is `investigate` (creature has stopped at the site).
  */
 export function resolveInvestigationAtSite(
@@ -86,17 +116,8 @@ export function resolveInvestigationAtSite(
 		return creature;
 	}
 
-	// Authoritative sensing at arrival — do not depend on a stale perception interval.
-	const sensed = senseAt(
-		creature.position,
-		habitat,
-		timeSeconds,
-		config,
-		creature.perception,
-		creature.id
-	);
-	const perception = sensed.perception;
-	const evidence = qualifyEvidenceNearOrigin(perception, active.origin, config);
+	// Learning-only inspection — leave ordinary perception episodes unchanged.
+	const evidence = inspectEvidenceNearOrigin(habitat, active.origin, config.learningEvidenceRadius);
 
 	const before = snapshotStrengths(creature, active.symbolId);
 	let associations = creature.symbolAssociations;
@@ -125,7 +146,7 @@ export function resolveInvestigationAtSite(
 		if (evidence.water) {
 			bits.push(`water[${evidence.waterFeatureIds.join(',')}]`);
 		}
-		reason = `arrival inspection: perceived ${bits.join(' + ')} within evidence radius of origin`;
+		reason = `arrival inspection: observed ${bits.join(' + ')} within evidence radius of origin`;
 	} else {
 		if (config.noEvidenceConfidenceReduction > 0) {
 			const reduced = applyNoEvidenceReduction(
@@ -168,7 +189,7 @@ export function resolveInvestigationAtSite(
 
 	return {
 		...creature,
-		perception,
+		// Intentionally leave perception (episodes/observations) unchanged.
 		symbolAssociations: associations,
 		lexicon: lexiconApplied.lexicon,
 		recentLexiconChanges: lexiconApplied.recentLexiconChanges,

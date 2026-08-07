@@ -222,7 +222,7 @@
 						<th scope="col">Creature</th>
 						<th scope="col">Ann. memories</th>
 						<th scope="col">Active trigger</th>
-						<th scope="col">Queued</th>
+						<th scope="col">Active state</th>
 						<th scope="col">Last decision</th>
 					</tr>
 				</thead>
@@ -240,7 +240,7 @@
 							</td>
 							<td>{row.announcementMemoryCount}</td>
 							<td>{row.activeTriggerFeatureId ?? '—'}</td>
-							<td>{row.queuedCount}</td>
+							<td>{row.activeState ?? '—'}</td>
 							<td>
 								{#if row.lastDecisionReason}
 									{row.lastDecisionReason}

@@ -92,12 +92,11 @@ describe('announcement memory integration', () => {
 					discoveredAt: 10
 				}
 			],
-			existing: [],
+			activeOpportunity: null,
 			opportunityCounter: 1,
-			memory,
-			config: { maxQueuedAnnouncementOpportunitiesPerCreature: 4 }
+			memory
 		});
-		expect(result.opportunities).toHaveLength(0);
+		expect(result.activeOpportunity).toBeNull();
 		expect(result.decisions[0]!.reason).toBe('announcement_remembered');
 	});
 
@@ -209,12 +208,11 @@ describe('announcement memory integration', () => {
 					discoveredAt: 20
 				}
 			],
-			existing: [],
+			activeOpportunity: null,
 			opportunityCounter: 0,
-			memory,
-			config: { maxQueuedAnnouncementOpportunitiesPerCreature: 4 }
+			memory
 		});
-		expect(result.opportunities).toHaveLength(1);
+		expect(result.activeOpportunity).not.toBeNull();
 		expect(result.decisions[0]!.reason).toBe('created');
 	});
 });

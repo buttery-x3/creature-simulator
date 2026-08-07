@@ -65,7 +65,7 @@ function creature(id: string, recentHeard: HeardSignal[] = []): Creature {
 		pendingSignals: [],
 		activeInvestigation: null,
 		recentLearning: [],
-		announcementOpportunities: [],
+		activeAnnouncementOpportunity: null,
 		announcementOpportunityCounter: 0,
 		recentAnnouncementOutcomes: [],
 		activeAnnouncementCue: null

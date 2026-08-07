@@ -90,7 +90,7 @@ function creature(
 		pendingSignals: [],
 		activeInvestigation: null,
 		recentLearning: [],
-		announcementOpportunities: [],
+		activeAnnouncementOpportunity: null,
 		announcementOpportunityCounter: 0,
 		recentAnnouncementOutcomes: [],
 		activeAnnouncementCue: null

@@ -36,9 +36,7 @@ export {
 	buildOutcome,
 	createOpportunitiesFromDiscoveries,
 	emptyAnnouncementState,
-	getActiveOpportunity,
-	removeOpportunityAndPromote,
-	updateOpportunity
+	getActiveOpportunity
 } from './opportunity-lifecycle';
 
 export {

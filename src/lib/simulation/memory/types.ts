@@ -51,7 +51,12 @@ export type CreatureMemory = {
  * Local diagnostics only — not a global audit stream.
  */
 export type AnnouncementOpportunityDecisionReason =
-	'same_episode' | 'open_or_queued' | 'announcement_remembered' | 'created' | 'queue_overflow';
+	| 'same_episode'
+	| 'already_active'
+	| 'announcement_remembered'
+	| 'created'
+	| 'announcement_busy'
+	| 'not_selected_same_perception_pass';
 
 export type AnnouncementOpportunityDecision = {
 	timeSeconds: number;

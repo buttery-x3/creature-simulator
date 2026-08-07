@@ -77,7 +77,7 @@ export type AnnouncementMemorySummaryRow = {
 	creatureId: string;
 	announcementMemoryCount: number;
 	activeTriggerFeatureId: string | null;
-	queuedCount: number;
+	activeState: 'ready' | 'repositioning' | null;
 	lastDecisionReason: string | null;
 	lastDecisionFeatureId: string | null;
 };
@@ -153,10 +153,7 @@ export function buildCommunicationViewModel(
 			completedOutcomes[entry.outcome] = (completedOutcomes[entry.outcome] ?? 0) + 1;
 		}
 
-		const activeOpp =
-			creature.announcementOpportunities.find(
-				(o) => o.state === 'ready' || o.state === 'repositioning'
-			) ?? null;
+		const activeOpp = creature.activeAnnouncementOpportunity;
 		const decisionHistory = Array.isArray(creature.recentAnnouncementOpportunityDecisions)
 			? creature.recentAnnouncementOpportunityDecisions
 			: [];
@@ -167,7 +164,7 @@ export function buildCommunicationViewModel(
 			announcementMemoryCount: memoryEntries.filter((e) => e.kind === 'resource_announcement')
 				.length,
 			activeTriggerFeatureId: activeOpp?.triggerFeatureId ?? null,
-			queuedCount: creature.announcementOpportunities.filter((o) => o.state === 'queued').length,
+			activeState: activeOpp?.state ?? null,
 			lastDecisionReason: lastDecision?.reason ?? null,
 			lastDecisionFeatureId: lastDecision?.featureId ?? null
 		});

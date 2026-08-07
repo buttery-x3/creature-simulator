@@ -64,7 +64,6 @@ export type StepSimulationConfig = Pick<
 	| 'resourceAnnouncementClarityMargin'
 	| 'speakingPositionSearchRadius'
 	| 'speakingPositionSearchResolution'
-	| 'maxQueuedAnnouncementOpportunitiesPerCreature'
 	| 'recentAnnouncementOutcomeHistoryLimit'
 	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
 	| 'triggerFeatureCueFadeSeconds'

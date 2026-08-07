@@ -132,6 +132,9 @@ describe('step signal learning', () => {
 		expect(
 			next.recentLexiconChanges.some((c) => c.meaning === 'food' && c.newSymbolId === 'glyph-2')
 		).toBe(true);
+		// Arrival inspection must not create announcement work or discovery episodes.
+		expect(next.activeAnnouncementOpportunity).toBeNull();
+		expect(next.perception.activeEpisodes).toEqual(creature.perception.activeEpisodes);
 		// At most once: second resolve with no active is no-op
 		const again = resolveInvestigationAtSite(next, habitat, 3, learningConfig);
 		expect(again.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!.foodEvidenceCount).toBe(

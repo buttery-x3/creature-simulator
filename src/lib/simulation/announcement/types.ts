@@ -4,6 +4,8 @@
  * Feature identity drives episodes, provenance and presentation.
  * Resource kind drives clarity, symbol selection and learning meaning.
  * Listener-facing HeardSignal must never include these fields.
+ *
+ * At most one active opportunity per creature — no deferred announcement queue.
  */
 
 import type { Vec2 } from '$lib/habitat';
@@ -27,7 +29,8 @@ export type NewlyPerceivedResource = {
 	discoveredAt: number;
 };
 
-export type AnnouncementOpportunityState = 'ready' | 'repositioning' | 'queued';
+/** Lifecycle state for the single current announcement opportunity. */
+export type AnnouncementOpportunityState = 'ready' | 'repositioning';
 
 /**
  * Authoritative announcement opportunity for one discovery episode.
@@ -66,7 +69,6 @@ export type AnnouncementOutcomeReason =
 	| 'invalid_trigger_feature'
 	| 'no_announced_kind_available'
 	| 'no_valid_speaking_position'
-	| 'queue_overflow'
 	| 'world_reset'
 	| 'creature_removed';
 
@@ -88,7 +90,6 @@ export type AnnouncementOpportunityOutcome = {
 	emittedSignalId: string | null;
 	emittedSymbolId: SymbolId | null;
 	productionMode: SymbolSelectionMode | null;
-	queuePosition: number | null;
 	completedAt: number;
 	reason: AnnouncementOutcomeReason;
 };

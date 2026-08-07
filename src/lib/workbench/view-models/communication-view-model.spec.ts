@@ -46,7 +46,8 @@ describe('buildCommunicationViewModel', () => {
 		expect(vm.announcementMemorySummaries[0]).toMatchObject({
 			creatureId: state.creatures[0]!.id,
 			announcementMemoryCount: 0,
-			activeTriggerFeatureId: null
+			activeTriggerFeatureId: null,
+			activeState: null
 		});
 	});
 });

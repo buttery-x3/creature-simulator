@@ -606,7 +606,7 @@ describe('discovery integration via stepSimulation', () => {
 		expect(state.recentEmissions).toHaveLength(0);
 		for (const c of state.creatures) {
 			expect(c.emissionCount).toBe(0);
-			expect(c.announcementOpportunities).toHaveLength(0);
+			expect(c.activeAnnouncementOpportunity).toBeNull();
 		}
 	});
 });

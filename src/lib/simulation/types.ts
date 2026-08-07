@@ -255,10 +255,10 @@ export type Creature = {
 	recentLearning: LearningHistoryEntry[];
 
 	/**
-	 * Open resource-announcement opportunities (active + queued), newest not required.
-	 * Order is creation order; at most one is ready/repositioning at a time.
+	 * Single current resource-announcement opportunity, if any.
+	 * No deferred/queued announcement tasks — present-time discovery only.
 	 */
-	announcementOpportunities: AnnouncementOpportunity[];
+	activeAnnouncementOpportunity: AnnouncementOpportunity | null;
 	/** Monotonic counter for stable opportunity ids. */
 	announcementOpportunityCounter: number;
 	/** Bounded recent opportunity outcomes for local lifecycle diagnostics. */
@@ -380,8 +380,6 @@ export type SimulationConfig = {
 	 * Speaking-position polar grid density (rings; angular steps = 2× this value, min 4).
 	 */
 	speakingPositionSearchResolution: number;
-	/** Max open announcement opportunities per creature (active + queued). */
-	maxQueuedAnnouncementOpportunitiesPerCreature: number;
 	/** Max length of recentAnnouncementOutcomes (oldest dropped). */
 	recentAnnouncementOutcomeHistoryLimit: number;
 	/**

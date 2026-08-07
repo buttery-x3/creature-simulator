@@ -357,7 +357,10 @@ export function stepCreatureBehaviour(
 	const announcementLocked = isAnnouncementLocked(next);
 	const behaviourLocked = investigationLocked || announcementLocked;
 
-	// 5. Invalid target → immediate replan (not while locked)
+	// 5. Invalid target → immediate replan (not while locked).
+	// Consumptive eat/drink use habitat-only validity (feature exists + amount > 0).
+	// When food is removed or a water basin is empty mid-meal, replan — do not stay
+	// stuck on eat/drink with zero grants (recoveryComplete never fires).
 	const isConsumptiveAction =
 		next.action === 'eat' || next.action === 'drink' || next.action === 'sleep';
 	const investigationStale =
@@ -379,7 +382,7 @@ export function stepCreatureBehaviour(
 				...search,
 				action: 'search'
 			};
-		} else if (!isConsumptiveAction) {
+		} else {
 			next = replan(next, habitat, timeSeconds, 'invalid_target', config, simulationSeed);
 		}
 	} else if (investigationStale && !announcementLocked) {

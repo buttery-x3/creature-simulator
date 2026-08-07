@@ -67,6 +67,110 @@ describe('stepCreatureBehaviour integration', () => {
 		expect(next.hunger).toBeLessThan(0.8);
 	});
 
+	it('leaves eat when the food target is removed mid-meal (depleted)', () => {
+		const config = defaultSimulationConfig('eat-depleted-replan');
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		const habitatWithoutFood = {
+			...base.habitat,
+			food: base.habitat.food.filter((f) => f.id !== food.id)
+		};
+		const creature = testCreature({
+			id: 'creature-0',
+			position: { ...food.position },
+			hunger: 0.8,
+			thirst: 0.1,
+			energy: 0.9,
+			goal: 'seek_food',
+			action: 'eat',
+			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
+			nextReconsiderAt: 999,
+			goalStartedAt: 0
+		});
+
+		const next = stepCreatureBehaviour(
+			creature,
+			config.fixedDt,
+			1,
+			config.seed,
+			habitatWithoutFood,
+			config,
+			{ food: 0, water: 0 }
+		).creature;
+
+		expect(next.action).not.toBe('eat');
+		expect(next.lastDecision?.trigger).toBe('invalid_target');
+	});
+
+	it('leaves drink when the water basin is empty mid-drink', () => {
+		const config = defaultSimulationConfig('drink-empty-replan');
+		const base = createSimulation(config);
+		const water = base.habitat.water[0]!;
+		const habitatEmpty = {
+			...base.habitat,
+			water: base.habitat.water.map((w) => (w.id === water.id ? { ...w, amount: 0 } : { ...w }))
+		};
+		const creature = testCreature({
+			id: 'creature-0',
+			position: { ...water.position },
+			hunger: 0.1,
+			thirst: 0.9,
+			energy: 0.9,
+			goal: 'seek_water',
+			action: 'drink',
+			target: { kind: 'feature', featureId: water.id, featureKind: 'water' },
+			nextReconsiderAt: 999,
+			goalStartedAt: 0
+		});
+
+		const next = stepCreatureBehaviour(
+			creature,
+			config.fixedDt,
+			1,
+			config.seed,
+			habitatEmpty,
+			config,
+			{ food: 0, water: 0 }
+		).creature;
+
+		expect(next.action).not.toBe('drink');
+		expect(next.lastDecision?.trigger).toBe('invalid_target');
+		// Basin still exists geographically but is not a usable drink target.
+		expect(habitatEmpty.water.some((w) => w.id === water.id && w.amount === 0)).toBe(true);
+	});
+
+	it('keeps eat while the food source is still available', () => {
+		const config = defaultSimulationConfig('eat-still-available');
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		expect(food.amount).toBeGreaterThan(0);
+		const creature = testCreature({
+			id: 'creature-0',
+			position: { ...food.position },
+			hunger: 0.8,
+			thirst: 0.1,
+			energy: 0.9,
+			goal: 'seek_food',
+			action: 'eat',
+			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
+			nextReconsiderAt: 999,
+			goalStartedAt: 0
+		});
+
+		const next = stepCreatureBehaviour(
+			creature,
+			config.fixedDt,
+			1,
+			config.seed,
+			base.habitat,
+			config,
+			{ food: config.eatRecoveryPerSecond * config.fixedDt, water: 0 }
+		).creature;
+
+		expect(next.action).toBe('eat');
+		expect(next.lastDecision?.trigger).not.toBe('invalid_target');
+	});
+
 	it('sleeping restores energy and stops movement', () => {
 		const config = defaultSimulationConfig('sleep-energy');
 		const base = createSimulation(config);

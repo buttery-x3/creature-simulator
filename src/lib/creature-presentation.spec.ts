@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Creature, CreatureAction } from '$lib/simulation';
+import { testCreature } from '$lib/simulation/test-creature';
 import {
 	INVESTIGATION_HOP_DURATION_SECONDS,
 	INVESTIGATION_HOP_HEIGHT,
@@ -17,84 +18,16 @@ function creature(
 	facing = 0,
 	action: CreatureAction = 'wander'
 ): Creature {
-	return {
+	return testCreature({
 		id,
 		position: { x, y },
 		facing,
-		movementSpeed: 1,
 		wanderTarget: { x: x + 1, y },
-		wanderDecisionIndex: 0,
 		searchTarget: { x: x - 1, y },
-		searchDecisionIndex: 0,
-		perception: {
-			lastUpdatedAt: -1,
-			perceivedFoodIds: [],
-			perceivedWaterIds: [],
-			observations: [],
-			tracked: null,
-			activeEpisodes: [],
-			episodeCounter: 0
-		},
-		hunger: 0.2,
-		thirst: 0.2,
-		energy: 0.85,
-		curiosity: 0.45,
-		memory: { capacity: 10, nextSequence: 0, entries: [] },
-		recentAnnouncementOpportunityDecisions: [],
-		goal: action === 'wander' ? 'wander' : action === 'search' ? 'seek_food' : 'seek_food',
+		intention: action === 'wander' ? 'wander' : 'satisfy_hunger',
 		action,
-		target: { kind: 'point', position: { x: x + 1, y } },
-		goalStartedAt: 0,
-		actionStartedAt: 0,
-		nextReconsiderAt: 1.5,
-		lastDecision: null,
-		lastCandidates: [],
-		recentTransitions: [],
-		preferredSymbolId: 'glyph-0',
-		emissionCount: 0,
-		lastEmissionAt: -1,
-		recentEmitted: [],
-		recentHeard: [],
-		symbolAssociations: [
-			{
-				symbolId: 'glyph-0',
-				foodStrength: 0,
-				waterStrength: 0,
-				foodEvidenceCount: 0,
-				waterEvidenceCount: 0
-			},
-			{
-				symbolId: 'glyph-1',
-				foodStrength: 0,
-				waterStrength: 0,
-				foodEvidenceCount: 0,
-				waterEvidenceCount: 0
-			},
-			{
-				symbolId: 'glyph-2',
-				foodStrength: 0,
-				waterStrength: 0,
-				foodEvidenceCount: 0,
-				waterEvidenceCount: 0
-			},
-			{
-				symbolId: 'glyph-3',
-				foodStrength: 0,
-				waterStrength: 0,
-				foodEvidenceCount: 0,
-				waterEvidenceCount: 0
-			}
-		],
-		lexicon: { food: null, water: null },
-		recentLexiconChanges: [],
-		pendingSignals: [],
-		activeInvestigation: null,
-		recentLearning: [],
-		activeAnnouncementOpportunity: null,
-		announcementOpportunityCounter: 0,
-		recentAnnouncementOutcomes: [],
-		activeAnnouncementCue: null
-	};
+		target: { kind: 'point', position: { x: x + 1, y } }
+	});
 }
 
 describe('reconcileCreatures', () => {
@@ -142,12 +75,11 @@ describe('reconcileCreatures', () => {
 		const base = creature('creature-0', 1, 2);
 		const withInv: Creature = {
 			...base,
-			goal: 'investigate_signal',
+			intention: 'investigate_signal',
 			action: 'investigate',
 			activeInvestigation: {
 				emissionId: 'em-1',
 				symbolId: 'glyph-1',
-				senderId: 'creature-9',
 				origin: { x: 4, y: 0 },
 				startedAt: 5
 			}
@@ -202,7 +134,6 @@ describe('reconcileCreatures', () => {
 			activeInvestigation: {
 				emissionId: 'em-2',
 				symbolId: 'glyph-2',
-				senderId: 'creature-9',
 				origin: { x: 1, y: 1 },
 				startedAt: 20
 			}

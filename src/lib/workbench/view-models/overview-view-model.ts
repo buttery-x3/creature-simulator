@@ -3,7 +3,7 @@
  * Observational only — does not mutate simulation state.
  */
 
-import type { Creature, CreatureGoal, SimulationState } from '$lib/simulation';
+import type { Creature, IntentionKind, SimulationState } from '$lib/simulation';
 
 export type NeedExtremum = {
 	value: number;
@@ -21,7 +21,7 @@ export type PopulationWellbeing = {
 };
 
 export type BehaviourSnapshot = {
-	byGoal: Record<CreatureGoal, number>;
+	byIntention: Record<IntentionKind, number>;
 };
 
 export type WorldSnapshot = {
@@ -48,23 +48,23 @@ export type OverviewViewModel = {
 	alerts: OverviewAlert[];
 };
 
-const GOALS: readonly CreatureGoal[] = [
+const INTENTIONS: readonly IntentionKind[] = [
 	'wander',
-	'seek_food',
-	'seek_water',
+	'satisfy_hunger',
+	'satisfy_thirst',
 	'rest',
 	'investigate_signal',
-	'prepare_announcement'
+	'announce_resource'
 ] as const;
 
-function emptyGoalCounts(): Record<CreatureGoal, number> {
+function emptyIntentionCounts(): Record<IntentionKind, number> {
 	return {
 		wander: 0,
-		seek_food: 0,
-		seek_water: 0,
+		satisfy_hunger: 0,
+		satisfy_thirst: 0,
 		rest: 0,
 		investigate_signal: 0,
-		prepare_announcement: 0
+		announce_resource: 0
 	};
 }
 
@@ -132,13 +132,13 @@ export function buildOverviewViewModel(state: SimulationState): OverviewViewMode
 		lowestEnergy: lowestBy(creatures, (c) => c.energy)
 	};
 
-	const byGoal = emptyGoalCounts();
+	const byIntention = emptyIntentionCounts();
 	for (const creature of creatures) {
-		byGoal[creature.goal] = (byGoal[creature.goal] ?? 0) + 1;
+		byIntention[creature.intention] = (byIntention[creature.intention] ?? 0) + 1;
 	}
-	// Ensure every known goal key is present for stable UI.
-	for (const goal of GOALS) {
-		byGoal[goal] = byGoal[goal] ?? 0;
+	// Ensure every known intention key is present for stable UI.
+	for (const intention of INTENTIONS) {
+		byIntention[intention] = byIntention[intention] ?? 0;
 	}
 
 	const world: WorldSnapshot = {
@@ -153,7 +153,7 @@ export function buildOverviewViewModel(state: SimulationState): OverviewViewMode
 
 	const alerts = buildAlerts(state);
 
-	return { wellbeing, behaviour: { byGoal }, world, alerts };
+	return { wellbeing, behaviour: { byIntention }, world, alerts };
 }
 
 function buildAlerts(state: SimulationState): OverviewAlert[] {

@@ -172,26 +172,20 @@ describe('investigation travel uses live moveToward', () => {
 		const opportunity = {
 			emissionId: 'em-test-0',
 			symbolId: 'glyph-0' as const,
-			senderId: 'creature-1',
-			origin: { ...origin },
-			heardAt: 0,
-			expiresAt: 999,
-			curiosityDecision: 'accepted' as const,
-			curiosityEvidence: { curiosity: 1, deterministicSample: 0 }
+			origin: { ...origin }
 		};
 		const creature = testCreature({
 			id: 'creature-0',
 			position: { x: 0, y: 0 },
 			facing: Math.PI,
 			movementSpeed: 1.35,
-			goal: 'investigate_signal',
+			intention: 'investigate_signal',
 			action: 'move',
 			target: { kind: 'point', position: { ...origin } },
-			goalStartedAt: 0,
+			intentionStartedAt: 0,
 			actionStartedAt: 0,
 			nextReconsiderAt: 999,
 			activeInvestigation: beginInvestigation(opportunity, 0),
-			pendingSignals: [],
 			hunger: 0,
 			thirst: 0,
 			energy: 1
@@ -211,7 +205,7 @@ describe('investigation travel uses live moveToward', () => {
 				config
 			);
 			next = result.creature;
-			if (next.action === 'investigate' || next.goal !== 'investigate_signal') {
+			if (next.action === 'investigate' || next.intention !== 'investigate_signal') {
 				resolved = true;
 				break;
 			}
@@ -222,7 +216,7 @@ describe('investigation travel uses live moveToward', () => {
 		// Either finished investigation replan or at least entered investigate action.
 		expect(
 			next.action === 'investigate' ||
-				next.goal !== 'investigate_signal' ||
+				next.intention !== 'investigate_signal' ||
 				next.activeInvestigation === null
 		).toBe(true);
 	});

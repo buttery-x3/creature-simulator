@@ -1,33 +1,26 @@
 /**
  * Pure creature roster and selected-detail helpers for the Creatures tab.
- * Investigation opportunity summaries use authoritative curiosity decisions (display only).
+ * Arbitration and investigation views read authoritative lastArbitration / memory only.
  */
 
 import type {
 	AnnouncementOpportunityDecision,
-	CandidateEvaluation,
 	Creature,
 	CreatureMemory,
 	CreatureTarget,
+	IntentionCandidate,
+	IntentionKind,
 	SignalEmission,
-	SignalInvestigationOpportunity,
 	SymbolId
 } from '$lib/simulation';
-import {
-	countAcceptedPending,
-	createEmptyMemory,
-	ensureCreatureMemory,
-	INVESTIGATION_ELIGIBLE_SCORE,
-	mostRecentCuriosityDecision,
-	selectBestAcceptedOpportunity
-} from '$lib/simulation';
+import { createEmptyMemory, ensureCreatureMemory, listHeardSignalMemories } from '$lib/simulation';
 
 export type RosterRow = {
 	id: string;
 	hunger: number;
 	thirst: number;
 	energy: number;
-	goal: Creature['goal'];
+	intention: IntentionKind;
 	foodSymbolId: SymbolId | null;
 	waterSymbolId: SymbolId | null;
 };
@@ -38,25 +31,23 @@ export type LabelledScoreTerm = {
 };
 
 /**
- * Compact investigation opportunity summary for the Creatures tab (not multi-factor scores).
+ * Compact investigation / heard-signal summary for the Creatures tab.
  */
 export type InvestigationOpportunitySummary = {
-	curiosity: number;
-	acceptedPendingCount: number;
-	recentDecision: 'accepted' | 'rejected' | 'pending' | null;
-	recentEmissionId: string | null;
-	recentSample: number | null;
+	heardSignalMemoryCount: number;
 	activeEmissionId: string | null;
 	activeSymbolId: SymbolId | null;
-	eligibleEmissionId: string | null;
-	eligibleScore: number | null;
+	newestHeardEmissionId: string | null;
+	newestHeardSymbolId: SymbolId | null;
 } | null;
 
 export type CandidateView = {
-	goal: CandidateEvaluation['goal'];
+	intention: IntentionKind;
 	valid: boolean;
 	score: number;
-	reason: string;
+	baseScore: number;
+	continuityAdjustment: number;
+	reasonCodes: string[];
 	rejectionReason?: string;
 	selected: boolean;
 	scoreTerms: LabelledScoreTerm[] | null;
@@ -68,7 +59,7 @@ export function buildRosterRows(creatures: readonly Creature[]): RosterRow[] {
 		hunger: c.hunger,
 		thirst: c.thirst,
 		energy: c.energy,
-		goal: c.goal,
+		intention: c.intention,
 		foodSymbolId: c.lexicon.food,
 		waterSymbolId: c.lexicon.water
 	}));
@@ -85,45 +76,33 @@ export function formatTargetLabel(target: CreatureTarget | null): string {
 }
 
 /**
- * Build curiosity/investigation opportunity summary for the selected creature.
+ * Build investigation / heard-signal memory summary for the selected creature.
  */
 export function buildInvestigationOpportunitySummary(
 	creature: Creature,
-	timeSeconds: number
+	_timeSeconds: number
 ): InvestigationOpportunitySummary {
-	const recent = mostRecentCuriosityDecision(creature.pendingSignals);
-	const acceptedCount = countAcceptedPending(creature.pendingSignals, timeSeconds);
-	const eligible = selectBestAcceptedOpportunity(
-		creature.pendingSignals,
-		timeSeconds,
-		INVESTIGATION_ELIGIBLE_SCORE
-	);
+	void _timeSeconds;
+	const heard = listHeardSignalMemories(ensureCreatureMemory(creature).memory);
 	const active = creature.activeInvestigation;
+	const newest = heard.length > 0 ? heard[heard.length - 1]! : null;
 
-	if (!recent && !active && acceptedCount === 0) {
+	if (!newest && !active && heard.length === 0) {
 		return {
-			curiosity: creature.curiosity,
-			acceptedPendingCount: 0,
-			recentDecision: null,
-			recentEmissionId: null,
-			recentSample: null,
+			heardSignalMemoryCount: 0,
 			activeEmissionId: null,
 			activeSymbolId: null,
-			eligibleEmissionId: null,
-			eligibleScore: null
+			newestHeardEmissionId: null,
+			newestHeardSymbolId: null
 		};
 	}
 
 	return {
-		curiosity: creature.curiosity,
-		acceptedPendingCount: acceptedCount,
-		recentDecision: recent?.curiosityDecision ?? null,
-		recentEmissionId: recent?.emissionId ?? null,
-		recentSample: recent?.curiosityEvidence?.deterministicSample ?? null,
+		heardSignalMemoryCount: heard.length,
 		activeEmissionId: active?.emissionId ?? null,
 		activeSymbolId: active?.symbolId ?? null,
-		eligibleEmissionId: eligible?.opportunity.emissionId ?? active?.emissionId ?? null,
-		eligibleScore: active ? INVESTIGATION_ELIGIBLE_SCORE : (eligible?.score ?? null)
+		newestHeardEmissionId: newest?.emissionId ?? null,
+		newestHeardSymbolId: newest?.symbolId ?? null
 	};
 }
 
@@ -141,38 +120,41 @@ export function buildCandidateViews(
 	creature: Creature,
 	investigation: InvestigationOpportunitySummary
 ): CandidateView[] {
-	const candidates =
-		creature.lastCandidates.length > 0
-			? creature.lastCandidates
-			: (creature.lastDecision?.candidates ?? []);
-	const selectedGoal = creature.lastDecision?.selectedGoal ?? creature.goal;
+	const candidates: IntentionCandidate[] = creature.lastArbitration?.candidates ?? [];
+	const selectedIntention = creature.lastArbitration?.selectedIntention ?? creature.intention;
 
 	return candidates.map((c) => ({
-		goal: c.goal,
+		intention: c.intention,
 		valid: c.valid,
 		score: c.score,
-		reason: c.reason,
+		baseScore: c.baseScore,
+		continuityAdjustment: c.continuityAdjustment,
+		reasonCodes: [...c.reasonCodes],
 		rejectionReason: c.rejectionReason,
-		selected: c.goal === selectedGoal,
+		selected: c.intention === selectedIntention,
 		scoreTerms:
-			c.goal === 'investigate_signal' && investigation
+			c.intention === 'investigate_signal' && investigation
 				? [
-						{ label: 'Eligible score', value: investigation.eligibleScore ?? c.score },
-						{ label: 'Curiosity', value: investigation.curiosity },
-						...(investigation.recentSample !== null
-							? [{ label: 'Last sample', value: investigation.recentSample }]
+						{ label: 'Total score', value: c.score },
+						{ label: 'Heard memories', value: investigation.heardSignalMemoryCount },
+						...(c.continuityAdjustment !== 0
+							? [{ label: 'Continuity', value: c.continuityAdjustment }]
 							: [])
 					]
-				: c.goal !== 'investigate_signal'
+				: c.valid
 					? [
 							{ label: 'Total score', value: c.score },
-							...(c.goal === 'seek_food'
+							{ label: 'Base score', value: c.baseScore },
+							...(c.continuityAdjustment !== 0
+								? [{ label: 'Continuity', value: c.continuityAdjustment }]
+								: []),
+							...(c.intention === 'satisfy_hunger'
 								? [{ label: 'Hunger pressure', value: creature.hunger }]
 								: []),
-							...(c.goal === 'seek_water'
+							...(c.intention === 'satisfy_thirst'
 								? [{ label: 'Thirst pressure', value: creature.thirst }]
 								: []),
-							...(c.goal === 'rest'
+							...(c.intention === 'rest'
 								? [{ label: 'Energy deficit', value: 1 - creature.energy }]
 								: [])
 						]
@@ -203,15 +185,6 @@ export function evidenceRowCount(creature: Creature): number {
 		(sum, row) => sum + row.foodEvidenceCount + row.waterEvidenceCount,
 		0
 	);
-}
-
-export function formatOpportunityDecision(
-	opportunity: SignalInvestigationOpportunity | null | undefined
-): string {
-	if (!opportunity) {
-		return '—';
-	}
-	return opportunity.curiosityDecision;
 }
 
 /** Row for the Creatures-tab Memory section (presentation only). */

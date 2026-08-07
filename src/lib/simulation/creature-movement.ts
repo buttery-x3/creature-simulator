@@ -207,7 +207,7 @@ export function stepCreature(
 		wanderDecisionIndex,
 		// Keep behaviour target aligned when only the wander stream moves.
 		target:
-			creature.goal === 'wander'
+			creature.intention === 'wander'
 				? { kind: 'point', position: { x: wanderTarget.x, y: wanderTarget.y } }
 				: creature.target
 	};

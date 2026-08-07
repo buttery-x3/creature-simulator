@@ -1,6 +1,6 @@
 /**
- * Creature behaviour subdomain: needs, decisions, actions, local perception, search.
- * Consumed by simulation siblings; presentation imports via $lib/simulation only.
+ * Creature behaviour subdomain: needs, actions, local perception, search, orchestration.
+ * Intention selection lives in cognition; this package executes.
  */
 
 export { advanceNeeds, clampNeed, recoveryComplete } from './needs';
@@ -16,30 +16,28 @@ export {
 	pointTarget,
 	resolveFeature,
 	selectNearestFeature,
-	tryPerceiveAndPursue,
 	waterTarget
 } from './resource-awareness';
 export {
-	clearTracked,
 	emptyPerception,
 	isCurrentlyPerceived,
-	isTrackedUsable,
 	selectNearestPerceived,
 	senseAt,
-	startTracking,
 	updatePerception
 } from './perception';
 export { circleIntersectsRect, queryFeaturesNear } from './habitat-feature-query';
 export {
-	commitDecision,
-	evaluateCandidates,
-	GOAL_TIE_BREAK_ORDER,
-	INVESTIGATION_ELIGIBLE_SCORE,
-	isExploreExemption,
-	selectBestCandidate,
-	WANDER_BASELINE_SCORE
-} from './decisions';
-export { actionForGoal, appendTransition, applyDecision, transitionToConsumptive } from './actions';
+	actionForIntention,
+	appendTransition,
+	applyArbitration,
+	transitionToConsumptive
+} from './actions';
+export { replanFromArbitration } from './apply-arbitration';
+export {
+	buildArbitrationInput,
+	cognitionConfigFromSimulation,
+	listAvailablePerceivedResources
+} from './build-arbitration-input';
 export {
 	stepCreatureBehaviour,
 	type BehaviourStepConfig,

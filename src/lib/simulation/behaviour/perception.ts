@@ -1,27 +1,18 @@
 /**
- * Local sensing and brief tracked-observation lifecycle.
+ * Local sensing for the current perception snapshot.
  *
  * Home is innate knowledge and is never stored in perception.
- * There is no permanent resource memory map — only a current snapshot and
- * at most one tracked pursuit observation.
- *
- * Per-feature perception episodes: a continuous interval while a specific
- * food/water feature stays in the perceived snapshot. Episode begin/end drives
- * announcement opportunity eligibility (one opportunity per episode).
+ * Long-term resource locations live in creature memory, not here.
  */
 
 import type { Habitat, HabitatFeature, Vec2 } from '$lib/habitat';
-import type {
-	NewlyPerceivedResource,
-	ResourceFeaturePerceptionEpisode
-} from '../announcement/types';
 import { distanceSquared } from '../creature-movement';
 import type { Creature, CreaturePerception, ResourceObservation, SimulationConfig } from '../types';
 import { queryFeaturesNear } from './habitat-feature-query';
 
 export type PerceptionConfig = Pick<
 	SimulationConfig,
-	'sensingRadius' | 'perceptionIntervalSeconds' | 'trackedObservationDurationSeconds'
+	'sensingRadius' | 'perceptionIntervalSeconds'
 >;
 
 /** Sentinel: perception has never been updated (JSON-safe; not -Infinity). */
@@ -32,10 +23,7 @@ export function emptyPerception(lastUpdatedAt = PERCEPTION_NEVER_UPDATED): Creat
 		lastUpdatedAt,
 		perceivedFoodIds: [],
 		perceivedWaterIds: [],
-		observations: [],
-		tracked: null,
-		activeEpisodes: [],
-		episodeCounter: 0
+		observations: []
 	};
 }
 
@@ -54,115 +42,40 @@ function observationFromFeature(
 	};
 }
 
-export function isTrackedUsable(
-	tracked: ResourceObservation | null,
-	timeSeconds: number,
-	durationSeconds: number
-): boolean {
-	if (!tracked) {
-		return false;
-	}
-	return timeSeconds - tracked.observedAt <= durationSeconds;
-}
-
-function nextEpisodeId(creatureId: string, featureId: string, counter: number): string {
-	return `ep-${creatureId}-${featureId}-${counter}`;
-}
-
-/**
- * Reconcile continuous per-feature perception episodes against a new observation snapshot.
- * Newly perceived features (not in previous episode set) receive new episode ids.
- */
-export function reconcileResourceEpisodes(input: {
-	previousEpisodes: readonly ResourceFeaturePerceptionEpisode[];
-	episodeCounter: number;
-	observations: readonly ResourceObservation[];
-	creatureId: string;
-	timeSeconds: number;
-}): {
-	activeEpisodes: ResourceFeaturePerceptionEpisode[];
-	episodeCounter: number;
-	newlyPerceived: NewlyPerceivedResource[];
-} {
-	const previousByFeature = new Map(input.previousEpisodes.map((e) => [e.featureId, e]));
-	const activeEpisodes: ResourceFeaturePerceptionEpisode[] = [];
-	const newlyPerceived: NewlyPerceivedResource[] = [];
-	let episodeCounter = input.episodeCounter;
-
-	// Deterministic observation order by feature id for stable multi-enter processing.
-	const ordered = [...input.observations].sort((a, b) =>
-		a.featureId < b.featureId ? -1 : a.featureId > b.featureId ? 1 : 0
-	);
-
-	for (const obs of ordered) {
-		const prev = previousByFeature.get(obs.featureId);
-		if (prev && prev.resourceKind === obs.featureKind) {
-			// Continuous episode — keep same identity.
-			activeEpisodes.push(prev);
-			continue;
-		}
-		const episodeId = nextEpisodeId(input.creatureId, obs.featureId, episodeCounter);
-		episodeCounter += 1;
-		const episode: ResourceFeaturePerceptionEpisode = {
-			episodeId,
-			featureId: obs.featureId,
-			resourceKind: obs.featureKind,
-			startedAt: input.timeSeconds
-		};
-		activeEpisodes.push(episode);
-		newlyPerceived.push({
-			featureId: obs.featureId,
-			resourceKind: obs.featureKind,
-			position: { x: obs.position.x, y: obs.position.y },
-			perceptionEpisodeId: episodeId,
-			discoveredAt: input.timeSeconds
-		});
-	}
-
-	return { activeEpisodes, episodeCounter, newlyPerceived };
-}
-
 export type PerceptionStepResult = {
 	perception: CreaturePerception;
-	/** Features that entered perception this sensing pass (sorted by feature id). */
-	newlyPerceived: NewlyPerceivedResource[];
+	/** True when a sensing pass ran this call. */
+	sensed: boolean;
 };
 
 /**
  * Refresh perception when the interval has elapsed (or never updated).
- * Reacquiring a tracked feature on a sensing pass refreshes its observation time.
- * Updates per-feature perception episodes and reports newly perceived resources.
  */
 export function updatePerception(
 	perception: CreaturePerception,
 	position: Vec2,
 	habitat: Habitat,
 	timeSeconds: number,
-	config: PerceptionConfig,
-	creatureId: string
+	config: PerceptionConfig
 ): PerceptionStepResult {
 	const neverUpdated = perception.lastUpdatedAt < 0 || !Number.isFinite(perception.lastUpdatedAt);
 	const due =
 		neverUpdated || timeSeconds - perception.lastUpdatedAt >= config.perceptionIntervalSeconds;
 	if (!due) {
-		return { perception, newlyPerceived: [] };
+		return { perception, sensed: false };
 	}
-	return senseAt(position, habitat, timeSeconds, config, perception, creatureId);
+	return { ...senseAt(position, habitat, timeSeconds, config), sensed: true };
 }
 
 /**
  * Force a sensing pass at the creature position (used by tests and updatePerception).
- * When previous perception is provided, episodes are reconciled continuously.
  */
 export function senseAt(
 	position: Vec2,
 	habitat: Habitat,
 	timeSeconds: number,
-	config: Pick<PerceptionConfig, 'sensingRadius'>,
-	previousPerception: CreaturePerception | null = null,
-	creatureId = 'unknown'
+	config: Pick<PerceptionConfig, 'sensingRadius'>
 ): PerceptionStepResult {
-	const previousTracked = previousPerception?.tracked ?? null;
 	const nearby = queryFeaturesNear(habitat, position, config.sensingRadius, ['food', 'water']);
 	const observations: ResourceObservation[] = [];
 	const perceivedFoodIds: string[] = [];
@@ -181,56 +94,15 @@ export function senseAt(
 		}
 	}
 
-	let tracked = previousTracked;
-	if (tracked) {
-		const reacquired = observations.find((o) => o.featureId === tracked!.featureId);
-		if (reacquired) {
-			tracked = { ...reacquired };
-		}
-	}
-
-	const episodeState = reconcileResourceEpisodes({
-		previousEpisodes: previousPerception?.activeEpisodes ?? [],
-		episodeCounter: previousPerception?.episodeCounter ?? 0,
-		observations,
-		creatureId,
-		timeSeconds
-	});
-
 	return {
 		perception: {
 			lastUpdatedAt: timeSeconds,
 			perceivedFoodIds,
 			perceivedWaterIds,
-			observations,
-			tracked,
-			activeEpisodes: episodeState.activeEpisodes,
-			episodeCounter: episodeState.episodeCounter
+			observations
 		},
-		newlyPerceived: episodeState.newlyPerceived
+		sensed: true
 	};
-}
-
-export function startTracking(
-	perception: CreaturePerception,
-	observation: ResourceObservation
-): CreaturePerception {
-	return {
-		...perception,
-		tracked: {
-			featureId: observation.featureId,
-			featureKind: observation.featureKind,
-			position: { x: observation.position.x, y: observation.position.y },
-			observedAt: observation.observedAt
-		}
-	};
-}
-
-export function clearTracked(perception: CreaturePerception): CreaturePerception {
-	if (!perception.tracked) {
-		return perception;
-	}
-	return { ...perception, tracked: null };
 }
 
 /**

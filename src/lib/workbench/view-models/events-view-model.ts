@@ -64,13 +64,13 @@ export function buildEventRows(state: SimulationState): EventRow[] {
 function appendCreatureEvents(rows: EventRow[], creature: Creature): void {
 	for (const t of creature.recentTransitions) {
 		rows.push({
-			id: `transition-${creature.id}-${t.timeSeconds}-${t.toGoal}-${t.toAction}`,
+			id: `transition-${creature.id}-${t.timeSeconds}-${t.toIntention}-${t.toAction}`,
 			timeSeconds: t.timeSeconds,
 			category: 'Behaviour',
 			creatureId: creature.id,
-			event: 'Goal/action change',
-			subject: `${t.fromGoal}/${t.fromAction}`,
-			result: `${t.toGoal}/${t.toAction}`,
+			event: 'Intention/action change',
+			subject: `${t.fromIntention}/${t.fromAction}`,
+			result: `${t.toIntention}/${t.toAction}`,
 			symbolId: null,
 			featureId: null,
 			senderId: null,
@@ -126,10 +126,10 @@ function appendCreatureEvents(rows: EventRow[], creature: Creature): void {
 			creatureId: creature.id,
 			event: 'Investigating',
 			subject: inv.symbolId,
-			result: `from ${inv.senderId}`,
+			result: `origin (${inv.origin.x.toFixed(1)}, ${inv.origin.y.toFixed(1)})`,
 			symbolId: inv.symbolId,
 			featureId: null,
-			senderId: inv.senderId,
+			senderId: null,
 			listenerId: creature.id,
 			detail: { origin: inv.origin, emissionId: inv.emissionId }
 		});
@@ -181,26 +181,23 @@ function appendCreatureEvents(rows: EventRow[], creature: Creature): void {
 	const p = creature.perception;
 	if (p.lastUpdatedAt >= 0) {
 		// One compact perception snapshot marker (not every observation as a spam row).
-		// Only include when there is a tracked feature or non-empty perception lists.
-		if (p.tracked || p.perceivedFoodIds.length > 0 || p.perceivedWaterIds.length > 0) {
+		if (p.perceivedFoodIds.length > 0 || p.perceivedWaterIds.length > 0) {
 			rows.push({
 				id: `perception-${creature.id}-${p.lastUpdatedAt}`,
 				timeSeconds: p.lastUpdatedAt,
 				category: 'Perception',
 				creatureId: creature.id,
 				event: 'Perception update',
-				subject: p.tracked
-					? `${p.tracked.featureKind}:${p.tracked.featureId}`
-					: `food ${p.perceivedFoodIds.length} / water ${p.perceivedWaterIds.length}`,
-				result: p.tracked ? 'tracked' : 'snapshot',
+				subject: `food ${p.perceivedFoodIds.length} / water ${p.perceivedWaterIds.length}`,
+				result: 'snapshot',
 				symbolId: null,
-				featureId: p.tracked?.featureId ?? null,
+				featureId: null,
 				senderId: null,
 				listenerId: null,
 				detail: {
 					perceivedFoodIds: p.perceivedFoodIds,
 					perceivedWaterIds: p.perceivedWaterIds,
-					tracked: p.tracked
+					observationCount: p.observations.length
 				}
 			});
 		}

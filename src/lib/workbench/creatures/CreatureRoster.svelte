@@ -19,7 +19,7 @@
 				<th scope="col">Hunger</th>
 				<th scope="col">Thirst</th>
 				<th scope="col">Energy</th>
-				<th scope="col">Goal</th>
+				<th scope="col">Intention</th>
 				<th scope="col">Food</th>
 				<th scope="col">Water</th>
 			</tr>
@@ -43,7 +43,7 @@
 					<td>{row.hunger.toFixed(2)}</td>
 					<td>{row.thirst.toFixed(2)}</td>
 					<td>{row.energy.toFixed(2)}</td>
-					<td>{row.goal}</td>
+					<td>{row.intention}</td>
 					<td>
 						{#if row.foodSymbolId}
 							<SymbolGlyph symbolId={row.foodSymbolId} showId={false} size={11} />

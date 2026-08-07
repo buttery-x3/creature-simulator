@@ -3,11 +3,11 @@
 ## Current status
 
 The repository has a **seeded bounded habitat**, an **authoritative simulation**
-with deterministic creatures, physiological needs, resource-driven goals/actions,
-transient arbitrary signals, personal symbol association learning, fixed-step
-movement, and Three.js presentation that separates static habitat meshes from
-dynamic creature and signal meshes. Creatures can be selected for inspection;
-selection is presentation state only.
+with deterministic creatures, physiological needs, unified intention arbitration
+and low-level actions, transient arbitrary signals, personal symbol association
+learning, fixed-step movement, and Three.js presentation that separates static
+habitat meshes from dynamic creature and signal meshes. Creatures can be selected
+for inspection; selection is presentation state only.
 
 ## Responsibilities present today
 
@@ -16,14 +16,14 @@ selection is presentation state only.
 | App shell                 | SvelteKit routes under `src/routes/`                  | Desktop page; session simulation state, rAF stepping, creature selection id           |
 | Determinism               | `src/lib/determinism/`                                | Seeded PRNG and pure seed derivation for independent streams                          |
 | Habitat model             | `src/lib/habitat/`                                    | Types (incl. food/water amount/capacity), seeded generation, placement, diagnostics   |
-| Simulation                | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                              |
+| Simulation                | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/intentions/actions                             |
 | Resources subdomain       | `src/lib/simulation/resources/`                       | Availability, consumption grants, food spawn, minimal rain weather                    |
-| Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets                 |
-| Announcement subdomain    | `src/lib/simulation/announcement/`                    | Resource opportunities, kind-level clarity, speaking position, preparation            |
+| Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, action execution, perception, search, thin step orchestration                  |
+| Announcement subdomain    | `src/lib/simulation/announcement/`                    | Executor under announce_resource: clarity, speaking position, emission handoff        |
 | Memory subdomain          | `src/lib/simulation/memory/`                          | First-class bounded creature memory; observations, heard signals, announcement recall |
-| Cognition subdomain       | `src/lib/simulation/cognition/`                       | Pure memory-aware intention arbitration (FLAME-79); not yet runtime-authoritative     |
+| Cognition subdomain       | `src/lib/simulation/cognition/`                       | Runtime-authoritative memory-aware intention arbitration                              |
 | Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry           |
-| Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation                      |
+| Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon, investigation arrival learning                |
 | Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                              |
 | Workbench UI              | `src/lib/workbench/`                                  | Domain-tab shell (Overview…Debug), pure view-models, presentation-only nav            |
 | WebGL presentation        | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state                    |
@@ -168,41 +168,43 @@ advances simulation state.
 Authoritative fixed-step order:
 
 1. Resources/weather (rain, food spawn, eat/drink consumption grants)
-2. Behaviour (needs apply grants; perception sees post-consumption world)
+2. Behaviour (needs apply grants; perception; unified arbitration; action execution)
 3. Resource-observation memory (sensing pass only; empty water via geography query)
 4. Communication
 5. Successful-announcement memory
 6. Heard-signal memory (from this step’s reception; no sender identity)
-7. Post-reception learning (pendingSignals — transitional until cutover)
+7. Request reconsideration for listeners that gained heard_signal this step
 
-### Needs, goals, actions and targets
+### Needs, intentions, actions and targets
 
 These concepts are distinct on each creature:
 
-| Concept    | Role                                                                                                                                                                                              |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Need**   | Internal condition: `hunger` and `thirst` are **pressure** (0 = sated/quenched, 1 = maximum); `energy` is **satisfaction** (0 = exhausted, 1 = full). Values stay finite and clamped to `[0, 1]`. |
-| **Goal**   | Outcome pursued: `seek_food`, `seek_water`, `rest`, `investigate_signal`, or `wander`.                                                                                                            |
-| **Action** | Current step: `move`, `investigate` (stop at signal origin), `eat`, `drink`, `sleep`, `wander`, or `search`.                                                                                      |
-| **Target** | Habitat feature id/kind or a free-space point for wandering.                                                                                                                                      |
+| Concept       | Role                                                                                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Need**      | Internal condition: `hunger` and `thirst` are **pressure** (0 = sated/quenched, 1 = maximum); `energy` is **satisfaction** (0 = exhausted, 1 = full). Values stay finite and clamped to `[0, 1]`. |
+| **Intention** | What the creature is trying to accomplish: `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `wander`. Selected only by cognition.                           |
+| **Action**    | Current step: `move`, `investigate` (stop at signal origin), `eat`, `drink`, `sleep`, `wander`, or `search`.                                                                                      |
+| **Target**    | Habitat feature id/kind or a free-space point.                                                                                                                                                    |
 
-Need rates, thresholds, reconsideration interval, goal-switch margin and recovery
-targets live on `SimulationConfig` (not scattered literals).
+Need rates, thresholds, reconsideration interval, continuity/baselines and recovery
+targets live on `SimulationConfig` (not scattered literals). There is no
+goal-switch margin or min-commitment gate — continuity is a soft score bonus in
+cognition.
 
-Decision evidence is structured simulation data (`DecisionRecord`,
-`CandidateEvaluation`, bounded `recentTransitions`) produced when goals are
-chosen. The inspector formats those records; it must not invent reasons from
+Decision evidence is structured simulation data (`ArbitrationRecord`, candidates
+with factors/reason codes, bounded `recentTransitions`) produced when intentions
+are chosen. The inspector formats those records; it must not invent reasons from
 need values alone.
 
-### Local sensing, search and brief tracking
+### Local sensing, search and memory-driven targets
 
-Creatures use **local perception**, not global food/water knowledge.
+Creatures use **local perception** plus **retained memory**, not global omniscience.
 
-| Knowledge            | Rule                                                                                                                                                                                                                                                                                                 |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Home**             | Innate. Always targetable for rest regardless of sensing distance. Never stored in perception.                                                                                                                                                                                                       |
-| **Food / water**     | Selectable only when currently perceived or retained as the single short-lived tracked observation.                                                                                                                                                                                                  |
-| **Long-term memory** | First-class `creature.memory` (bounded capacity). Kinds: resource announcements, resource observations (position + water empty), heard signals (symbol + origin). Pure cognition (`simulation/cognition/`) can target and score from these; runtime still uses legacy goal decisions until FLAME-80. |
+| Knowledge            | Rule                                                                                                                                                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Home**             | Innate. Always targetable for rest regardless of sensing distance. Never stored in perception.                                                                                                     |
+| **Food / water**     | Cognition may select currently perceived usable resources or newest usable resource_observation memory. Missing knowledge → `search` fallback.                                                     |
+| **Long-term memory** | First-class `creature.memory` (bounded capacity). Kinds: resource announcements, resource observations (position + water empty), heard signals (symbol + origin). Authoritative for investigation. |
 
 Sensing:
 
@@ -211,17 +213,18 @@ Sensing:
 - Nearby features come only through the named query boundary
   `behaviour/habitat-feature-query.ts` (linear scan; circle ∩ authoritative
   footprint). Facing does not restrict sensing. No LOS/occlusion.
-- Perception state on each creature is plain serialisable
-  (`CreaturePerception`: last update time, perceived food/water ids,
-  observation snapshot, optional `tracked`).
+- Perception always runs (no investigation freeze). Perception state is plain
+  serialisable (`CreaturePerception`: last update time, perceived food/water ids,
+  observation snapshot). No tracked-observation secondary memory.
+- Resource perception changes **request arbitration**; they do not directly seize action.
 
 Search:
 
-- When `seek_food` / `seek_water` is valid but no usable resource target exists,
+- When `satisfy_hunger` / `satisfy_thirst` is selected without a usable feature target,
   the action is **`search`** (not `wander`), with a deterministic point target
   from the `search` seed stream (`sampleSearchTarget`).
-- Perceiving a relevant resource transitions search → `move` toward that feature
-  and starts brief tracking.
+- Finding a resource while searching leads to ordinary arbitration (or target
+  validity on the next reconsider), not a helper that silently forces `move`.
 
 Brief tracking:
 
@@ -278,27 +281,24 @@ Do not confuse resource-announcement (no deferred task list) with any future des
 
 Learning is a named subdomain under simulation (`simulation/learning/`). It owns
 receptive meaning only: raw personal food/water evidence, exclusive lexicon
-resolution, pending heard-signal candidates, active investigation state and
-bounded learning / lexicon-change histories. There is **no** global symbol
-dictionary. Evidence **mutation** remains listening/investigation only.
-Emission uses the creature’s resolved exclusive lexicon (learned path) or
-deterministic exploratory selection when unassigned — never independent
-multi-context weighted sampling, and never speaker-success feedback.
+resolution, execution-local investigation context and bounded learning /
+lexicon-change histories. There is **no** global symbol dictionary. Evidence
+**mutation** remains listening/investigation only. Emission uses the creature’s
+resolved exclusive lexicon (learned path) or deterministic exploratory selection
+when unassigned — never independent multi-context weighted sampling, and never
+speaker-success feedback.
 
-| Concern               | Rule                                                                                                                                                                                                                               |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Evidence**          | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. May be ambiguous/overlapping across meanings. Independent arrays (no shared references).                                                         |
-| **Lexicon**           | Exclusive one-to-one assignment (`food` / `water` → symbol or null). Deterministic max-total-evidence non-duplicating resolve after evidence updates.                                                                              |
-| **Curiosity trait**   | Per-creature `curiosity` sampled at creation via `deriveSeed(seed, 'curiosity', id)` and `curiosityRange`. Meaning: susceptibility to investigating a heard communication opportunity.                                             |
-| **Opportunities**     | Built from `HeardSignal` only (no `contextDetail`); each carries one-shot `curiosityDecision` (`accepted`/`rejected`) + sample evidence; bounded, deduped by emission id, expire deterministically.                                |
-| **Curiosity accept**  | At ingest: `sample = RNG(deriveSeed(seed, 'signal-investigation-curiosity', listenerId, emissionId)).next()`; `accepted = sample < curiosity`. Never resampled; independent of distance/needs/associations.                        |
-| **Goal / action**     | Only **accepted** opportunities make `investigate_signal` valid. Fixed eligible score equals wander baseline; `move` toward origin, then `investigate`.                                                                            |
-| **Explore exemption** | `wander → investigate_signal` skips `goalSwitchMargin` (min commitment still applies). Survival goals keep full hysteresis.                                                                                                        |
-| **Travel lock**       | Once committed, rising needs do not interrupt the trip; no active travel timeout. Pending unselected signals may still expire.                                                                                                     |
-| **Reinforcement**     | Only on **arrival** at the origin: ephemeral local inspection of food/water within evidence radius (learning-only; no FLAME-71 perception episodes or announcement opportunities), reinforce at most once, then recompute lexicon. |
-| **Completion**        | Clear active investigation and replan immediately after site inspection (food / water / mixed / no_evidence).                                                                                                                      |
-| **No-evidence**       | Conservative: leave evidence unchanged by default (optional small reduction via config); still recompute lexicon.                                                                                                                  |
-| **Production**        | Communication emits `lexicon[context]` when assigned; otherwise exploratory among symbols not assigned to another meaning. Learning never mutates evidence because someone heard a signal.                                         |
+| Concern           | Rule                                                                                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Evidence**      | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. May be ambiguous/overlapping across meanings. Independent arrays (no shared references).                 |
+| **Lexicon**       | Exclusive one-to-one assignment (`food` / `water` → symbol or null). Deterministic max-total-evidence non-duplicating resolve after evidence updates.                                      |
+| **Selection**     | Cognition may select `investigate_signal` from `heard_signal` memory (no pending queue, no curiosity gate).                                                                                |
+| **Execution**     | Slim `activeInvestigation` holds emission/symbol/origin while travelling/inspecting. Not a lock — ordinary arbitration may replace the intention.                                          |
+| **Reinforcement** | Only on **arrival** at the origin: ephemeral local inspection of food/water within evidence radius (learning-only), reinforce at most once, then recompute lexicon.                        |
+| **Completion**    | Clear active investigation and re-arbitrate immediately after site inspection (food / water / mixed / no_evidence).                                                                        |
+| **No-evidence**   | Conservative: leave evidence unchanged by default (optional small reduction via config); still recompute lexicon.                                                                          |
+| **Production**    | Communication emits `lexicon[context]` when assigned; otherwise exploratory among symbols not assigned to another meaning. Learning never mutates evidence because someone heard a signal. |
+| **Out of scope**  | Curiosity/confidence weighting (later issue).                                                                                                                                              |
 
 ### Creature memory
 
@@ -315,40 +315,41 @@ announcement opportunity state, communication history, or lexicon evidence.
 | **Recall**       | Announcement creation consults `hasResourceAnnouncementMemory(featureId)`. Pure cognition recalls observations and heard signals for candidate targets/scores (`listResourceObservations`, `listHeardSignalMemories`, `findNewestUsableResourceObservation`). |
 | **Not in scope** | Salience curves, probabilistic forgetting, sender provenance, confidence, time-decay models.                                                                                                                                                                  |
 
-### Cognition / intention arbitration (FLAME-79)
+### Cognition / intention arbitration (runtime-authoritative)
 
-Cognition is a named subdomain (`simulation/cognition/`). It is **pure**: given a
-body + perception + memory + current-intention snapshot it builds a small candidate
-set, scores simply, applies soft continuity, and returns an `ArbitrationRecord`.
+Cognition is a named subdomain (`simulation/cognition/`). It is **pure** and
+**runtime-authoritative**: given a body + perception + memory + current-intention
+snapshot it builds a small candidate set, scores simply, applies soft continuity,
+and returns an `ArbitrationRecord`. Behaviour applies that record; no other
+subsystem selects intentions.
 
 | Concern            | Rule                                                                                                                                                                                           |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Placement**      | `simulation/cognition/` — not more helpers under capacity-full `behaviour/`.                                                                                                                   |
-| **Runtime status** | **Not yet authoritative.** Legacy `behaviour/decisions.ts` still owns live goal selection. FLAME-80 wires `arbitrate()` and deletes legacy locks/opportunities.                                |
+| **Runtime status** | **Authoritative.** Single decision system; legacy goal/lock/opportunity machinery removed.                                                                                                     |
 | **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `wander`. No predator/social/mating types.                                                              |
 | **Need targets**   | Perception first, then newest usable resource memory (water skips `empty: true`), else `target: null` + `search_fallback` (executor samples search). Feature targets when feature id is known. |
-| **Signal**         | From `heard_signal` memory only (newest sequence). Point target at origin. No lexicon, curiosity, confidence, or `pendingSignals`. Modest baseline + simple sequence recency.                  |
-| **Announce**       | Perceived available resource not suppressed by `resource_announcement` memory. Deterministic feature-id pick. Clarity/speaking-position remain executor concerns.                              |
+| **Signal**         | From `heard_signal` memory only (newest sequence). Point target at origin. No lexicon or confidence. Modest baseline + simple sequence recency.                                                |
+| **Announce**       | Perceived available resource not suppressed by `resource_announcement` memory. Deterministic feature-id pick. Clarity/speaking-position are executor concerns under the intention.             |
 | **Continuity**     | Soft score bonus on the current intention’s matching candidate. No min-commitment, switch-margin gates, investigation/announcement locks, or explore exemptions.                               |
 | **Triggers**       | `ArbitrationTrigger` values request reconsideration only; they never force an intention.                                                                                                       |
-| **Evidence**       | Structured `ArbitrationRecord` / factors / reason codes — workbench may format later; UI strings are not authority.                                                                            |
-| **Non-deps**       | Must not import `behaviour/decisions` or `learning/signal-investigation` opportunity APIs.                                                                                                     |
-
-**Transitional:** `heard_signal` memory is the retained hearing model for new cognition. Legacy `pendingSignals` / curiosity investigation remains until FLAME-80 cutover and must not be deepened as the retained model.
+| **Evidence**       | Structured `ArbitrationRecord` / factors / reason codes — workbench formats; UI strings are not authority.                                                                                     |
 
 Fixed-step order (authoritative):
 
 1. Resources/weather: advance rain schedule (refill basins on rain start), food-spawn opportunities, resolve eat/drink consumption grants against habitat (deterministic creature-id order).
-2. Behaviour for all creatures (needs apply consumption grants; perception episodes when not investigation-locked, single active announcement opportunity/preparation with memory consult, expire pending, decisions including investigation, movement or learning-only site inspection+completion, emission requests).
+2. Behaviour for all creatures (needs apply consumption grants; perception always; request/run unified arbitration; execute intention via actions/movement; announcement executor when intention is announce; arrival learning when investigating).
 3. Memory: `resource_observation` writes/refreshes for creatures whose perception sensing ran this step (available food from snapshot; water via `availableOnly: false` geography query; forget food when re-sensing proves feature gone).
 4. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, produce authoritative `emittedThisStep`, write bounded histories, expire active emissions.
 5. Memory: write `resource_announcement` entries from **`emittedThisStep` only** (not from bounded `recentEmissions` / diagnostic retention).
 6. Memory: write `heard_signal` entries from `recentHeard` with `heardAt === timeSeconds` (no sender identity).
-7. Learning post-reception: convert newly heard signals into investigation opportunities with one-shot curiosity decisions (accepted may prompt wander reconsider).
+7. Request reconsideration (`pendingArbitrationTrigger = new_heard_signal_memory`) for listeners that gained heard_signal this step.
 
-**Eligibility:** a signal heard in step _N_ becomes an opportunity at the end of step _N_ (curiosity decided then) and accepted opportunities are eligible for investigation from step _N+1_. No Svelte/renderer timing.
+**Eligibility:** a signal heard in step _N_ is remembered at the end of step _N_ and is investigable from step _N+1_ via ordinary arbitration. No Svelte/renderer timing.
 
-**Investigation lifecycle:** hear → opportunity + curiosity accept/reject → (if accepted) choose investigate → travel to origin → stop (`investigate`) → sense → update evidence → resolve exclusive lexicon → clear active → replan.
+**Investigation lifecycle:** hear → `heard_signal` memory → request arbitration → (if selected) investigate intention → travel to origin → stop (`investigate`) → sense → update evidence → resolve exclusive lexicon → clear execution context → re-arbitrate.
+
+**Announcement lifecycle:** cognition selects `announce_resource` → executor evaluates clarity / speaking position / emit → no behaviour lock; stronger needs interrupt via ordinary continuity scoring.
 
 Behaviour may produce an `EmissionRequest` handoff; it must not implement range, receivers or lifetime. Learning never reads emitter `contextDetail`, sender lexicons or presentation glyph metadata. Three.js and Svelte only present/inspect; they never decide who hears a signal or update evidence/lexicon.
 
@@ -382,7 +383,7 @@ Signal and communication visuals are presentation-only:
   `hearingRadius`. Opacity uses shared `distanceFalloffFactor` × lifetime fade with
   presentation-only `investigationDistanceScale`. The ring is an **illustrative**
   range/falloff cue — hearing remains instantaneous within radius at emission time
-  (no propagation delay). Distance falloff does **not** affect curiosity acceptance.
+  (no propagation delay). Distance falloff does **not** affect investigation eligibility.
 - **Listener `?` cues** (`listener-cue-presentation.ts`) show one neutral mark per
   creature when it has a recent `HeardSignal` (brief pulse) **or** while
   `activeInvestigation` is set (held for the full investigation). Coalesced per

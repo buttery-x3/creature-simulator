@@ -1,14 +1,14 @@
 /**
- * Per-creature fixed-step behaviour: needs → perception → replan gates → action/movement.
- * May request a communication emission via the announcement subdomain; does not transmit.
+ * Per-creature fixed-step behaviour: needs → perception → arbitration → action/movement.
+ * May request a communication emission via the announcement executor; does not transmit.
+ *
+ * Intention selection is exclusive to cognition (`arbitrate`). This module only
+ * requests reconsideration and executes the current intention.
  */
 
 import type { Habitat } from '$lib/habitat';
-import {
-	isAnnouncementLocked,
-	stepAnnouncement,
-	type AnnouncementStepConfig
-} from '../announcement/step-announcement';
+import { stepAnnouncement, type AnnouncementStepConfig } from '../announcement/step-announcement';
+import type { ArbitrationTrigger } from '../cognition/types';
 import type { EmissionRequest } from '../communication/types';
 import {
 	distanceSquared,
@@ -16,29 +16,18 @@ import {
 	sampleSearchTarget,
 	sampleWanderTarget
 } from '../creature-movement';
-import {
-	beginInvestigation,
-	removePendingByEmissionId,
-	selectBestAcceptedOpportunity
-} from '../learning/signal-investigation';
-import { INVESTIGATION_ELIGIBLE_SCORE } from './decisions';
-import {
-	advanceActiveLearning,
-	interruptInvestigation,
-	resolveInvestigationAtSite
-} from '../learning/step-signal-learning';
+import { resolveInvestigationAtSite } from '../learning/step-signal-learning';
 import type { Creature, SimulationConfig } from '../types';
-import { appendTransition, applyDecision, transitionToConsumptive } from './actions';
-import { commitDecision } from './decisions';
+import { appendTransition, transitionToConsumptive } from './actions';
+import { replanFromArbitration, type ReplanConfig } from './apply-arbitration';
 import { advanceNeeds, recoveryComplete, type ConsumptionGrants } from './needs';
-import { clearTracked, isTrackedUsable, startTracking, updatePerception } from './perception';
+import { updatePerception } from './perception';
 import {
 	ensureSearchTarget,
 	isAtTarget,
 	isTargetValid,
 	movementPoint,
-	pointTarget,
-	tryPerceiveAndPursue
+	pointTarget
 } from './resource-awareness';
 
 /** Result of one creature behaviour step, including optional emission handoff. */
@@ -61,8 +50,11 @@ export type BehaviourStepConfig = Pick<
 	| 'seekFoodThreshold'
 	| 'seekWaterThreshold'
 	| 'restThreshold'
-	| 'goalSwitchMargin'
-	| 'minGoalCommitmentSeconds'
+	| 'wanderBaseline'
+	| 'signalBaseline'
+	| 'signalRecencyBoostMax'
+	| 'announceBaseline'
+	| 'continuityBonus'
 	| 'reconsiderIntervalSeconds'
 	| 'eatUntilHunger'
 	| 'drinkUntilThirst'
@@ -70,9 +62,6 @@ export type BehaviourStepConfig = Pick<
 	| 'decisionHistoryLimit'
 	| 'sensingRadius'
 	| 'perceptionIntervalSeconds'
-	| 'trackedObservationDurationSeconds'
-	| 'pendingSignalLifetimeSeconds'
-	| 'maxPendingSignalsPerCreature'
 	| 'investigationDistanceScale'
 	| 'learningEvidenceRadius'
 	| 'associationReinforcement'
@@ -93,144 +82,26 @@ export type BehaviourStepConfig = Pick<
 	| 'emissionCooldownSeconds'
 >;
 
-/** True while committed to travel/inspect a signal origin — ordinary replan must not interrupt. */
-function isInvestigationLocked(creature: Creature): boolean {
-	return (
-		creature.goal === 'investigate_signal' &&
-		creature.activeInvestigation !== null &&
-		(creature.action === 'move' || creature.action === 'investigate')
-	);
-}
-
 function replan(
 	creature: Creature,
 	habitat: Habitat,
 	timeSeconds: number,
-	trigger: 'reconsider' | 'invalid_target' | 'action_complete' | 'initial',
+	trigger: ArbitrationTrigger,
 	config: BehaviourStepConfig,
 	simulationSeed: string
 ): Creature {
-	const decision = commitDecision({
+	return replanFromArbitration(
 		creature,
 		habitat,
 		timeSeconds,
 		trigger,
-		config
-	});
-	const arrived = isAtTarget(
-		creature.position,
-		habitat,
-		decision.selectedTarget,
-		config.arrivalDistance
+		config as ReplanConfig,
+		simulationSeed
 	);
-	const applied = applyDecision(creature, decision, arrived, config);
-
-	let wanderTarget = creature.wanderTarget;
-	const wanderDecisionIndex = creature.wanderDecisionIndex;
-	let target = applied.target;
-	let searchTarget = creature.searchTarget;
-	let searchDecisionIndex = creature.searchDecisionIndex;
-	let perception = creature.perception;
-	let pendingSignals = creature.pendingSignals;
-	let activeInvestigation = creature.activeInvestigation;
-	let symbolAssociations = creature.symbolAssociations;
-	let recentLearning = creature.recentLearning;
-
-	if (activeInvestigation && applied.goal !== 'investigate_signal') {
-		const interrupted = interruptInvestigation(
-			{
-				...creature,
-				symbolAssociations,
-				pendingSignals,
-				activeInvestigation,
-				recentLearning
-			},
-			timeSeconds,
-			`interrupted: switched to ${applied.goal} (${decision.selectionReason})`,
-			config
-		);
-		activeInvestigation = interrupted.activeInvestigation;
-		symbolAssociations = interrupted.symbolAssociations;
-		recentLearning = interrupted.recentLearning;
-	}
-
-	if (applied.goal === 'wander') {
-		if (target?.kind !== 'point') {
-			target = pointTarget(wanderTarget);
-		} else {
-			wanderTarget = target.position;
-		}
-	} else if (applied.goal === 'investigate_signal') {
-		const continuing = activeInvestigation !== null && creature.goal === 'investigate_signal';
-
-		if (continuing && activeInvestigation) {
-			target = pointTarget(activeInvestigation.origin);
-		} else {
-			const best = selectBestAcceptedOpportunity(
-				pendingSignals,
-				timeSeconds,
-				INVESTIGATION_ELIGIBLE_SCORE
-			);
-			if (best) {
-				activeInvestigation = beginInvestigation(best.opportunity, timeSeconds);
-				pendingSignals = removePendingByEmissionId(pendingSignals, best.opportunity.emissionId);
-				target = pointTarget(activeInvestigation.origin);
-			} else if (activeInvestigation) {
-				target = pointTarget(activeInvestigation.origin);
-			}
-		}
-	} else if (applied.action === 'search') {
-		const search = ensureSearchTarget(
-			{
-				...creature,
-				...applied,
-				target,
-				searchTarget,
-				searchDecisionIndex
-			},
-			simulationSeed,
-			habitat,
-			config
-		);
-		searchTarget = search.searchTarget;
-		searchDecisionIndex = search.searchDecisionIndex;
-		target = search.target;
-	} else if (
-		applied.action === 'move' &&
-		target !== null &&
-		target.kind === 'feature' &&
-		(target.featureKind === 'food' || target.featureKind === 'water')
-	) {
-		const featureId = target.featureId;
-		const obs =
-			creature.perception.observations.find((o) => o.featureId === featureId) ??
-			(creature.perception.tracked?.featureId === featureId ? creature.perception.tracked : null);
-		if (obs) {
-			perception = startTracking(perception, {
-				...obs,
-				observedAt: timeSeconds
-			});
-		}
-	}
-
-	return {
-		...creature,
-		...applied,
-		target,
-		wanderTarget,
-		wanderDecisionIndex,
-		searchTarget,
-		searchDecisionIndex,
-		perception,
-		pendingSignals,
-		activeInvestigation,
-		symbolAssociations,
-		recentLearning
-	};
 }
 
 /**
- * Advance one creature through needs, perception, decisions and actions for a fixed dt.
+ * Advance one creature through needs, perception, arbitration and actions for a fixed dt.
  * `grants` are world-resource consumption amounts for this step (eat/drink recovery).
  */
 export function stepCreatureBehaviour(
@@ -246,135 +117,44 @@ export function stepCreatureBehaviour(
 	let next: Creature = { ...creature, ...needs };
 	let emissionRequest: EmissionRequest | null = null;
 
-	// 2. Perception tick (episodes + newly perceived for announcements).
-	// While committed to signal investigation, freeze ordinary resource-discovery
-	// episodes so resources passed en route do not create announcement work or
-	// pollute continuous-episode state for later rediscovery.
-	const investigationLockedEarly = isInvestigationLocked(next);
-	let newlyPerceived: ReturnType<typeof updatePerception>['newlyPerceived'] = [];
-	if (!investigationLockedEarly) {
-		const perceived = updatePerception(
-			next.perception,
-			next.position,
-			habitat,
-			timeSeconds,
-			config,
-			next.id
-		);
-		next = { ...next, perception: perceived.perception };
-		newlyPerceived = perceived.newlyPerceived;
+	// 1. Perception always runs (no investigation freeze).
+	const previousFood = new Set(next.perception.perceivedFoodIds);
+	const previousWater = new Set(next.perception.perceivedWaterIds);
+	const perceived = updatePerception(next.perception, next.position, habitat, timeSeconds, config);
+	next = { ...next, perception: perceived.perception };
+
+	let perceptionChanged = false;
+	if (perceived.sensed) {
+		const foodNow = next.perception.perceivedFoodIds;
+		const waterNow = next.perception.perceivedWaterIds;
+		const foodChanged =
+			foodNow.length !== previousFood.size || foodNow.some((id) => !previousFood.has(id));
+		const waterChanged =
+			waterNow.length !== previousWater.size || waterNow.some((id) => !previousWater.has(id));
+		perceptionChanged = foodChanged || waterChanged;
 	}
 
-	// 2a. Resource announcement lifecycle (need-independent; at most one active)
+	// 2. Announcement executor (only advances when intention is announce_resource).
 	const announcementConfig = config as AnnouncementStepConfig;
 	const announced = stepAnnouncement({
 		creature: next,
 		habitat,
 		timeSeconds,
-		newlyPerceived,
 		config: announcementConfig
 	});
 	next = announced.creature;
 	if (announced.emissionRequest) {
 		emissionRequest = announced.emissionRequest;
 	}
-	// Preparation ended: restore normal decision flow (restores nextReconsiderAt via applyDecision).
 	if (announced.endedPreparation) {
 		next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
 	}
 
-	// 2b. Learning: expire pending only
-	next = advanceActiveLearning(next, timeSeconds, config);
-
-	// 3. Tracked observation expiry while pursuing a known food/water feature
-	if (
-		next.target?.kind === 'feature' &&
-		(next.target.featureKind === 'food' || next.target.featureKind === 'water') &&
-		(next.action === 'move' || next.action === 'search') &&
-		isTargetValid(habitat, next.target) &&
-		!isAnnouncementLocked(next)
-	) {
-		const kind = next.target.featureKind;
-		const stillPerceived = (
-			kind === 'food' ? next.perception.perceivedFoodIds : next.perception.perceivedWaterIds
-		).includes(next.target.featureId);
-		const trackOk = isTrackedUsable(
-			next.perception.tracked,
-			timeSeconds,
-			config.trackedObservationDurationSeconds
-		);
-		const trackMatches =
-			next.perception.tracked?.featureId === next.target.featureId &&
-			next.perception.tracked?.featureKind === kind;
-		if (!stillPerceived && !(trackOk && trackMatches)) {
-			const recentTransitions = appendTransition(
-				next.recentTransitions,
-				{
-					timeSeconds,
-					fromGoal: next.goal,
-					toGoal: next.goal,
-					fromAction: next.action,
-					toAction: 'search',
-					reason:
-						kind === 'food'
-							? 'tracked food observation expired'
-							: 'tracked water observation expired'
-				},
-				config.decisionHistoryLimit
-			);
-			const search = ensureSearchTarget(
-				{
-					...next,
-					action: 'search',
-					target: null
-				},
-				simulationSeed,
-				habitat,
-				config
-			);
-			next = {
-				...next,
-				action: 'search',
-				target: search.target,
-				searchTarget: search.searchTarget,
-				searchDecisionIndex: search.searchDecisionIndex,
-				actionStartedAt: timeSeconds,
-				perception: clearTracked(next.perception),
-				recentTransitions
-			};
-		}
-	}
-
-	// 4. Search → move when resource perceived (needs only; no emission)
-	if (!isAnnouncementLocked(next) && !isInvestigationLocked(next)) {
-		const pursued = tryPerceiveAndPursue(next, timeSeconds, config);
-		if (pursued) {
-			next = pursued;
-		}
-	}
-
-	const investigationLocked = isInvestigationLocked(next);
-	const announcementLocked = isAnnouncementLocked(next);
-	const behaviourLocked = investigationLocked || announcementLocked;
-
-	// 5. Invalid target → immediate replan (not while locked).
-	// Consumptive eat/drink use habitat-only validity (feature exists + amount > 0).
-	// When food is removed or a water basin is empty mid-meal, replan — do not stay
-	// stuck on eat/drink with zero grants (recoveryComplete never fires).
-	const isConsumptiveAction =
-		next.action === 'eat' || next.action === 'drink' || next.action === 'sleep';
+	// 3. Invalid target → immediate arbitration.
 	const investigationStale =
-		next.goal === 'investigate_signal' && next.activeInvestigation === null;
-	const targetOk = isConsumptiveAction
-		? isTargetValid(habitat, next.target)
-		: isTargetValid(
-				habitat,
-				next.target,
-				next.perception,
-				timeSeconds,
-				config.trackedObservationDurationSeconds
-			);
-	if ((!targetOk || investigationStale) && !behaviourLocked) {
+		next.intention === 'investigate_signal' && next.activeInvestigation === null;
+	const targetOk = isTargetValid(habitat, next.target);
+	if (!targetOk || investigationStale) {
 		if (next.action === 'search' && next.target?.kind !== 'point' && !investigationStale) {
 			const search = ensureSearchTarget(next, simulationSeed, habitat, config);
 			next = {
@@ -383,23 +163,28 @@ export function stepCreatureBehaviour(
 				action: 'search'
 			};
 		} else {
-			next = replan(next, habitat, timeSeconds, 'invalid_target', config, simulationSeed);
+			next = replan(
+				next,
+				habitat,
+				timeSeconds,
+				investigationStale ? 'action_complete' : 'current_target_invalid',
+				config,
+				simulationSeed
+			);
 		}
-	} else if (investigationStale && !announcementLocked) {
-		next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
 	}
 
-	// 6. Recovery complete → replan
+	// 4. Recovery complete → replan
 	if (
 		(next.action === 'eat' || next.action === 'drink' || next.action === 'sleep') &&
 		recoveryComplete(next, config)
 	) {
-		next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
+		next = replan(next, habitat, timeSeconds, 'need_or_recovery_complete', config, simulationSeed);
 	}
 
-	// 6b. At investigation site
+	// 5. At investigation site
 	if (
-		next.goal === 'investigate_signal' &&
+		next.intention === 'investigate_signal' &&
 		next.action === 'investigate' &&
 		next.activeInvestigation
 	) {
@@ -408,13 +193,27 @@ export function stepCreatureBehaviour(
 		return { creature: next, emissionRequest };
 	}
 
-	// 7. Ordinary reconsideration
+	// 6. Event / periodic reconsideration (never blocked by locks).
 	const isConsumptive = next.action === 'eat' || next.action === 'drink' || next.action === 'sleep';
-	if (!isConsumptive && !behaviourLocked && timeSeconds >= next.nextReconsiderAt) {
-		next = replan(next, habitat, timeSeconds, 'reconsider', config, simulationSeed);
+	if (!isConsumptive) {
+		if (next.pendingArbitrationTrigger) {
+			const trigger = next.pendingArbitrationTrigger;
+			next = replan(next, habitat, timeSeconds, trigger, config, simulationSeed);
+		} else if (perceptionChanged) {
+			next = replan(
+				next,
+				habitat,
+				timeSeconds,
+				'relevant_resource_perception_change',
+				config,
+				simulationSeed
+			);
+		} else if (timeSeconds >= next.nextReconsiderAt) {
+			next = replan(next, habitat, timeSeconds, 'periodic', config, simulationSeed);
+		}
 	}
 
-	// 8. Pursue action — no movement while eating/drinking/sleeping/investigating
+	// 7. Pursue action — no movement while eating/drinking/sleeping/investigating
 	if (
 		next.action === 'eat' ||
 		next.action === 'drink' ||
@@ -425,7 +224,7 @@ export function stepCreatureBehaviour(
 	}
 
 	// Wander retarget if at wander point before moving.
-	if ((next.goal === 'wander' || next.action === 'wander') && !announcementLocked) {
+	if (next.intention === 'wander' || next.action === 'wander') {
 		const arrivalSq = config.arrivalDistance * config.arrivalDistance;
 		if (distanceSquared(next.position, next.wanderTarget) <= arrivalSq) {
 			const wanderDecisionIndex = next.wanderDecisionIndex + 1;
@@ -446,7 +245,7 @@ export function stepCreatureBehaviour(
 	}
 
 	// Search retarget if at search point.
-	if (next.action === 'search' && !announcementLocked) {
+	if (next.action === 'search') {
 		const arrivalSq = config.arrivalDistance * config.arrivalDistance;
 		if (distanceSquared(next.position, next.searchTarget) <= arrivalSq) {
 			const searchDecisionIndex = next.searchDecisionIndex + 1;
@@ -469,7 +268,7 @@ export function stepCreatureBehaviour(
 	const fallback =
 		next.action === 'search'
 			? next.searchTarget
-			: next.goal === 'wander'
+			: next.intention === 'wander'
 				? next.wanderTarget
 				: next.position;
 	const destination = movementPoint(habitat, next.target, fallback);
@@ -477,12 +276,11 @@ export function stepCreatureBehaviour(
 	next = { ...next, ...moved };
 
 	// After movement, re-check announcement clarity (emit mid-reposition when clear).
-	if (announcementLocked || next.activeAnnouncementOpportunity !== null) {
+	if (next.intention === 'announce_resource' || next.activeAnnouncementOpportunity !== null) {
 		const afterMove = stepAnnouncement({
 			creature: next,
 			habitat,
 			timeSeconds,
-			newlyPerceived: [],
 			config: announcementConfig
 		});
 		next = afterMove.creature;
@@ -497,14 +295,13 @@ export function stepCreatureBehaviour(
 	// Arrive at feature → consumptive action, or arrive at signal origin → investigate
 	if (
 		next.action === 'move' &&
-		!isAnnouncementLocked(next) &&
 		isAtTarget(next.position, habitat, next.target, config.arrivalDistance)
 	) {
 		const transition = transitionToConsumptive(next, timeSeconds, config);
 		if (transition) {
 			next = { ...next, ...transition };
 			if (
-				next.goal === 'investigate_signal' &&
+				next.intention === 'investigate_signal' &&
 				next.action === 'investigate' &&
 				next.activeInvestigation
 			) {
@@ -516,7 +313,7 @@ export function stepCreatureBehaviour(
 	}
 
 	// Stuck on boundary with exterior wander target
-	if (next.goal === 'wander' && !isAnnouncementLocked(next)) {
+	if (next.intention === 'wander') {
 		const arrivalSq = config.arrivalDistance * config.arrivalDistance;
 		if (distanceSquared(next.position, next.wanderTarget) <= arrivalSq) {
 			const wanderDecisionIndex = next.wanderDecisionIndex + 1;
@@ -536,7 +333,7 @@ export function stepCreatureBehaviour(
 		}
 	}
 
-	if (next.action === 'search' && !isAnnouncementLocked(next)) {
+	if (next.action === 'search') {
 		const arrivalSq = config.arrivalDistance * config.arrivalDistance;
 		if (distanceSquared(next.position, next.searchTarget) <= arrivalSq) {
 			const searchDecisionIndex = next.searchDecisionIndex + 1;
@@ -558,3 +355,6 @@ export function stepCreatureBehaviour(
 
 	return { creature: next, emissionRequest };
 }
+
+// Re-export appendTransition for tests that import from step module historically.
+export { appendTransition };

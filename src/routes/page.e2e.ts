@@ -161,7 +161,7 @@ test('pause, resume and reset controls work', async ({ page }) => {
 	await openWorkbenchTab(page, 'debug');
 	const afterReset = await page.getByTestId('simulation-diagnostics').textContent();
 	expect(afterReset).toContain('time: 0.000 s');
-	expect(afterReset).toMatch(/goal=wander|goal=seek_/);
+	expect(afterReset).toMatch(/intention=wander|intention=satisfy_/);
 	// Creature diagnostics text should differ from mid-run paused snapshot in general,
 	// but reset to t=0 is the hard requirement.
 	expect(creaturesBefore).toBeTruthy();
@@ -200,7 +200,7 @@ test('selecting a creature shows needs, goal, action and candidate scores', asyn
 	await expect(page.getByTestId('inspector-decision-reason')).not.toHaveText('—');
 	await expect(page.getByTestId('inspector-candidates')).toBeVisible();
 	await expect(page.getByTestId('inspector-candidate-wander')).toBeVisible();
-	await expect(page.getByTestId('inspector-candidate-seek_food')).toBeVisible();
+	await expect(page.getByTestId('inspector-candidate-satisfy_hunger')).toBeVisible();
 
 	// Selection must not advance or mutate simulation while paused.
 	await expect(page.getByTestId('simulation-time')).toHaveText(timeBefore ?? '');

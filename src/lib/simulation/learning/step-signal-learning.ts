@@ -1,10 +1,11 @@
 /**
  * Fixed-step learning advance hooks.
  *
- * - Mid-step: expire pending only (evidence is resolved on arrival, not while travelling).
- * - Arrival resolution: ephemeral local inspection for evidence only (no FLAME-71
- *   perception episodes or resource-announcement opportunities), reinforce once, clear investigation.
- * - Post-reception: convert newly heard signals into pending candidates.
+ * - Arrival resolution: ephemeral local inspection for evidence only, reinforce once,
+ *   recompute lexicon, clear investigation execution context.
+ * - Interruption: clear context when arbitration selects a different intention.
+ *
+ * Heard signals are retained in memory (FLAME-78); investigation selection is cognition.
  */
 
 import type { Habitat } from '$lib/habitat';
@@ -16,18 +17,11 @@ import {
 	findAssociation,
 	reinforceAssociation
 } from './signal-associations';
-import {
-	appendLearningHistory,
-	insertPendingFromHeard,
-	expirePendingSignals,
-	outcomeFromEvidenceFlags
-} from './signal-investigation';
+import { appendLearningHistory, outcomeFromEvidenceFlags } from './signal-investigation';
 import type { LearningHistoryEntry, LearningOutcome } from './types';
 
 export type LearningStepConfig = Pick<
 	SimulationConfig,
-	| 'pendingSignalLifetimeSeconds'
-	| 'maxPendingSignalsPerCreature'
 	| 'learningEvidenceRadius'
 	| 'associationReinforcement'
 	| 'noEvidenceConfidenceReduction'
@@ -37,7 +31,6 @@ export type LearningStepConfig = Pick<
 	| 'arrivalDistance'
 	| 'sensingRadius'
 	| 'perceptionIntervalSeconds'
-	| 'trackedObservationDurationSeconds'
 	| 'symbolInventory'
 	| 'lexiconAssignmentMinStrength'
 	| 'lexiconAssignmentMinEvidenceCount'
@@ -46,7 +39,7 @@ export type LearningStepConfig = Pick<
 
 /**
  * Ephemeral arrival inspection: food/water near the signal origin for learning only.
- * Does not mutate creature perception episodes or create announcement opportunities.
+ * Does not mutate creature perception or create announcement opportunities.
  */
 function inspectEvidenceNearOrigin(
 	habitat: Habitat,
@@ -84,26 +77,8 @@ function snapshotStrengths(
 }
 
 /**
- * After perception tick: expire pending only.
- * Does not apply investigation evidence mid-travel.
- */
-export function advanceActiveLearning(
-	creature: Creature,
-	timeSeconds: number,
-	_config?: LearningStepConfig
-): Creature {
-	void _config;
-	return {
-		...creature,
-		pendingSignals: expirePendingSignals(creature.pendingSignals, timeSeconds)
-	};
-}
-
-/**
  * Resolve investigation at the origin: ephemeral local inspection for learning
- * evidence, reinforce once, clear active. Does not create FLAME-71 perception
- * episodes or resource-announcement opportunities.
- * Call only when action is `investigate` (creature has stopped at the site).
+ * evidence, reinforce once, clear active. Call only when action is `investigate`.
  */
 export function resolveInvestigationAtSite(
 	creature: Creature,
@@ -116,7 +91,6 @@ export function resolveInvestigationAtSite(
 		return creature;
 	}
 
-	// Learning-only inspection — leave ordinary perception episodes unchanged.
 	const evidence = inspectEvidenceNearOrigin(habitat, active.origin, config.learningEvidenceRadius);
 
 	const before = snapshotStrengths(creature, active.symbolId);
@@ -176,7 +150,6 @@ export function resolveInvestigationAtSite(
 		waterStrengthAfter: waterAfter
 	};
 
-	// Recompute exclusive lexicon from updated evidence only (no population input).
 	const lexiconApplied = applyLexiconResolution(
 		creature.lexicon,
 		creature.recentLexiconChanges,
@@ -189,7 +162,6 @@ export function resolveInvestigationAtSite(
 
 	return {
 		...creature,
-		// Intentionally leave perception (episodes/observations) unchanged.
 		symbolAssociations: associations,
 		lexicon: lexiconApplied.lexicon,
 		recentLexiconChanges: lexiconApplied.recentLexiconChanges,
@@ -203,7 +175,7 @@ export function resolveInvestigationAtSite(
 }
 
 /**
- * When abandoning an investigation mid-trip (should be rare under travel lock).
+ * When arbitration selects a different intention mid-investigation.
  */
 export function interruptInvestigation(
 	creature: Creature,
@@ -244,57 +216,4 @@ export function interruptInvestigation(
 			config.learningHistoryLimit
 		)
 	};
-}
-
-/**
- * Convert signals heard this step into investigation opportunities with one-shot curiosity decisions.
- */
-export function ingestHeardIntoPending(
-	creature: Creature,
-	timeSeconds: number,
-	config: Pick<LearningStepConfig, 'pendingSignalLifetimeSeconds' | 'maxPendingSignalsPerCreature'>,
-	simulationSeed: string
-): Creature {
-	const newlyHeard = creature.recentHeard.filter((h) => h.heardAt === timeSeconds);
-	if (newlyHeard.length === 0) {
-		return creature;
-	}
-	const pendingSignals = insertPendingFromHeard({
-		pending: creature.pendingSignals,
-		heardSignals: newlyHeard,
-		config,
-		simulationSeed,
-		listenerId: creature.id,
-		curiosity: creature.curiosity
-	});
-
-	const gainedAccepted = newlyHeard.some((h) =>
-		pendingSignals.some((p) => p.emissionId === h.emissionId && p.curiosityDecision === 'accepted')
-	);
-
-	// Prompt reconsider while wandering only when curiosity accepted an opportunity.
-	const nextReconsiderAt =
-		gainedAccepted && creature.goal === 'wander'
-			? Math.min(creature.nextReconsiderAt, timeSeconds)
-			: creature.nextReconsiderAt;
-
-	return {
-		...creature,
-		pendingSignals,
-		nextReconsiderAt
-	};
-}
-
-/**
- * After communication reception: ingest opportunities for every creature in array order.
- */
-export function stepPostReceptionLearning(
-	creatures: readonly Creature[],
-	timeSeconds: number,
-	config: Pick<LearningStepConfig, 'pendingSignalLifetimeSeconds' | 'maxPendingSignalsPerCreature'>,
-	simulationSeed: string
-): Creature[] {
-	return creatures.map((creature) =>
-		ingestHeardIntoPending(creature, timeSeconds, config, simulationSeed)
-	);
 }

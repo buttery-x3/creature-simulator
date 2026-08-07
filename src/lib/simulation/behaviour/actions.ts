@@ -1,46 +1,45 @@
 /**
- * Goal/action transitions and consumptive recovery handling.
+ * Intention/action transitions and consumptive recovery handling.
  */
 
+import type { IntentionKind } from '../cognition/types';
 import type {
+	ArbitrationRecord,
 	BehaviourTransition,
 	Creature,
 	CreatureAction,
-	CreatureGoal,
 	CreatureTarget,
-	DecisionRecord,
 	SimulationConfig
 } from '../types';
 
 /**
- * Choose the action for a goal.
- * Need goals without a usable resource/feature target enter `search` (not wander).
- * Rest without home is not expected; if target missing, search is not used for rest.
- * Signal investigation: move to origin, then `investigate` (stop and inspect — no movement).
+ * Choose the action for an intention.
+ * Need intentions without a usable resource/feature target enter `search` (not wander).
+ * Signal investigation: move to origin, then `investigate` (stop and inspect).
+ * Announcement: move/reposition only (never consumptive).
  */
-export function actionForGoal(
-	goal: CreatureGoal,
+export function actionForIntention(
+	intention: IntentionKind,
 	arrived: boolean,
 	hasUsableFeatureTarget: boolean
 ): CreatureAction {
-	if (goal === 'wander') {
+	if (intention === 'wander') {
 		return 'wander';
 	}
-	if (goal === 'investigate_signal') {
+	if (intention === 'investigate_signal') {
 		return arrived ? 'investigate' : 'move';
 	}
-	if (goal === 'prepare_announcement') {
-		// Stay at speaking point (or keep moving toward it); never consumptive.
+	if (intention === 'announce_resource') {
 		return 'move';
 	}
-	if (goal === 'seek_food' || goal === 'seek_water') {
+	if (intention === 'satisfy_hunger' || intention === 'satisfy_thirst') {
 		if (!hasUsableFeatureTarget) {
 			return 'search';
 		}
 		if (!arrived) {
 			return 'move';
 		}
-		return goal === 'seek_food' ? 'eat' : 'drink';
+		return intention === 'satisfy_hunger' ? 'eat' : 'drink';
 	}
 	// rest
 	if (!arrived) {
@@ -61,77 +60,98 @@ export function appendTransition(
 	return next.slice(next.length - limit);
 }
 
-export type ApplyDecisionResult = {
-	goal: CreatureGoal;
+export type ApplyArbitrationResult = {
+	intention: IntentionKind;
 	action: CreatureAction;
 	target: Creature['target'];
-	goalStartedAt: number;
+	intentionStartedAt: number;
 	actionStartedAt: number;
 	nextReconsiderAt: number;
-	lastDecision: DecisionRecord;
-	lastCandidates: DecisionRecord['candidates'];
+	pendingArbitrationTrigger: null;
+	lastArbitration: ArbitrationRecord;
 	recentTransitions: BehaviourTransition[];
 };
 
-function decisionHasFeatureTarget(target: CreatureTarget | null, goal: CreatureGoal): boolean {
-	if (goal === 'wander' || goal === 'investigate_signal' || goal === 'prepare_announcement') {
+function intentionHasFeatureTarget(
+	target: CreatureTarget | null,
+	intention: IntentionKind
+): boolean {
+	if (
+		intention === 'wander' ||
+		intention === 'investigate_signal' ||
+		intention === 'announce_resource'
+	) {
 		return false;
 	}
-	if (goal === 'rest') {
+	if (intention === 'rest') {
 		return target?.kind === 'feature' && target.featureKind === 'home';
 	}
 	return (
 		target?.kind === 'feature' &&
-		((goal === 'seek_food' && target.featureKind === 'food') ||
-			(goal === 'seek_water' && target.featureKind === 'water'))
+		((intention === 'satisfy_hunger' && target.featureKind === 'food') ||
+			(intention === 'satisfy_thirst' && target.featureKind === 'water'))
 	);
 }
 
+function selectionReasonText(record: ArbitrationRecord): string {
+	const codes = record.selectionReasonCodes.join(',');
+	const selected = record.candidates.find((c) => c.intention === record.selectedIntention);
+	const score = selected?.score;
+	return score !== undefined
+		? `${record.trigger}: ${record.selectedIntention} (${codes}; score ${score.toFixed(3)})`
+		: `${record.trigger}: ${record.selectedIntention} (${codes})`;
+}
+
 /**
- * Apply a decision record onto creature behaviour fields.
- * `arrived` controls whether a need goal starts as move or consumptive action.
+ * Apply an arbitration record onto creature behaviour fields.
+ * `arrived` controls whether a need intention starts as move or consumptive action.
  */
-export function applyDecision(
+export function applyArbitration(
 	creature: Pick<
 		Creature,
-		'goal' | 'action' | 'target' | 'goalStartedAt' | 'actionStartedAt' | 'recentTransitions'
+		| 'intention'
+		| 'action'
+		| 'target'
+		| 'intentionStartedAt'
+		| 'actionStartedAt'
+		| 'recentTransitions'
 	>,
-	decision: DecisionRecord,
+	record: ArbitrationRecord,
 	arrived: boolean,
 	config: Pick<SimulationConfig, 'reconsiderIntervalSeconds' | 'decisionHistoryLimit'>
-): ApplyDecisionResult {
-	const goal = decision.selectedGoal;
-	const hasFeature = decisionHasFeatureTarget(decision.selectedTarget, goal);
-	const action = actionForGoal(goal, arrived && hasFeature, hasFeature);
-	const target = decision.selectedTarget;
-	const goalChanged = goal !== creature.goal;
+): ApplyArbitrationResult {
+	const intention = record.selectedIntention;
+	const hasFeature = intentionHasFeatureTarget(record.selectedTarget, intention);
+	const action = actionForIntention(intention, arrived && hasFeature, hasFeature);
+	const target = record.selectedTarget;
+	const intentionChanged = intention !== creature.intention;
 	const actionChanged = action !== creature.action;
 
 	let recentTransitions = creature.recentTransitions;
-	if (goalChanged || actionChanged) {
+	if (intentionChanged || actionChanged) {
 		recentTransitions = appendTransition(
 			creature.recentTransitions,
 			{
-				timeSeconds: decision.timeSeconds,
-				fromGoal: creature.goal,
-				toGoal: goal,
+				timeSeconds: record.timeSeconds,
+				fromIntention: creature.intention,
+				toIntention: intention,
 				fromAction: creature.action,
 				toAction: action,
-				reason: decision.selectionReason
+				reason: selectionReasonText(record)
 			},
 			config.decisionHistoryLimit
 		);
 	}
 
 	return {
-		goal,
+		intention,
 		action,
 		target,
-		goalStartedAt: goalChanged ? decision.timeSeconds : creature.goalStartedAt,
-		actionStartedAt: actionChanged ? decision.timeSeconds : creature.actionStartedAt,
-		nextReconsiderAt: decision.timeSeconds + config.reconsiderIntervalSeconds,
-		lastDecision: decision,
-		lastCandidates: decision.candidates,
+		intentionStartedAt: intentionChanged ? record.timeSeconds : creature.intentionStartedAt,
+		actionStartedAt: actionChanged ? record.timeSeconds : creature.actionStartedAt,
+		nextReconsiderAt: record.timeSeconds + config.reconsiderIntervalSeconds,
+		pendingArbitrationTrigger: null,
+		lastArbitration: record,
 		recentTransitions
 	};
 }
@@ -147,8 +167,8 @@ export function transitionToConsumptive(
 	if (creature.action !== 'move') {
 		return null;
 	}
-	const hasFeature = decisionHasFeatureTarget(creature.target, creature.goal);
-	const nextAction = actionForGoal(creature.goal, true, hasFeature);
+	const hasFeature = intentionHasFeatureTarget(creature.target, creature.intention);
+	const nextAction = actionForIntention(creature.intention, true, hasFeature);
 	if (nextAction === 'move' || nextAction === 'wander' || nextAction === 'search') {
 		return null;
 	}
@@ -157,8 +177,8 @@ export function transitionToConsumptive(
 		creature.recentTransitions,
 		{
 			timeSeconds,
-			fromGoal: creature.goal,
-			toGoal: creature.goal,
+			fromIntention: creature.intention,
+			toIntention: creature.intention,
 			fromAction: creature.action,
 			toAction: nextAction,
 			reason: `arrived at target; begin ${nextAction}`
@@ -169,7 +189,6 @@ export function transitionToConsumptive(
 	return {
 		action: nextAction,
 		actionStartedAt: timeSeconds,
-		// Keep nextReconsiderAt; consumptive / investigation completion will force replan.
 		recentTransitions
 	};
 }

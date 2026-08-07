@@ -157,7 +157,6 @@ describe('reconcileSignals', () => {
 		const investigation: ActiveSignalInvestigation = {
 			emissionId: 'em-inv',
 			symbolId: 'glyph-1',
-			senderId: 'creature-0',
 			origin: { x: 4, y: 2 },
 			startedAt: 1
 		};

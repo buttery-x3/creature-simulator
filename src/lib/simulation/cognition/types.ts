@@ -1,9 +1,8 @@
 /**
- * Pure cognition / intention arbitration types (FLAME-79).
+ * Pure cognition / intention arbitration types.
  *
- * This model is intentionally separate from legacy CreatureGoal scoring.
- * Runtime cutover lives in FLAME-80; until then this package is pure and unused
- * by the step loop.
+ * Runtime-authoritative since FLAME-80: the step loop builds ArbitrationInput
+ * and applies ArbitrationRecord via behaviour execution.
  *
  * Target representation:
  * - Resource pursuit prefers a feature target when a feature id is known

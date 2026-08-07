@@ -1,11 +1,10 @@
 /**
- * Pure memory-aware continuous intention arbitration (FLAME-79).
+ * Pure memory-aware continuous intention arbitration.
  *
  * Single entry point for the cognition subdomain. Side-effect free:
  * identical inputs produce identical ArbitrationRecord outputs.
  *
- * Does not import legacy behaviour/decisions or learning pendingSignals.
- * Runtime wiring is FLAME-80.
+ * Runtime-authoritative (FLAME-80). Does not own movement, emission, or memory writes.
  */
 
 import { buildCandidates } from './build-candidates';

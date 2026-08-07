@@ -1,6 +1,6 @@
 /**
- * Resource-announcement subdomain: perception-episode opportunities, kind-level
- * clarity, speaking-position search, and preparation lifecycle.
+ * Resource-announcement subdomain: kind-level clarity, speaking-position search,
+ * and executor lifecycle under the announce_resource intention.
  *
  * Consumed by simulation siblings; presentation imports via $lib/simulation only.
  */
@@ -41,7 +41,6 @@ export {
 
 export {
 	collectClarityCandidates,
-	isAnnouncementLocked,
 	stepAnnouncement,
 	type AnnouncementStepConfig,
 	type AnnouncementStepResult

@@ -3,11 +3,8 @@
  * (post-communication).
  *
  * These are pure fixed-step apply functions invoked from step orchestration.
- * They do not interpret meaning, drive decisions, or deepen pendingSignals.
- *
- * Transitional note: heard_signal memory is the future authoritative retained
- * model for “I heard symbol S from place P”. Legacy pendingSignals remain for
- * curiosity/investigation until the later cutover issue removes them.
+ * They do not interpret meaning or select intentions. Heard_signal memory is the
+ * retained hearing model used by cognition for investigate_signal candidates.
  */
 
 import type { Habitat, ResourceFeature } from '$lib/habitat';
@@ -26,7 +23,7 @@ export type ResourceObservationMemoryConfig = Pick<
 /**
  * True when behaviour ran a sensing pass this fixed step.
  * Perception sets lastUpdatedAt === timeSeconds only when senseAt executed.
- * Investigation-locked creatures skip ordinary sensing and therefore skip observation writes.
+ * Creatures that did not sense this step skip observation writes.
  */
 export function isSensingPassThisStep(lastUpdatedAt: number, timeSeconds: number): boolean {
 	return Number.isFinite(lastUpdatedAt) && lastUpdatedAt === timeSeconds;

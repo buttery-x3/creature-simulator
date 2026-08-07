@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Creature, HeardSignal } from '$lib/simulation';
+import { testCreature } from '$lib/simulation/test-creature';
 import {
 	DEFAULT_HEARD_CUE_DURATION_SECONDS,
 	clearListenerCuePresentation,
@@ -21,55 +22,13 @@ function heard(
 }
 
 function creature(id: string, recentHeard: HeardSignal[] = []): Creature {
-	return {
+	return testCreature({
 		id,
 		position: { x: 1, y: 2 },
-		facing: 0,
-		movementSpeed: 1,
 		wanderTarget: { x: 2, y: 2 },
-		wanderDecisionIndex: 0,
 		searchTarget: { x: 0, y: 2 },
-		searchDecisionIndex: 0,
-		perception: {
-			lastUpdatedAt: -1,
-			perceivedFoodIds: [],
-			perceivedWaterIds: [],
-			observations: [],
-			tracked: null,
-			activeEpisodes: [],
-			episodeCounter: 0
-		},
-		hunger: 0.2,
-		thirst: 0.2,
-		energy: 0.85,
-		curiosity: 0.45,
-		memory: { capacity: 10, nextSequence: 0, entries: [] },
-		recentAnnouncementOpportunityDecisions: [],
-		goal: 'wander',
-		action: 'wander',
-		target: { kind: 'point', position: { x: 2, y: 2 } },
-		goalStartedAt: 0,
-		actionStartedAt: 0,
-		nextReconsiderAt: 1.5,
-		lastDecision: null,
-		lastCandidates: [],
-		recentTransitions: [],
-		preferredSymbolId: 'glyph-0',
-		emissionCount: 0,
-		lastEmissionAt: -1,
-		recentEmitted: [],
-		recentHeard,
-		symbolAssociations: [],
-		lexicon: { food: null, water: null },
-		recentLexiconChanges: [],
-		pendingSignals: [],
-		activeInvestigation: null,
-		recentLearning: [],
-		activeAnnouncementOpportunity: null,
-		announcementOpportunityCounter: 0,
-		recentAnnouncementOutcomes: [],
-		activeAnnouncementCue: null
-	};
+		recentHeard
+	});
 }
 
 describe('reconcileHeardCues', () => {
@@ -122,7 +81,6 @@ describe('reconcileHeardCues', () => {
 		c.activeInvestigation = {
 			emissionId: 'e1',
 			symbolId: 'glyph-0',
-			senderId: 's',
 			origin: { x: 0, y: 0 },
 			startedAt: 1
 		};
@@ -158,7 +116,6 @@ describe('reconcileHeardCues', () => {
 		c.activeInvestigation = {
 			emissionId: 'e1',
 			symbolId: 'glyph-0',
-			senderId: 's',
 			origin: { x: 0, y: 0 },
 			startedAt: 1.2
 		};

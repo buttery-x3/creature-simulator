@@ -146,37 +146,38 @@ renewable resources and minimal rain (FLAME-77):
 Do not fold world lifecycle into `behaviour/`. Do not invent a general weather
 framework or ecosystem solver here.
 
-Internal behaviour subdomain (`simulation/behaviour/`), introduced for the
-needs/goal/action state machine and local resource perception:
+Internal behaviour subdomain (`simulation/behaviour/`), needs/action execution
+and thin step orchestration (intention selection lives in cognition):
 
 - `needs.ts` — need progression and recovery completion;
-- `decisions.ts` — candidate evaluation, hysteresis/commitment, decision records;
-- `actions.ts` — goal/action transitions (including `search`) and bounded history;
+- `actions.ts` — intention→action mapping, apply arbitration result, consumptive transitions;
+- `apply-arbitration.ts` — run `arbitrate` + map onto execution fields (investigation context);
+- `build-arbitration-input.ts` — body/perception/memory snapshot for cognition;
 - `habitat-feature-query.ts` — named nearby-feature query (circle ∩ footprint);
-- `perception.ts` — sensing interval, perceived snapshot, brief tracked observation;
-- `resource-awareness.ts` — target resolve/arrival; perception-scoped food/water targets; innate home;
-- `step-creature-behaviour.ts` — per-creature fixed-step behaviour orchestration (may emit emission requests);
+- `perception.ts` — sensing interval and current observation snapshot;
+- `resource-awareness.ts` — target resolve/arrival/movement helpers; search sampling;
+- `step-creature-behaviour.ts` — per-creature fixed-step orchestration (may emit emission requests);
 - `index.ts` — exports for simulation siblings (not a separate app subsystem).
 
 This directory is at capacity for implementation files (hard limit 8 excluding
-tests). Resource-announcement lifecycle lives in `simulation/announcement/` so
-behaviour does not absorb a second state machine. Further growth should restate
-ownership rather than add thin helpers. Do not move Three.js objects or Svelte
-components into this subsystem. Creatures must not live on `Habitat`.
+tests and `index.ts`). Cognition owns decision policy; announcement executor lives
+in `simulation/announcement/`. Further growth should restate ownership rather than
+add thin helpers. Do not move Three.js objects or Svelte components into this
+subsystem. Creatures must not live on `Habitat`.
 
-Internal announcement subdomain (`simulation/announcement/`), introduced for the
-resource-announcement opportunity lifecycle (FLAME-71):
+Internal announcement subdomain (`simulation/announcement/`), executor under the
+`announce_resource` intention:
 
-- `types.ts` — opportunities, episodes (re-export shapes), clarity/outcome records;
+- `types.ts` — executor opportunity/outcome/clarity records;
 - `clarity.ts` — pure kind-level clarity evaluation;
 - `speaking-position.ts` — pure deterministic speaking-position search;
-- `opportunity-lifecycle.ts` — create/complete/invalidate the single active opportunity (consults memory; no deferred queue);
-- `step-announcement.ts` — per-creature announcement advance and emission requests;
+- `opportunity-lifecycle.ts` — outcome construction and diagnostic helpers;
+- `step-announcement.ts` — advance clarity/reposition/emit when intention is announce;
 - `index.ts` — exports for simulation siblings.
 
-Perception owns episode reconciliation; behaviour orchestration calls
-`stepAnnouncement`. Communication owns transmission. Do not couple future
-danger/predator signalling to resource-announcement preparation.
+Cognition selects announce; behaviour calls `stepAnnouncement` as executor only.
+Communication owns transmission. Do not couple future danger/predator signalling
+to resource-announcement preparation.
 
 Internal memory subdomain (`simulation/memory/`), first-class bounded creature
 memory (FLAME-74 baseline; FLAME-78 observation + heard-signal kinds):
@@ -192,12 +193,12 @@ memory (FLAME-74 baseline; FLAME-78 observation + heard-signal kinds):
 Announcement consults memory for suppression; step orchestration applies all
 memory writes (observations, announcements, heard signals). Communication must
 not become the general memory manager. Do not store memory inside perception or
-presentation. Do not deepen legacy `pendingSignals` as retained experience.
-Memory query helpers include newest-first list recall for cognition; scoring
-stays out of memory.
+presentation. Heard_signal memory is the retained hearing model for investigation
+candidates. Memory query helpers include newest-first list recall for cognition;
+scoring stays out of memory.
 
 Internal cognition subdomain (`simulation/cognition/`), pure memory-aware
-intention arbitration (FLAME-79; runtime cutover FLAME-80):
+intention arbitration — **runtime-authoritative**:
 
 - `types.ts` — intention kinds, candidates, ArbitrationRecord, triggers, config shape;
 - `score-constants.ts` — default baselines, continuity bonus, need thresholds;
@@ -207,10 +208,9 @@ intention arbitration (FLAME-79; runtime cutover FLAME-80):
 - `arbitrate.ts` — single pure entry `arbitrate(input) → ArbitrationRecord`;
 - `index.ts` — exports for simulation siblings.
 
-Does not own movement, emission, sensing, or memory writes. Must not import
-legacy `behaviour/decisions` or `learning` opportunity/curiosity APIs. Continuity
-is a score bonus on the current intention, not locks. Until FLAME-80, live
-stepping still uses `behaviour/decisions.ts`.
+Does not own movement, emission, sensing, or memory writes. Continuity is a score
+bonus on the current intention, not locks. Live stepping builds input via behaviour
+and applies the record; no second decision path exists.
 
 Internal communication subdomain (`simulation/communication/`), introduced for
 transient arbitrary signals and local reception:
@@ -228,19 +228,19 @@ learning implementation modules; it only reads lexicon **values** already on
 the creature. Do not add speaker-success feedback or evidence mutation here.
 
 Internal learning subdomain (`simulation/learning/`), introduced for personal
-symbol evidence, exclusive lexicon resolution and signal-guided investigation
+symbol evidence, exclusive lexicon resolution and investigation arrival learning
 (receptive mutation only):
 
-- `types.ts` — evidence rows, lexicon, pending signals, active investigation, learning / lexicon history;
+- `types.ts` — evidence rows, lexicon, active investigation execution context, learning / lexicon history;
 - `signal-associations.ts` — empty init, clamp, reinforce, optional no-evidence reduction;
 - `lexicon-resolution.ts` — pure exclusive one-to-one meaning↔symbol assignment from evidence;
-- `signal-investigation.ts` — pending lifecycle, investigation scoring (raw evidence), evidence qualification;
-- `step-signal-learning.ts` — mid-behaviour advance, arrival reinforce + lexicon resolve, post-reception pending insert;
+- `signal-investigation.ts` — investigation execution helpers, evidence qualification;
+- `step-signal-learning.ts` — arrival reinforce + lexicon resolve, interrupt history;
 - `index.ts` — exports for simulation siblings.
 
-Behaviour owns whether to select `investigate_signal` and movement toward the
-origin; learning owns evidence **updates**, lexicon resolution and investigation
-evidence. Emission uses resolved lexicon assignments (or exploratory when
+Cognition selects `investigate_signal`; behaviour owns movement toward the origin;
+learning owns evidence **updates**, lexicon resolution and investigation execution
+helpers. Emission uses resolved lexicon assignments (or exploratory when
 unassigned) inside communication — not independent multi-context weight
 sampling. Population convention metrics are pure diagnostics under simulation
 root (`population-symbol-diagnostics.ts`), not authoritative state.

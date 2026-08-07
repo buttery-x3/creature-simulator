@@ -22,8 +22,8 @@ describe('events-view-model', () => {
 		creature.recentTransitions = [
 			{
 				timeSeconds: 1,
-				fromGoal: 'wander',
-				toGoal: 'seek_food',
+				fromIntention: 'wander',
+				toIntention: 'satisfy_hunger',
 				fromAction: 'wander',
 				toAction: 'move',
 				reason: 'test'

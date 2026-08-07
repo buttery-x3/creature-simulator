@@ -1,15 +1,9 @@
 /**
- * Per-creature resource-announcement step: create at most one active opportunity
- * from discoveries, evaluate kind-level clarity, reposition when unclear, and
- * request emission.
+ * Announcement executor under the announce_resource intention.
  *
- * Policy:
- * - Opportunities are independent of need/goal (created from perception only).
- * - At most one current opportunity — no deferred announcement queue.
- * - Active preparation is committed against ordinary replan (like investigation).
- * - While investigating a signal, ordinary discovery is frozen by the behaviour
- *   orchestrator; this step must not invent deferred tasks.
- * - Cooldown may delay emission of the current opportunity; it is not discarded.
+ * Cognition selects announce_resource + feature target. This module advances
+ * clarity evaluation, speaking-position search, and emission request construction.
+ * It never locks behaviour or forces intention ownership.
  */
 
 import type { Habitat } from '$lib/habitat';
@@ -18,15 +12,9 @@ import { queryFeaturesNear } from '../behaviour/habitat-feature-query';
 import type { Creature, SimulationConfig } from '../types';
 import { evaluateKindClarity, type ClarityResourceCandidate } from './clarity';
 import { ensureCreatureMemory } from '../memory/create-memory';
-import {
-	appendOpportunityDecisions,
-	appendOutcome,
-	buildOutcome,
-	createOpportunitiesFromDiscoveries,
-	getActiveOpportunity
-} from './opportunity-lifecycle';
+import { appendOutcome, buildOutcome, getActiveOpportunity } from './opportunity-lifecycle';
 import { findSpeakingPosition } from './speaking-position';
-import type { AnnouncementOpportunity, NewlyPerceivedResource } from './types';
+import type { AnnouncementOpportunity } from './types';
 
 export type AnnouncementStepConfig = Pick<
 	SimulationConfig,
@@ -46,8 +34,8 @@ export type AnnouncementStepResult = {
 	creature: Creature;
 	emissionRequest: EmissionRequest | null;
 	/**
-	 * True when this step ended `prepare_announcement` (emit, invalidate, or stuck).
-	 * Orchestrator must run an `action_complete` replan so normal decision timing resumes.
+	 * True when this step completed or invalidated announcement execution
+	 * (emit, invalidate). Orchestrator should request action_complete arbitration.
 	 */
 	endedPreparation: boolean;
 };
@@ -62,7 +50,6 @@ function canEmitNow(lastEmissionAt: number, timeSeconds: number, cooldownSeconds
 /**
  * Clarity candidate scope: current perception observations union habitat food/water
  * within max(sensingRadius, speakingPositionSearchRadius) of the evaluation position.
- * Same-kind and opposite-kind features in that set participate; same-kind never compete.
  */
 export function collectClarityCandidates(
 	position: Creature['position'],
@@ -83,11 +70,13 @@ export function collectClarityCandidates(
 		if (feature.kind !== 'food' && feature.kind !== 'water') {
 			continue;
 		}
-		byId.set(feature.id, {
-			featureId: feature.id,
-			resourceKind: feature.kind,
-			position: { x: feature.position.x, y: feature.position.y }
-		});
+		if (!byId.has(feature.id)) {
+			byId.set(feature.id, {
+				featureId: feature.id,
+				resourceKind: feature.kind,
+				position: { x: feature.position.x, y: feature.position.y }
+			});
+		}
 	}
 	return [...byId.values()].sort((a, b) =>
 		a.featureId < b.featureId ? -1 : a.featureId > b.featureId ? 1 : 0
@@ -99,36 +88,88 @@ function featureStillAvailable(
 	featureId: string,
 	kind: 'food' | 'water'
 ): boolean {
-	// Food is removed when depleted; empty water basins remain but are unavailable.
 	const list = kind === 'food' ? habitat.food : habitat.water;
 	const feature = list.find((f) => f.id === featureId);
 	return feature !== undefined && feature.amount > 0;
 }
 
-function isInvestigationLocked(creature: Creature): boolean {
-	return (
-		creature.goal === 'investigate_signal' &&
-		creature.activeInvestigation !== null &&
-		(creature.action === 'move' || creature.action === 'investigate')
-	);
-}
+function ensureExecutorOpportunity(
+	creature: Creature,
+	habitat: Habitat,
+	timeSeconds: number
+): { creature: Creature; active: AnnouncementOpportunity | null } {
+	const target = creature.target;
+	if (
+		creature.intention !== 'announce_resource' ||
+		!target ||
+		target.kind !== 'feature' ||
+		(target.featureKind !== 'food' && target.featureKind !== 'water')
+	) {
+		return {
+			creature: {
+				...creature,
+				activeAnnouncementOpportunity: null
+			},
+			active: null
+		};
+	}
 
-function isAnnouncementLocked(creature: Creature): boolean {
-	return creature.goal === 'prepare_announcement';
+	const existing = getActiveOpportunity(creature.activeAnnouncementOpportunity);
+	if (existing && existing.triggerFeatureId === target.featureId) {
+		return { creature, active: existing };
+	}
+
+	const list = target.featureKind === 'food' ? habitat.food : habitat.water;
+	const feature = list.find((f) => f.id === target.featureId);
+	if (!feature || feature.amount <= 0) {
+		return {
+			creature: { ...creature, activeAnnouncementOpportunity: null },
+			active: null
+		};
+	}
+
+	const counter = creature.announcementOpportunityCounter + 1;
+	const active: AnnouncementOpportunity = {
+		id: `ann-${creature.id}-${counter}`,
+		creatureId: creature.id,
+		triggerFeatureId: feature.id,
+		resourceKind: target.featureKind,
+		triggerFeaturePosition: { x: feature.position.x, y: feature.position.y },
+		perceptionEpisodeId: `exec-${feature.id}`,
+		discoveredAt: timeSeconds,
+		discoveryCreaturePosition: { x: creature.position.x, y: creature.position.y },
+		state: 'ready',
+		speakingTarget: null,
+		initialClarity: null
+	};
+
+	return {
+		creature: {
+			...creature,
+			activeAnnouncementOpportunity: active,
+			announcementOpportunityCounter: counter,
+			activeAnnouncementCue: {
+				opportunityId: active.id,
+				triggerFeatureId: active.triggerFeatureId,
+				triggerFeaturePosition: { ...active.triggerFeaturePosition },
+				fadeStartedAt: null
+			}
+		},
+		active
+	};
 }
 
 /**
- * Ingest newly perceived resources and advance the single active announcement opportunity.
+ * Advance announcement executor when intention is announce_resource.
+ * Clears stale executor state when intention is not announce.
  */
 export function stepAnnouncement(input: {
 	creature: Creature;
 	habitat: Habitat;
 	timeSeconds: number;
-	newlyPerceived: readonly NewlyPerceivedResource[];
 	config: AnnouncementStepConfig;
 }): AnnouncementStepResult {
 	const { habitat, timeSeconds, config } = input;
-	// Repair missing memory / decision history (HMR-stale or incomplete factories).
 	let creature = ensureCreatureMemory(input.creature);
 
 	// Expire faded presentation cue.
@@ -141,44 +182,21 @@ export function stepAnnouncement(input: {
 		creature = { ...creature, activeAnnouncementCue: null };
 	}
 
-	// 1. Create at most one opportunity from discoveries (need-independent; consults memory).
-	//    While investigation-locked, orchestrator should pass empty newlyPerceived.
-	if (input.newlyPerceived.length > 0) {
-		const created = createOpportunitiesFromDiscoveries({
-			creatureId: creature.id,
-			creaturePosition: creature.position,
-			newlyPerceived: input.newlyPerceived,
-			activeOpportunity: creature.activeAnnouncementOpportunity,
-			opportunityCounter: creature.announcementOpportunityCounter,
-			memory: creature.memory
-		});
-		creature = {
-			...creature,
-			activeAnnouncementOpportunity: created.activeOpportunity,
-			announcementOpportunityCounter: created.opportunityCounter,
-			recentAnnouncementOpportunityDecisions: appendOpportunityDecisions(
-				creature.recentAnnouncementOpportunityDecisions,
-				created.decisions,
-				config.recentAnnouncementOpportunityDecisionHistoryLimit
-			)
-		};
-	}
-
-	// 2. Do not start/advance preparation while investigation travel/inspect is locked.
-	if (isInvestigationLocked(creature) && !isAnnouncementLocked(creature)) {
-		return { creature, emissionRequest: null, endedPreparation: false };
-	}
-
-	let active = getActiveOpportunity(creature.activeAnnouncementOpportunity);
-	if (!active) {
-		// Stuck prepare without an open opportunity — leave goal for action_complete replan.
-		if (creature.goal === 'prepare_announcement') {
-			return { creature, emissionRequest: null, endedPreparation: true };
+	// Not announcing: drop executor opportunity (cue may still fade).
+	if (creature.intention !== 'announce_resource') {
+		if (creature.activeAnnouncementOpportunity !== null) {
+			creature = { ...creature, activeAnnouncementOpportunity: null };
 		}
 		return { creature, emissionRequest: null, endedPreparation: false };
 	}
 
-	// 3. Invalidate if trigger gone/empty or no announced-kind resources remain available.
+	const ensured = ensureExecutorOpportunity(creature, habitat, timeSeconds);
+	creature = ensured.creature;
+	let active = ensured.active;
+	if (!active) {
+		return { creature, emissionRequest: null, endedPreparation: true };
+	}
+
 	if (!featureStillAvailable(habitat, active.triggerFeatureId, active.resourceKind)) {
 		return finalizeInvalid(creature, active, timeSeconds, 'invalid_trigger_feature', config);
 	}
@@ -187,7 +205,6 @@ export function stepAnnouncement(input: {
 		return finalizeInvalid(creature, active, timeSeconds, 'no_announced_kind_available', config);
 	}
 
-	// Local scope only — no expanded world search for stale/deferred triggers.
 	const scopeRadius = Math.max(config.sensingRadius, config.speakingPositionSearchRadius);
 	const candidates = collectClarityCandidates(
 		creature.position,
@@ -211,10 +228,8 @@ export function stepAnnouncement(input: {
 		};
 	}
 
-	// 4. Clear at current position → emit when cooldown allows.
 	if (clarity.clear) {
 		if (!canEmitNow(creature.lastEmissionAt, timeSeconds, config.emissionCooldownSeconds)) {
-			// Stay committed if already preparing; otherwise hold ready without force-moving.
 			return { creature, emissionRequest: null, endedPreparation: false };
 		}
 
@@ -234,7 +249,6 @@ export function stepAnnouncement(input: {
 		const repositioningRequired =
 			active.state === 'repositioning' ||
 			(active.initialClarity !== null && !active.initialClarity.clear);
-		const wasPreparing = creature.goal === 'prepare_announcement';
 
 		const outcome = buildOutcome({
 			opportunity: active,
@@ -243,7 +257,6 @@ export function stepAnnouncement(input: {
 			finalClarity: clarity,
 			repositioningRequired,
 			finalEmitterPosition: { x: creature.position.x, y: creature.position.y },
-			// Signal id/symbol filled after communication; leave null for local outcome.
 			emittedSignalId: null,
 			emittedSymbolId: null,
 			productionMode: null
@@ -263,13 +276,11 @@ export function stepAnnouncement(input: {
 				triggerFeaturePosition: { ...active.triggerFeaturePosition },
 				fadeStartedAt: timeSeconds
 			}
-			// Keep prepare_announcement until orchestrator runs action_complete replan.
 		};
 
-		return { creature, emissionRequest, endedPreparation: wasPreparing };
+		return { creature, emissionRequest, endedPreparation: true };
 	}
 
-	// 5. Unclear / no announced kind in local scope.
 	if (clarity.reason === 'no_announced_kind_in_scope') {
 		return finalizeInvalid(creature, active, timeSeconds, 'no_announced_kind_available', config);
 	}
@@ -305,18 +316,12 @@ export function stepAnnouncement(input: {
 		speakingTarget: speaking.position
 	};
 
+	// Executor only moves the target point; intention remains announce_resource.
 	creature = {
 		...creature,
 		activeAnnouncementOpportunity: active,
-		goal: 'prepare_announcement',
 		action: 'move',
 		target: { kind: 'point', position: { ...speaking.position } },
-		goalStartedAt: creature.goal === 'prepare_announcement' ? creature.goalStartedAt : timeSeconds,
-		actionStartedAt:
-			creature.goal === 'prepare_announcement' && creature.action === 'move'
-				? creature.actionStartedAt
-				: timeSeconds,
-		// Commitment is the prepare_announcement lock only — do not push nextReconsiderAt.
 		activeAnnouncementCue: {
 			opportunityId: active.id,
 			triggerFeatureId: active.triggerFeatureId,
@@ -346,7 +351,6 @@ function finalizeInvalid(
 		emittedSymbolId: null,
 		productionMode: null
 	});
-	const wasPreparing = creature.goal === 'prepare_announcement';
 	return {
 		creature: {
 			...creature,
@@ -360,11 +364,8 @@ function finalizeInvalid(
 				creature.activeAnnouncementCue?.opportunityId === active.id
 					? null
 					: creature.activeAnnouncementCue
-			// Keep prepare_announcement until orchestrator runs action_complete replan.
 		},
 		emissionRequest: null,
-		endedPreparation: wasPreparing
+		endedPreparation: true
 	};
 }
-
-export { isAnnouncementLocked };

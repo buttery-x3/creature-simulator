@@ -274,14 +274,14 @@
 		{/if}
 	</section>
 
-	<section class="block" data-testid="curiosity-opportunities" aria-label="Curiosity decisions">
-		<h3>Curiosity decisions</h3>
+	<section class="block" data-testid="curiosity-opportunities" aria-label="Heard signal memories">
+		<h3>Heard-signal memories</h3>
 		<p class="hint">
-			Every heard signal gets one curiosity accept/reject. Selected = currently investigating that
-			emission.
+			Retained heard signals eligible for investigation via intention arbitration. Selected =
+			currently investigating that emission.
 		</p>
-		{#if vm.curiosityOpportunities.length === 0}
-			<p class="empty">No live investigation opportunities.</p>
+		{#if vm.heardSignalMemories.length === 0}
+			<p class="empty">No heard-signal memories retained.</p>
 		{:else}
 			<div class="table-wrap">
 				<table class="table">
@@ -289,14 +289,13 @@
 						<tr>
 							<th scope="col">Listener</th>
 							<th scope="col">Symbol</th>
-							<th scope="col">Heard</th>
-							<th scope="col">Curiosity</th>
-							<th scope="col">Decision</th>
+							<th scope="col">Remembered</th>
+							<th scope="col">Origin</th>
 							<th scope="col">Selected</th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each vm.curiosityOpportunities as row (row.listenerId + row.emissionId)}
+						{#each vm.heardSignalMemories as row (row.listenerId + row.emissionId)}
 							<tr data-testid={`curiosity-row-${row.listenerId}-${row.emissionId}`}>
 								<td>
 									<button
@@ -308,9 +307,8 @@
 									</button>
 								</td>
 								<td><SymbolGlyph symbolId={row.symbolId} /></td>
-								<td>{row.heardAt.toFixed(2)}s</td>
-								<td>{row.curiosity.toFixed(3)}</td>
-								<td>{row.decision}</td>
+								<td>{row.rememberedAt.toFixed(2)}s</td>
+								<td>({row.originX.toFixed(1)}, {row.originY.toFixed(1)})</td>
 								<td>{row.selected ? 'yes' : '—'}</td>
 							</tr>
 						{/each}
@@ -329,7 +327,6 @@
 				<thead>
 					<tr>
 						<th scope="col">Listener</th>
-						<th scope="col">Sender</th>
 						<th scope="col">Symbol</th>
 						<th scope="col">Origin</th>
 						<th scope="col">Started</th>
@@ -339,7 +336,6 @@
 					{#each vm.activeInvestigations as inv (inv.emissionId + inv.listenerId)}
 						<tr>
 							<td>{inv.listenerId}</td>
-							<td>{inv.senderId}</td>
 							<td><SymbolGlyph symbolId={inv.symbolId} /></td>
 							<td>({inv.originX.toFixed(2)}, {inv.originY.toFixed(2)})</td>
 							<td>{inv.startedAt.toFixed(2)}s</td>

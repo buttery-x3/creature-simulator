@@ -5,6 +5,8 @@
 
 import {
 	buildPopulationSymbolDiagnostics,
+	ensureCreatureMemory,
+	listHeardSignalMemories,
 	type PopulationSymbolDiagnostics,
 	type SimulationConfig,
 	type SimulationState,
@@ -41,7 +43,6 @@ export type LiveFeedItem = {
 
 export type ActiveInvestigationRow = {
 	listenerId: string;
-	senderId: string;
 	symbolId: SymbolId;
 	emissionId: string;
 	originX: number;
@@ -49,15 +50,14 @@ export type ActiveInvestigationRow = {
 	startedAt: number;
 };
 
-/** Recent heard-signal curiosity decisions for Communication tab. */
-export type CuriosityOpportunityRow = {
+/** Heard-signal memories retained for investigation eligibility (not curiosity). */
+export type HeardSignalMemoryRow = {
 	listenerId: string;
 	symbolId: SymbolId;
 	emissionId: string;
-	heardAt: number;
-	curiosity: number;
-	decision: 'pending' | 'accepted' | 'rejected';
-	sample: number | null;
+	rememberedAt: number;
+	originX: number;
+	originY: number;
 	/** Whether this emission is the listener's active investigation. */
 	selected: boolean;
 };
@@ -88,7 +88,9 @@ export type CommunicationViewModel = {
 	lexiconMatrix: LexiconMatrixRow[];
 	liveFeed: LiveFeedItem[];
 	activeInvestigations: ActiveInvestigationRow[];
-	curiosityOpportunities: CuriosityOpportunityRow[];
+	/** @deprecated Prefer heardSignalMemories; kept for transitional UI bindings. */
+	curiosityOpportunities: HeardSignalMemoryRow[];
+	heardSignalMemories: HeardSignalMemoryRow[];
 	completedOutcomes: CompletedOutcomeCounts;
 	announcementMemorySummaries: AnnouncementMemorySummaryRow[];
 };
@@ -113,7 +115,7 @@ export function buildCommunicationViewModel(
 
 	const liveFeed = buildLiveFeed(state);
 	const activeInvestigations: ActiveInvestigationRow[] = [];
-	const curiosityOpportunities: CuriosityOpportunityRow[] = [];
+	const heardSignalMemories: HeardSignalMemoryRow[] = [];
 	const announcementMemorySummaries: AnnouncementMemorySummaryRow[] = [];
 	const completedOutcomes: CompletedOutcomeCounts = {
 		food_evidence: 0,
@@ -129,7 +131,6 @@ export function buildCommunicationViewModel(
 			const inv = creature.activeInvestigation;
 			activeInvestigations.push({
 				listenerId: creature.id,
-				senderId: inv.senderId,
 				symbolId: inv.symbolId,
 				emissionId: inv.emissionId,
 				originX: inv.origin.x,
@@ -137,16 +138,16 @@ export function buildCommunicationViewModel(
 				startedAt: inv.startedAt
 			});
 		}
-		for (const opp of creature.pendingSignals) {
-			curiosityOpportunities.push({
+		const memory = ensureCreatureMemory(creature).memory;
+		for (const heard of listHeardSignalMemories(memory)) {
+			heardSignalMemories.push({
 				listenerId: creature.id,
-				symbolId: opp.symbolId,
-				emissionId: opp.emissionId,
-				heardAt: opp.heardAt,
-				curiosity: opp.curiosityEvidence?.curiosity ?? creature.curiosity,
-				decision: opp.curiosityDecision,
-				sample: opp.curiosityEvidence?.deterministicSample ?? null,
-				selected: creature.activeInvestigation?.emissionId === opp.emissionId
+				symbolId: heard.symbolId,
+				emissionId: heard.emissionId,
+				rememberedAt: heard.rememberedAt,
+				originX: heard.origin.x,
+				originY: heard.origin.y,
+				selected: creature.activeInvestigation?.emissionId === heard.emissionId
 			});
 		}
 		for (const entry of creature.recentLearning) {
@@ -170,7 +171,7 @@ export function buildCommunicationViewModel(
 		});
 	}
 
-	curiosityOpportunities.sort((a, b) => b.heardAt - a.heardAt);
+	heardSignalMemories.sort((a, b) => b.rememberedAt - a.rememberedAt);
 
 	return {
 		population,
@@ -178,7 +179,8 @@ export function buildCommunicationViewModel(
 		lexiconMatrix,
 		liveFeed,
 		activeInvestigations,
-		curiosityOpportunities,
+		curiosityOpportunities: heardSignalMemories,
+		heardSignalMemories,
 		completedOutcomes,
 		announcementMemorySummaries
 	};
@@ -331,7 +333,7 @@ function buildLiveFeed(state: SimulationState): LiveFeedItem[] {
 				id: `feed-inv-${creature.id}-${inv.emissionId}`,
 				timeSeconds: inv.startedAt,
 				kind: 'investigation',
-				summary: `${creature.id} investigating ${inv.symbolId} from ${inv.senderId}`,
+				summary: `${creature.id} investigating ${inv.symbolId} at (${inv.origin.x.toFixed(1)}, ${inv.origin.y.toFixed(1)})`,
 				creatureId: creature.id,
 				symbolId: inv.symbolId
 			});

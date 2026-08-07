@@ -2,8 +2,8 @@
  * Simulation public entry point.
  *
  * Owns authoritative simulation state, deterministic creature creation, fixed-step
- * advancement, needs-driven decisions and bounded movement. Presentation and Svelte
- * must not store creature authority inside Three.js objects.
+ * advancement, unified intention arbitration and bounded movement. Presentation and
+ * Svelte must not store creature authority inside Three.js objects.
  */
 
 export type {
@@ -14,35 +14,37 @@ export type {
 	AnnouncementOpportunityOutcome,
 	AnnouncementOpportunityState,
 	AnnouncementOutcomeReason,
+	ArbitrationInput,
+	ArbitrationRecord,
+	ArbitrationTrigger,
 	BehaviourTransition,
-	CandidateEvaluation,
+	CandidateFactor,
+	CandidateReasonCode,
+	CandidateReference,
 	ClarityEvidence,
+	CognitionConfig,
 	Creature,
 	CreatureAction,
-	CreatureGoal,
 	CreatureLexicon,
 	CreatureMemory,
 	CreatureMemoryEntry,
 	CreaturePerception,
 	CreatureTarget,
-	DecisionRecord,
-	DecisionTrigger,
 	EnvironmentState,
 	FoodSpawnOutcome,
 	HeardSignal,
+	HeardSignalMemory,
+	IntentionCandidate,
+	IntentionKind,
 	LearningHistoryEntry,
 	LearningOutcome,
 	LexiconChangeEntry,
 	LexiconMeaning,
-	NewlyPerceivedResource,
-	PendingSignal,
-	HeardSignalMemory,
+	PerceivedResource,
 	ResourceAnnouncementMemory,
-	ResourceFeaturePerceptionEpisode,
 	ResourceObservation,
 	ResourceObservationMemory,
 	SignalEmission,
-	SignalInvestigationOpportunity,
 	SimulationConfig,
 	SimulationState,
 	SpeedRange,
@@ -51,8 +53,6 @@ export type {
 	SymbolSelectionCandidateEvidence,
 	SymbolSelectionEvidence,
 	SymbolSelectionMode,
-	CuriosityDecision,
-	CuriosityEvidence,
 	WeatherPhase
 } from './types';
 
@@ -95,21 +95,16 @@ export {
 export {
 	advanceNeeds,
 	clampNeed,
-	commitDecision,
 	emptyPerception,
-	evaluateCandidates,
-	GOAL_TIE_BREAK_ORDER,
 	isAtFeature,
 	isAtTarget,
 	isTargetValid,
 	queryFeaturesNear,
 	recoveryComplete,
-	selectBestCandidate,
 	selectNearestFeature,
-	senseAt,
-	INVESTIGATION_ELIGIBLE_SCORE,
-	WANDER_BASELINE_SCORE
+	senseAt
 } from './behaviour';
+
 export {
 	expireEmissions,
 	selectContextSymbol,
@@ -121,16 +116,11 @@ export {
 } from './communication';
 
 export {
-	countAcceptedPending,
 	createEmptyAssociations,
-	decideCuriosityAcceptance,
 	distanceFalloffFactor,
 	emptyLexicon,
 	findAssociation,
-	mostRecentCuriosityDecision,
-	resolveCreatureLexicon,
-	selectBestAcceptedOpportunity,
-	selectBestPendingSignal
+	resolveCreatureLexicon
 } from './learning';
 
 export {
@@ -156,19 +146,6 @@ export {
 	rememberResourceObservation,
 	sampleMemoryCapacity
 } from './memory';
-
-export type {
-	ArbitrationInput,
-	ArbitrationRecord,
-	ArbitrationTrigger,
-	CandidateFactor,
-	CandidateReasonCode,
-	CandidateReference,
-	CognitionConfig,
-	IntentionCandidate,
-	IntentionKind,
-	PerceivedResource
-} from './cognition';
 
 export {
 	arbitrate,

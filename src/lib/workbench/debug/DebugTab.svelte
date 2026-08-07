@@ -37,7 +37,6 @@
 		selectedCreature
 			? formatCreatureInspection(selectedCreature, simulation.timeSeconds, {
 					sensingRadius: config.sensingRadius,
-					trackedObservationDurationSeconds: config.trackedObservationDurationSeconds,
 					hearingRadius: config.hearingRadius,
 					symbolInventory: config.symbolInventory
 				})

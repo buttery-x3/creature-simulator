@@ -1,30 +1,14 @@
 /**
- * Resource target resolution, arrival checks, and perception-scoped food/water selection.
+ * Resource target resolution, arrival checks, and habitat feature helpers.
  *
- * Food and water targets come only from currently perceived features or a brief
- * non-expired tracked observation. Home is innate knowledge (always available).
- * Full habitat scans for discovery belong in habitat-feature-query / perception.
+ * Need targets come from cognition (perception + memory). This module only
+ * validates habitat existence/availability and supports executor movement.
  */
 
 import { featureRect, type Habitat, type HabitatFeature, type Vec2 } from '$lib/habitat';
 import { distanceSquared, sampleSearchTarget } from '../creature-movement';
 import { isResourceAvailable } from '../resources/availability';
-import type {
-	Creature,
-	CreaturePerception,
-	CreatureTarget,
-	ResourceObservation,
-	SimulationConfig
-} from '../types';
-import { appendTransition } from './actions';
-import {
-	isCurrentlyPerceived,
-	isTrackedUsable,
-	selectNearestPerceived,
-	startTracking
-} from './perception';
-
-export type TrackingConfig = Pick<SimulationConfig, 'trackedObservationDurationSeconds'>;
+import type { Creature, CreatureTarget, SimulationConfig } from '../types';
 
 export function resolveFeature(
 	habitat: Habitat,
@@ -47,16 +31,11 @@ export function resolveFeature(
 
 /**
  * True when the target is a usable pursuit destination.
- * Food/water feature targets require current perception or a non-expired track,
- * and the feature must be currently available (amount > 0).
+ * Food/water feature targets must exist and be currently available (amount > 0).
+ * Remembered resources are valid while the habitat feature still has supply —
+ * perception is not required (memory-driven pursuit).
  */
-export function isTargetValid(
-	habitat: Habitat,
-	target: CreatureTarget | null,
-	perception?: CreaturePerception,
-	timeSeconds?: number,
-	trackDurationSeconds?: number
-): boolean {
+export function isTargetValid(habitat: Habitat, target: CreatureTarget | null): boolean {
 	if (target === null) {
 		return false;
 	}
@@ -66,28 +45,8 @@ export function isTargetValid(
 	if (target.featureKind === 'home') {
 		return resolveFeature(habitat, target) !== null;
 	}
-	// Food / water — must exist and have amount > 0
 	const feature = resolveFeature(habitat, target);
-	if (feature === null || !isResourceAvailable(feature)) {
-		return false;
-	}
-	if (perception === undefined || timeSeconds === undefined || trackDurationSeconds === undefined) {
-		// Callers that only check habitat existence (tests of resolve) pass no perception.
-		return true;
-	}
-	if (isCurrentlyPerceived(perception, target.featureId, target.featureKind)) {
-		return true;
-	}
-	const tracked = perception.tracked;
-	if (
-		tracked &&
-		tracked.featureId === target.featureId &&
-		tracked.featureKind === target.featureKind &&
-		isTrackedUsable(tracked, timeSeconds, trackDurationSeconds)
-	) {
-		return true;
-	}
-	return false;
+	return feature !== null && isResourceAvailable(feature);
 }
 
 /**
@@ -100,12 +59,11 @@ export function isAtFeature(
 	arrivalDistance: number
 ): boolean {
 	const rect = featureRect(feature);
-	return (
-		position.x >= rect.minX - arrivalDistance &&
-		position.x <= rect.maxX + arrivalDistance &&
-		position.y >= rect.minY - arrivalDistance &&
-		position.y <= rect.maxY + arrivalDistance
-	);
+	const minX = rect.minX - arrivalDistance;
+	const maxX = rect.maxX + arrivalDistance;
+	const minY = rect.minY - arrivalDistance;
+	const maxY = rect.maxY + arrivalDistance;
+	return position.x >= minX && position.x <= maxX && position.y >= minY && position.y <= maxY;
 }
 
 export function isAtTarget(
@@ -127,7 +85,27 @@ export function isAtTarget(
 	return isAtFeature(position, feature, arrivalDistance);
 }
 
-/** Movement destination for the current target (feature centre or wander/search point). */
+export function pointTarget(position: Vec2): CreatureTarget {
+	return { kind: 'point', position: { x: position.x, y: position.y } };
+}
+
+export function foodTarget(featureId: string): CreatureTarget {
+	return { kind: 'feature', featureId, featureKind: 'food' };
+}
+
+export function waterTarget(featureId: string): CreatureTarget {
+	return { kind: 'feature', featureId, featureKind: 'water' };
+}
+
+export function homeTarget(habitat: Habitat): CreatureTarget {
+	return {
+		kind: 'feature',
+		featureId: habitat.home.id,
+		featureKind: 'home'
+	};
+}
+
+/** Movement destination for the current target (feature centre or point). */
 export function movementPoint(
 	habitat: Habitat,
 	target: CreatureTarget | null,
@@ -144,140 +122,17 @@ export function movementPoint(
 }
 
 /**
- * Deterministic nearest feature among a pre-filtered list: min distance², then id.
- * Callers must supply the candidate set (e.g. perceived features), not full habitat arrays.
+ * Ensure search action has a sampled search destination.
  */
-export function selectNearestFeature(
-	position: Vec2,
-	features: readonly HabitatFeature[]
-): HabitatFeature | null {
-	if (features.length === 0) {
-		return null;
-	}
-	let best = features[0]!;
-	let bestDist = distanceSquared(position, best.position);
-	for (let i = 1; i < features.length; i += 1) {
-		const feature = features[i]!;
-		const dist = distanceSquared(position, feature.position);
-		if (dist < bestDist || (dist === bestDist && feature.id < best.id)) {
-			best = feature;
-			bestDist = dist;
-		}
-	}
-	return best;
-}
-
-function observationToTarget(obs: ResourceObservation): CreatureTarget {
-	return {
-		kind: 'feature',
-		featureId: obs.featureId,
-		featureKind: obs.featureKind
-	};
-}
-
-/**
- * Select a food target from perception/track only (never global habitat scan).
- */
-export function foodTarget(
-	position: Vec2,
-	habitat: Habitat,
-	perception: CreaturePerception,
-	timeSeconds: number,
-	trackDurationSeconds: number
-): CreatureTarget | null {
-	const tracked = perception.tracked;
-	if (
-		tracked &&
-		tracked.featureKind === 'food' &&
-		isTrackedUsable(tracked, timeSeconds, trackDurationSeconds)
-	) {
-		const feature = habitat.food.find((f) => f.id === tracked.featureId);
-		if (feature && isResourceAvailable(feature)) {
-			return observationToTarget(tracked);
-		}
-	}
-	const nearest = selectNearestPerceived(position, perception, 'food');
-	if (!nearest) {
-		return null;
-	}
-	const feature = habitat.food.find((f) => f.id === nearest.featureId);
-	if (!feature || !isResourceAvailable(feature)) {
-		return null;
-	}
-	return observationToTarget(nearest);
-}
-
-/**
- * Select a water target from perception/track only (never global habitat scan).
- */
-export function waterTarget(
-	position: Vec2,
-	habitat: Habitat,
-	perception: CreaturePerception,
-	timeSeconds: number,
-	trackDurationSeconds: number
-): CreatureTarget | null {
-	const tracked = perception.tracked;
-	if (
-		tracked &&
-		tracked.featureKind === 'water' &&
-		isTrackedUsable(tracked, timeSeconds, trackDurationSeconds)
-	) {
-		const feature = habitat.water.find((f) => f.id === tracked.featureId);
-		if (feature && isResourceAvailable(feature)) {
-			return observationToTarget(tracked);
-		}
-	}
-	const nearest = selectNearestPerceived(position, perception, 'water');
-	if (!nearest) {
-		return null;
-	}
-	const feature = habitat.water.find((f) => f.id === nearest.featureId);
-	if (!feature || !isResourceAvailable(feature)) {
-		return null;
-	}
-	return observationToTarget(nearest);
-}
-
-export function homeTarget(habitat: Habitat): CreatureTarget {
-	return { kind: 'feature', featureId: habitat.home.id, featureKind: 'home' };
-}
-
-export function pointTarget(position: Vec2): CreatureTarget {
-	return { kind: 'point', position: { x: position.x, y: position.y } };
-}
-
-/** Whether a decision/action has a usable food or water feature target. */
-export function hasUsableResourceTarget(
-	target: CreatureTarget | null,
-	habitat: Habitat,
-	perception: CreaturePerception,
-	timeSeconds: number,
-	trackDurationSeconds: number
-): boolean {
-	if (!target || target.kind !== 'feature') {
-		return false;
-	}
-	if (target.featureKind === 'home') {
-		return resolveFeature(habitat, target) !== null;
-	}
-	return isTargetValid(habitat, target, perception, timeSeconds, trackDurationSeconds);
-}
-
-/** Ensure search action has a deterministic search point target. */
 export function ensureSearchTarget(
-	creature: Creature,
+	creature: Pick<Creature, 'id' | 'searchTarget' | 'searchDecisionIndex' | 'target' | 'action'>,
 	simulationSeed: string,
 	habitat: Habitat,
 	config: Pick<SimulationConfig, 'creatureRadius'>
 ): Pick<Creature, 'searchTarget' | 'searchDecisionIndex' | 'target'> {
-	const targetIsSearchPoint =
-		creature.target?.kind === 'point' &&
-		creature.target.position.x === creature.searchTarget.x &&
-		creature.target.position.y === creature.searchTarget.y;
-	if (creature.action === 'search' && targetIsSearchPoint) {
+	if (creature.target?.kind === 'point' && creature.action === 'search') {
 		return {
-			searchTarget: creature.searchTarget,
+			searchTarget: creature.target.position,
 			searchDecisionIndex: creature.searchDecisionIndex,
 			target: creature.target
 		};
@@ -298,64 +153,33 @@ export function ensureSearchTarget(
 }
 
 /**
- * Need-driven pursuit of perceived food/water while seeking.
- * Does not emit — announcements are owned by the announcement subdomain.
+ * Nearest habitat feature of kind by distance² then id (full habitat scan).
+ * Prefer perception-scoped helpers for discovery; this remains for tests/utilities.
  */
-export function tryPerceiveAndPursue(
-	creature: Creature,
-	timeSeconds: number,
-	config: Pick<SimulationConfig, 'decisionHistoryLimit'>
-): Creature | null {
-	if (creature.goal !== 'seek_food' && creature.goal !== 'seek_water') {
+export function selectNearestFeature(
+	position: Vec2,
+	habitat: Habitat,
+	kind: 'food' | 'water' | 'home'
+): HabitatFeature | null {
+	const list: HabitatFeature[] =
+		kind === 'home' ? [habitat.home] : kind === 'food' ? habitat.food : habitat.water;
+	if (list.length === 0) {
 		return null;
 	}
-	if (creature.action !== 'search' && creature.action !== 'move') {
-		return null;
+	let best = list[0]!;
+	let bestDist = distanceSquared(position, best.position);
+	for (let i = 1; i < list.length; i += 1) {
+		const feature = list[i]!;
+		const dist = distanceSquared(position, feature.position);
+		if (dist < bestDist || (dist === bestDist && feature.id < best.id)) {
+			best = feature;
+			bestDist = dist;
+		}
 	}
-	if (
-		creature.action === 'move' &&
-		creature.target?.kind === 'feature' &&
-		((creature.goal === 'seek_food' && creature.target.featureKind === 'food') ||
-			(creature.goal === 'seek_water' && creature.target.featureKind === 'water'))
-	) {
-		return null;
-	}
+	return best;
+}
 
-	const kind = creature.goal === 'seek_food' ? 'food' : 'water';
-	const nearest = selectNearestPerceived(creature.position, creature.perception, kind);
-	if (!nearest) {
-		return null;
-	}
-
-	const featureTarget = {
-		kind: 'feature' as const,
-		featureId: nearest.featureId,
-		featureKind: nearest.featureKind
-	};
-
-	const fromAction = creature.action;
-	const recentTransitions = appendTransition(
-		creature.recentTransitions,
-		{
-			timeSeconds,
-			fromGoal: creature.goal,
-			toGoal: creature.goal,
-			fromAction,
-			toAction: 'move',
-			reason: kind === 'food' ? 'food perceived and selected' : 'water perceived and selected'
-		},
-		config.decisionHistoryLimit
-	);
-
-	return {
-		...creature,
-		action: 'move',
-		target: featureTarget,
-		actionStartedAt: timeSeconds,
-		perception: startTracking(creature.perception, {
-			...nearest,
-			observedAt: timeSeconds
-		}),
-		recentTransitions
-	};
+/** Whether the creature currently has a usable feature target for its need intention. */
+export function hasUsableResourceTarget(habitat: Habitat, target: CreatureTarget | null): boolean {
+	return isTargetValid(habitat, target);
 }

@@ -3,28 +3,28 @@
  *
  * Step order (authoritative):
  * 1. Resources/weather: rain schedule/refill, food spawn, eat/drink consumption grants
- * 2. Behaviour for all creatures (needs apply grants; perception sees post-consumption world)
- * 3. Memory: resource_observation writes/refreshes from sensing (empty water geography included)
+ * 2. Behaviour for all creatures (needs apply grants; perception sees post-consumption world;
+ *    unified cognition arbitration selects intention; actions execute)
+ * 3. Memory: resource_observation writes/refreshes from sensing
  * 4. Communication: apply emission requests, reception, expire active emissions
  * 5. Memory: resource_announcement from successful announcement emissions
  * 6. Memory: heard_signal from this step's reception (no sender; no interpretation)
- * 7. Learning post-reception: convert newly heard signals into pending investigation candidates
- *    (pendingSignals is transitional until cutover; heard_signal memory is the retained model)
+ * 7. Request reconsideration for listeners that gained heard_signal this step
  *
- * Eligibility: a signal heard in step N becomes pending at end of N and is investigable from N+1.
+ * Eligibility: a signal heard in step N is remembered at end of N and is investigable from N+1
+ * via ordinary arbitration (no pending opportunity / curiosity gate).
  */
 
 import { stepCreatureBehaviour } from './behaviour/step-creature-behaviour';
 import { stepCommunication } from './communication/step-communication';
 import type { EmissionRequest } from './communication/types';
-import { stepPostReceptionLearning } from './learning/step-signal-learning';
 import { applySuccessfulAnnouncementMemories } from './memory/apply-announcement-memory';
 import {
 	applyHeardSignalMemories,
 	applyResourceObservationMemories
 } from './memory/apply-sensory-memory';
 import { emptyGrant, stepResources } from './resources';
-import type { SimulationConfig, SimulationState } from './types';
+import type { Creature, SimulationConfig, SimulationState } from './types';
 
 export type StepSimulationConfig = Pick<
 	SimulationConfig,
@@ -41,8 +41,11 @@ export type StepSimulationConfig = Pick<
 	| 'seekFoodThreshold'
 	| 'seekWaterThreshold'
 	| 'restThreshold'
-	| 'goalSwitchMargin'
-	| 'minGoalCommitmentSeconds'
+	| 'wanderBaseline'
+	| 'signalBaseline'
+	| 'signalRecencyBoostMax'
+	| 'announceBaseline'
+	| 'continuityBonus'
 	| 'reconsiderIntervalSeconds'
 	| 'eatUntilHunger'
 	| 'drinkUntilThirst'
@@ -50,7 +53,6 @@ export type StepSimulationConfig = Pick<
 	| 'decisionHistoryLimit'
 	| 'sensingRadius'
 	| 'perceptionIntervalSeconds'
-	| 'trackedObservationDurationSeconds'
 	| 'hearingRadius'
 	| 'signalLifetimeSeconds'
 	| 'emissionCooldownSeconds'
@@ -58,8 +60,6 @@ export type StepSimulationConfig = Pick<
 	| 'recentHeardHistoryLimit'
 	| 'recentSimulationEmissionHistoryLimit'
 	| 'symbolInventory'
-	| 'pendingSignalLifetimeSeconds'
-	| 'maxPendingSignalsPerCreature'
 	| 'investigationDistanceScale'
 	| 'learningEvidenceRadius'
 	| 'associationReinforcement'
@@ -83,6 +83,39 @@ export type StepSimulationConfig = Pick<
 	| 'rainDurationSeconds'
 	| 'habitat'
 >;
+
+/**
+ * After heard_signal memory writes, request next-step arbitration for affected listeners.
+ * Does not select investigate — cognition decides on the next behaviour step.
+ */
+function countHeardSignals(creature: Creature): number {
+	let n = 0;
+	for (const entry of creature.memory.entries) {
+		if (entry.kind === 'heard_signal') {
+			n += 1;
+		}
+	}
+	return n;
+}
+
+function requestArbitrationForNewHeardSignals(
+	before: readonly Creature[],
+	after: readonly Creature[]
+): Creature[] {
+	const beforeCounts = new Map(before.map((c) => [c.id, countHeardSignals(c)] as const));
+	return after.map((creature) => {
+		const prev = beforeCounts.get(creature.id) ?? 0;
+		if (countHeardSignals(creature) <= prev) {
+			return creature;
+		}
+		return {
+			...creature,
+			pendingArbitrationTrigger: 'new_heard_signal_memory' as const,
+			// Ensure next behaviour step runs arbitration promptly.
+			nextReconsiderAt: 0
+		};
+	});
+}
 
 /**
  * Advance the simulation by exactly one fixed timestep.
@@ -146,20 +179,24 @@ export function stepSimulation(
 	);
 
 	// Successful announcement emissions this step → first-class memory (not perception).
-	// Use authoritative emittedThisStep — never reconstruct from bounded recentEmissions.
 	const afterAnnouncementMemory = applySuccessfulAnnouncementMemories(
 		afterCommunication.creatures,
 		emittedThisStep,
 		timeSeconds
 	);
 
-	// Heard-signal retained memory (future model). pendingSignals still written next.
+	// Heard-signal retained memory.
 	const afterHeardMemory = applyHeardSignalMemories(afterAnnouncementMemory, timeSeconds);
 
-	// Opportunities from this step's hearing (eligible for investigation from next step).
+	// Request reconsideration for listeners that gained heard_signal this step.
+	const withReconsider = requestArbitrationForNewHeardSignals(
+		afterAnnouncementMemory,
+		afterHeardMemory
+	);
+
 	return {
 		...afterCommunication,
-		creatures: stepPostReceptionLearning(afterHeardMemory, timeSeconds, config, state.seed)
+		creatures: withReconsider
 	};
 }
 

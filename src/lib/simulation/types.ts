@@ -7,21 +7,21 @@
  * Need scale (documented):
  * - hunger / thirst: pressure — 0 = sated/quenched, 1 = maximum need
  * - energy: satisfaction — 0 = exhausted, 1 = fully rested
+ *
+ * Decision model (FLAME-80): unified intention arbitration is authoritative.
+ * Intentions (what the creature is trying to accomplish) are distinct from
+ * low-level actions (move/eat/search/…).
  */
 
 import type { Habitat, HabitatFeatureKind, HabitatGenerationConfig, Vec2 } from '$lib/habitat';
-import type {
-	AnnouncementOpportunity,
-	AnnouncementOpportunityOutcome,
-	ResourceFeaturePerceptionEpisode
-} from './announcement/types';
+import type { AnnouncementOpportunity, AnnouncementOpportunityOutcome } from './announcement/types';
+import type { ArbitrationRecord, ArbitrationTrigger, IntentionKind } from './cognition/types';
 import type { HeardSignal, SignalEmission, SymbolId } from './communication/types';
 import type {
 	ActiveSignalInvestigation,
 	CreatureLexicon,
 	LearningHistoryEntry,
 	LexiconChangeEntry,
-	SignalInvestigationOpportunity,
 	SymbolAssociation
 } from './learning/types';
 import type { AnnouncementOpportunityDecision, CreatureMemory } from './memory/types';
@@ -39,14 +39,10 @@ export { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 export type {
 	ActiveSignalInvestigation,
 	CreatureLexicon,
-	CuriosityDecision,
-	CuriosityEvidence,
 	LearningHistoryEntry,
 	LearningOutcome,
 	LexiconChangeEntry,
 	LexiconMeaning,
-	PendingSignal,
-	SignalInvestigationOpportunity,
 	SymbolAssociation
 } from './learning/types';
 export { LEXICON_MEANINGS } from './learning/types';
@@ -55,9 +51,7 @@ export type {
 	AnnouncementOpportunityOutcome,
 	AnnouncementOpportunityState,
 	AnnouncementOutcomeReason,
-	ClarityEvidence,
-	NewlyPerceivedResource,
-	ResourceFeaturePerceptionEpisode
+	ClarityEvidence
 } from './announcement/types';
 export type {
 	AnnouncementOpportunityDecision,
@@ -68,18 +62,26 @@ export type {
 	ResourceAnnouncementMemory,
 	ResourceObservationMemory
 } from './memory/types';
+export type {
+	ArbitrationInput,
+	ArbitrationRecord,
+	ArbitrationTrigger,
+	CandidateFactor,
+	CandidateReasonCode,
+	CandidateReference,
+	CognitionConfig,
+	IntentionCandidate,
+	IntentionKind,
+	PerceivedResource
+} from './cognition/types';
 
-/** Outcome the creature is currently pursuing. */
-export type CreatureGoal =
-	'seek_food' | 'seek_water' | 'rest' | 'investigate_signal' | 'prepare_announcement' | 'wander';
-
-/** Current step used to pursue the goal. Distinct from goal. */
+/** Current step used to pursue the intention. Distinct from intention. */
 export type CreatureAction =
 	'move' | 'investigate' | 'eat' | 'drink' | 'sleep' | 'wander' | 'search';
 
 /**
- * A single food/water observation (current snapshot or brief tracked pursuit).
- * Not long-term memory — only the latest sense result and optional current track.
+ * A single food/water observation in the current perception snapshot.
+ * Not long-term memory — only the latest sense result.
  */
 export type ResourceObservation = {
 	featureId: string;
@@ -93,6 +95,7 @@ export type ResourceObservation = {
 /**
  * Authoritative per-creature perception. Plain serialisable; no Three.js/UI state.
  * Home is innate knowledge and is never stored here.
+ * Resource location memory lives on {@link CreatureMemory}, not here.
  */
 export type CreaturePerception = {
 	/** Simulation time of the latest perception update. */
@@ -101,15 +104,6 @@ export type CreaturePerception = {
 	perceivedWaterIds: string[];
 	/** Structured snapshot of currently perceived food/water only. */
 	observations: ResourceObservation[];
-	/** Single briefly retained pursuit observation, if any. */
-	tracked: ResourceObservation | null;
-	/**
-	 * Continuous per-feature perception episodes (currently visible resources).
-	 * Used for announcement opportunity deduplication — not long-term memory.
-	 */
-	activeEpisodes: ResourceFeaturePerceptionEpisode[];
-	/** Monotonic counter for stable episode ids on this creature. */
-	episodeCounter: number;
 };
 
 /**
@@ -124,36 +118,11 @@ export type CreatureTarget =
 	  }
 	| { kind: 'point'; position: Vec2 };
 
-/** Why a candidate goal scored as it did (structured evidence for the inspector). */
-export type CandidateEvaluation = {
-	goal: CreatureGoal;
-	valid: boolean;
-	score: number;
-	/** Primary human-readable reason for the score. */
-	reason: string;
-	target: CreatureTarget | null;
-	/** Present when the candidate could not be selected. */
-	rejectionReason?: string;
-};
-
-export type DecisionTrigger = 'initial' | 'reconsider' | 'invalid_target' | 'action_complete';
-
-/** Structured record of one goal decision; UI must not invent reasons. */
-export type DecisionRecord = {
-	timeSeconds: number;
-	trigger: DecisionTrigger;
-	previousGoal: CreatureGoal | null;
-	selectedGoal: CreatureGoal;
-	selectedTarget: CreatureTarget | null;
-	selectionReason: string;
-	candidates: CandidateEvaluation[];
-};
-
-/** Bounded history entry for goal/action transitions. */
+/** Bounded history entry for intention/action transitions. */
 export type BehaviourTransition = {
 	timeSeconds: number;
-	fromGoal: CreatureGoal;
-	toGoal: CreatureGoal;
+	fromIntention: IntentionKind;
+	toIntention: IntentionKind;
 	fromAction: CreatureAction;
 	toAction: CreatureAction;
 	reason: string;
@@ -166,7 +135,7 @@ export type Creature = {
 	facing: number;
 	/** Simulation units per simulated second. */
 	movementSpeed: number;
-	/** Wander stream destination (also mirrored in target when goal is wander). */
+	/** Wander stream destination (also mirrored in target when intention is wander). */
 	wanderTarget: Vec2;
 	/** Increments each time a new wander target is chosen. */
 	wanderDecisionIndex: number;
@@ -178,7 +147,7 @@ export type Creature = {
 	/** Increments each time a new search point is chosen. */
 	searchDecisionIndex: number;
 
-	/** Latest local sensing snapshot and optional brief resource track. */
+	/** Latest local sensing snapshot. */
 	perception: CreaturePerception;
 
 	/** Hunger pressure in [0, 1]; larger = more hungry. */
@@ -187,12 +156,6 @@ export type Creature = {
 	thirst: number;
 	/** Energy satisfaction in [0, 1]; larger = more rested. */
 	energy: number;
-
-	/**
-	 * Individual curiosity trait sampled at creation (independent seed stream).
-	 * Primary source of unknown-symbol investigation interest.
-	 */
-	curiosity: number;
 
 	/**
 	 * First-class bounded memory of retained experience (not perception).
@@ -205,20 +168,29 @@ export type Creature = {
 	 */
 	recentAnnouncementOpportunityDecisions: AnnouncementOpportunityDecision[];
 
-	goal: CreatureGoal;
+	/** What the creature is trying to accomplish (cognition-selected). */
+	intention: IntentionKind;
+	/** Concrete physical step under the current intention. */
 	action: CreatureAction;
 	target: CreatureTarget | null;
-	/** Simulation time when the current goal was selected. */
-	goalStartedAt: number;
+	/** Simulation time when the current intention was selected. */
+	intentionStartedAt: number;
 	/** Simulation time when the current action began. */
 	actionStartedAt: number;
-	/** Simulation time of the next ordinary reconsideration. */
+	/**
+	 * Simulation time of the next ordinary (periodic) reconsideration.
+	 * Heartbeat only — not commitment ownership.
+	 */
 	nextReconsiderAt: number;
+	/**
+	 * Event-driven arbitration request for the next behaviour step.
+	 * Set after meaningful events (e.g. new heard_signal memory); cleared on arbitrate.
+	 */
+	pendingArbitrationTrigger: ArbitrationTrigger | null;
 
-	lastDecision: DecisionRecord | null;
-	/** Snapshot of candidates from the most recent decision. */
-	lastCandidates: CandidateEvaluation[];
-	/** Recent goal/action transitions, newest last, length-capped. */
+	/** Latest structured arbitration evidence (authoritative decision record). */
+	lastArbitration: ArbitrationRecord | null;
+	/** Recent intention/action transitions, newest last, length-capped. */
 	recentTransitions: BehaviourTransition[];
 
 	/**
@@ -248,18 +220,16 @@ export type Creature = {
 	/** Recent exclusive-lexicon reassignments, newest last, length-capped. */
 	recentLexiconChanges: LexiconChangeEntry[];
 	/**
-	 * Short-lived heard-signal investigation opportunities (bounded, deduped by emissionId).
-	 * Each entry carries an explicit curiosity accept/reject decision made once at ingest.
+	 * Execution-local investigation context while travelling/inspecting a signal.
+	 * Not a behaviour lock; ordinary arbitration may replace the intention.
 	 */
-	pendingSignals: SignalInvestigationOpportunity[];
-	/** Active signal investigation evidence, if any. */
 	activeInvestigation: ActiveSignalInvestigation | null;
 	/** Recent learning outcomes, newest last, length-capped. */
 	recentLearning: LearningHistoryEntry[];
 
 	/**
-	 * Single current resource-announcement opportunity, if any.
-	 * No deferred/queued announcement tasks — present-time discovery only.
+	 * Executor state for announce_resource intention (clarity / speaking position).
+	 * Not a decision owner — cognition selects the intention; this only advances emit prep.
 	 */
 	activeAnnouncementOpportunity: AnnouncementOpportunity | null;
 	/** Monotonic counter for stable opportunity ids. */
@@ -338,21 +308,25 @@ export type SimulationConfig = {
 	/** Energy restoration per second while sleeping. */
 	sleepRecoveryPerSecond: number;
 
-	/** Minimum hunger pressure before seek_food is valid. */
+	/** Minimum hunger pressure before satisfy_hunger is valid. */
 	seekFoodThreshold: number;
-	/** Minimum thirst pressure before seek_water is valid. */
+	/** Minimum thirst pressure before satisfy_thirst is valid. */
 	seekWaterThreshold: number;
 	/** Minimum energy deficit (1 - energy) before rest is valid. */
 	restThreshold: number;
 
-	/**
-	 * Challenger must beat the current goal score by at least this margin to switch
-	 * (hysteresis). Prevents thrashing on tiny score differences.
-	 */
-	goalSwitchMargin: number;
-	/** Minimum time a goal must be held before ordinary reconsideration can switch. */
-	minGoalCommitmentSeconds: number;
-	/** Interval between ordinary reconsiderations. */
+	/** Fixed wander baseline score in unified arbitration. */
+	wanderBaseline: number;
+	/** Fixed investigate_signal baseline when heard_signal memory exists. */
+	signalBaseline: number;
+	/** Max recency boost added to signal baseline for newest memories. */
+	signalRecencyBoostMax: number;
+	/** Fixed announce_resource baseline when a valid unannounced resource is perceived. */
+	announceBaseline: number;
+	/** Soft continuity bonus for the current intention when still valid. */
+	continuityBonus: number;
+
+	/** Interval between ordinary (periodic) reconsiderations. Heartbeat only. */
 	reconsiderIntervalSeconds: number;
 
 	/** Stop eating when hunger pressure falls to this level. */
@@ -372,10 +346,6 @@ export type SimulationConfig = {
 	sensingRadius: number;
 	/** Minimum simulated seconds between perception updates. */
 	perceptionIntervalSeconds: number;
-	/**
-	 * How long a pursued food/water observation remains usable after last seeing it.
-	 */
-	trackedObservationDurationSeconds: number;
 
 	/**
 	 * Minimum opposite-kind − announced-kind distance for emitter-side clarity.
@@ -430,16 +400,6 @@ export type SimulationConfig = {
 	/** Max length of recentLexiconChanges (oldest dropped). */
 	lexiconHistoryLimit: number;
 
-	/** How long a pending heard signal remains an investigation candidate. */
-	pendingSignalLifetimeSeconds: number;
-	/** Max pending investigation candidates per creature. */
-	maxPendingSignalsPerCreature: number;
-	/**
-	 * Inclusive range for per-creature curiosity sampled at creation
-	 * (independent `deriveSeed(seed, 'curiosity', id)` stream).
-	 * Curiosity is susceptibility to investigating a heard communication opportunity.
-	 */
-	curiosityRange: { min: number; max: number };
 	/**
 	 * Inclusive integer range for per-creature memory capacity sampled at creation
 	 * (independent `deriveSeed(seed, 'memory-capacity', id)` stream).
@@ -451,7 +411,7 @@ export type SimulationConfig = {
 	/**
 	 * Characteristic length for presentation-only smooth distance falloff on signal rings:
 	 * distanceFactor = 1 / (1 + distance / investigationDistanceScale).
-	 * Does **not** affect curiosity acceptance or investigation goal eligibility.
+	 * Does **not** affect investigation eligibility.
 	 */
 	investigationDistanceScale: number;
 	/** Max distance from signal origin for contextual learning evidence. */

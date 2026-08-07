@@ -1,6 +1,7 @@
 import {
 	createSimulation,
 	defaultSimulationConfig,
+	rememberHeardSignal,
 	rememberResourceAnnouncement
 } from '$lib/simulation';
 import { describe, expect, it } from 'vitest';
@@ -18,7 +19,7 @@ describe('creature-detail-view-model', () => {
 		expect(rows).toHaveLength(state.creatures.length);
 		expect(rows[0]).toMatchObject({
 			id: expect.stringMatching(/^creature-/),
-			goal: expect.any(String)
+			intention: expect.any(String)
 		});
 	});
 
@@ -32,28 +33,30 @@ describe('creature-detail-view-model', () => {
 		);
 	});
 
-	it('summarises curiosity opportunities without multi-factor score recipes', () => {
+	it('summarises heard-signal memories and active investigation', () => {
 		const config = defaultSimulationConfig('demo');
 		const state = createSimulation(config);
-		const creature = state.creatures[0]!;
-		creature.pendingSignals = [
-			{
+		const creature = {
+			...state.creatures[0]!,
+			memory: rememberHeardSignal(state.creatures[0]!.memory, {
+				rememberedAt: 1,
 				emissionId: 'e-1',
-				symbolId: 'glyph-0',
-				senderId: 'creature-1',
+				symbolId: 'glyph-0' as const,
+				origin: { x: 1, y: 1 }
+			}),
+			activeInvestigation: {
+				emissionId: 'e-1',
+				symbolId: 'glyph-0' as const,
 				origin: { x: 1, y: 1 },
-				heardAt: 0,
-				expiresAt: 100,
-				curiosityDecision: 'accepted',
-				curiosityEvidence: { curiosity: creature.curiosity, deterministicSample: 0.12 }
+				startedAt: 1.5
 			}
-		];
-		const summary = buildInvestigationOpportunitySummary(creature, 1);
+		};
+		const summary = buildInvestigationOpportunitySummary(creature, 2);
 		expect(summary).not.toBeNull();
-		expect(summary!.acceptedPendingCount).toBe(1);
-		expect(summary!.recentDecision).toBe('accepted');
-		expect(summary!.recentSample).toBeCloseTo(0.12);
-		expect(summary!.eligibleEmissionId).toBe('e-1');
+		expect(summary!.heardSignalMemoryCount).toBe(1);
+		expect(summary!.newestHeardEmissionId).toBe('e-1');
+		expect(summary!.activeEmissionId).toBe('e-1');
+		expect(summary!.activeSymbolId).toBe('glyph-0');
 	});
 
 	it('builds a structured memory section with capacity and entries', () => {

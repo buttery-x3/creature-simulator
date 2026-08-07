@@ -9,10 +9,10 @@ import {
 	generateHabitat,
 	type HabitatGenerationConfig
 } from '$lib/habitat';
-import { applyDecision } from './behaviour/actions';
-import { commitDecision } from './behaviour/decisions';
+import { replanFromArbitration } from './behaviour/apply-arbitration';
 import { emptyPerception } from './behaviour/perception';
 import { pointTarget } from './behaviour/resource-awareness';
+import { DEFAULT_COGNITION_CONFIG } from './cognition/score-constants';
 import { selectPreferredSymbol } from './communication/emission';
 import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 import { sampleSearchTarget, sampleWanderTarget } from './creature-movement';
@@ -52,12 +52,16 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	drinkRecoveryPerSecond: 0.28,
 	sleepRecoveryPerSecond: 0.2,
 
-	seekFoodThreshold: 0.45,
-	seekWaterThreshold: 0.45,
-	restThreshold: 0.4,
+	seekFoodThreshold: DEFAULT_COGNITION_CONFIG.seekFoodThreshold,
+	seekWaterThreshold: DEFAULT_COGNITION_CONFIG.seekWaterThreshold,
+	restThreshold: DEFAULT_COGNITION_CONFIG.restThreshold,
 
-	goalSwitchMargin: 0.12,
-	minGoalCommitmentSeconds: 2.5,
+	wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+	signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
+	signalRecencyBoostMax: DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax,
+	announceBaseline: DEFAULT_COGNITION_CONFIG.announceBaseline,
+	continuityBonus: DEFAULT_COGNITION_CONFIG.continuityBonus,
+
 	reconsiderIntervalSeconds: 1.5,
 
 	eatUntilHunger: 0.12,
@@ -69,9 +73,8 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	// Local sensing: small enough that creatures must search on a 20×20 world.
 	sensingRadius: 3,
 	perceptionIntervalSeconds: 0.25,
-	trackedObservationDurationSeconds: 4,
 
-	// Resource announcement: kind-level clarity + speaking position (single active opportunity).
+	// Resource announcement: kind-level clarity + speaking position (executor).
 	resourceAnnouncementClarityMargin: 0.75,
 	speakingPositionSearchRadius: 2.5,
 	speakingPositionSearchResolution: 3,
@@ -91,17 +94,12 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	// Population diagnostics only — does not affect selection behaviour.
 	recentEmissionDiagnosticsWindowSeconds: 30,
 
-	// Learning: personal evidence + exclusive lexicon + signal investigation (no global meanings).
-	// Per-creature curiosity (sampled at creation) = susceptibility to investigating heard signals.
-	pendingSignalLifetimeSeconds: 10,
-	maxPendingSignalsPerCreature: 4,
-	// Wide enough that an ordinary population has meaningfully different accept rates.
-	curiosityRange: { min: 0.2, max: 0.8 },
+	// Learning: personal evidence + exclusive lexicon + signal investigation.
 	// Memory: large enough for the small habitat not to churn every announcement,
 	// while still proving bounded capacity (not intelligence-derived).
 	memoryCapacityRange: { min: 8, max: 16 },
 	recentAnnouncementOpportunityDecisionHistoryLimit: 12,
-	// Presentation-only signal-ring falloff scale (not curiosity / goal motivation).
+	// Presentation-only signal-ring falloff scale (not decision motivation).
 	investigationDistanceScale: 8,
 	learningEvidenceRadius: 3,
 	associationReinforcement: 0.25,
@@ -144,7 +142,6 @@ export function defaultSimulationConfig(seed = 'demo'): SimulationConfig {
 			waterSize: { ...habitat.waterSize }
 		},
 		movementSpeed: { ...DEFAULT_SIMULATION_CONFIG.movementSpeed },
-		curiosityRange: { ...DEFAULT_SIMULATION_CONFIG.curiosityRange },
 		memoryCapacityRange: { ...DEFAULT_SIMULATION_CONFIG.memoryCapacityRange }
 	};
 }
@@ -202,15 +199,17 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'seekFoodThreshold',
 		'seekWaterThreshold',
 		'restThreshold',
-		'goalSwitchMargin',
-		'minGoalCommitmentSeconds',
+		'wanderBaseline',
+		'signalBaseline',
+		'signalRecencyBoostMax',
+		'announceBaseline',
+		'continuityBonus',
 		'reconsiderIntervalSeconds',
 		'eatUntilHunger',
 		'drinkUntilThirst',
 		'sleepUntilEnergy',
 		'sensingRadius',
 		'perceptionIntervalSeconds',
-		'trackedObservationDurationSeconds',
 		'hearingRadius',
 		'signalLifetimeSeconds',
 		'emissionCooldownSeconds'
@@ -254,7 +253,6 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'recentHeardHistoryLimit',
 		'recentSimulationEmissionHistoryLimit',
 		'learningHistoryLimit',
-		'maxPendingSignalsPerCreature',
 		'lexiconHistoryLimit',
 		'lexiconAssignmentMinEvidenceCount',
 		'recentAnnouncementOutcomeHistoryLimit',
@@ -266,7 +264,6 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		}
 	}
 	for (const key of [
-		'pendingSignalLifetimeSeconds',
 		'learningEvidenceRadius',
 		'investigationDistanceScale',
 		'associationReinforcement',
@@ -297,24 +294,9 @@ function validateSimulationConfig(config: SimulationConfig): void {
 			`triggerFeatureCueFadeSeconds must be > 0, received ${config.triggerFeatureCueFadeSeconds}`
 		);
 	}
-	if (!(config.pendingSignalLifetimeSeconds > 0)) {
-		throw new SimulationCreationError(
-			`pendingSignalLifetimeSeconds must be > 0, received ${config.pendingSignalLifetimeSeconds}`
-		);
-	}
 	if (!(config.investigationDistanceScale > 0)) {
 		throw new SimulationCreationError(
 			`investigationDistanceScale must be > 0, received ${config.investigationDistanceScale}`
-		);
-	}
-	if (
-		!config.curiosityRange ||
-		!(config.curiosityRange.min <= config.curiosityRange.max) ||
-		!Number.isFinite(config.curiosityRange.min) ||
-		!Number.isFinite(config.curiosityRange.max)
-	) {
-		throw new SimulationCreationError(
-			'curiosityRange.min must be <= curiosityRange.max and both finite'
 		);
 	}
 	if (
@@ -443,12 +425,6 @@ function createCreatures(
 		);
 
 		const preferredSymbolId = selectPreferredSymbol(config.seed, id, config.symbolInventory);
-		// Independent curiosity stream — not habitat, symbols, or creature spawn order RNG.
-		const curiosity = createSeededRng(deriveSeed(config.seed, 'curiosity', id)).nextRange(
-			config.curiosityRange.min,
-			config.curiosityRange.max
-		);
-		// Independent memory-capacity stream — not curiosity or spawn order.
 		const memoryCapacity = sampleMemoryCapacity(config.seed, id, config.memoryCapacityRange);
 
 		const draft: Creature = {
@@ -464,18 +440,17 @@ function createCreatures(
 			hunger: config.initialHunger,
 			thirst: config.initialThirst,
 			energy: config.initialEnergy,
-			curiosity,
 			// Independent memory object per creature — never share references.
 			memory: createEmptyMemory(memoryCapacity),
 			recentAnnouncementOpportunityDecisions: [],
-			goal: 'wander',
+			intention: 'wander',
 			action: 'wander',
 			target: pointTarget(wanderTarget),
-			goalStartedAt: 0,
+			intentionStartedAt: 0,
 			actionStartedAt: 0,
 			nextReconsiderAt: 0,
-			lastDecision: null,
-			lastCandidates: [],
+			pendingArbitrationTrigger: null,
+			lastArbitration: null,
 			recentTransitions: [],
 			preferredSymbolId,
 			emissionCount: 0,
@@ -486,7 +461,6 @@ function createCreatures(
 			symbolAssociations: createEmptyAssociations(config.symbolInventory),
 			lexicon: emptyLexicon(),
 			recentLexiconChanges: [],
-			pendingSignals: [],
 			activeInvestigation: null,
 			recentLearning: [],
 			activeAnnouncementOpportunity: null,
@@ -495,22 +469,14 @@ function createCreatures(
 			activeAnnouncementCue: null
 		};
 
-		const decision = commitDecision({
-			creature: draft,
-			habitat,
-			timeSeconds: 0,
-			trigger: 'initial',
-			config
-		});
-		const applied = applyDecision(draft, decision, false, config);
+		const initial = replanFromArbitration(draft, habitat, 0, 'initial', config, config.seed);
 
 		creatures.push({
-			...draft,
-			...applied,
+			...initial,
 			target:
-				applied.goal === 'wander'
+				initial.intention === 'wander'
 					? pointTarget(wanderTarget)
-					: (applied.target ?? pointTarget(wanderTarget)),
+					: (initial.target ?? pointTarget(wanderTarget)),
 			wanderTarget,
 			wanderDecisionIndex
 		});

@@ -90,8 +90,8 @@
 					<dd data-testid="inspector-facing">{selectedCreature.facing.toFixed(3)}</dd>
 				</div>
 				<div>
-					<dt>Goal</dt>
-					<dd data-testid="inspector-goal">{selectedCreature.goal}</dd>
+					<dt>Intention</dt>
+					<dd data-testid="inspector-goal">{selectedCreature.intention}</dd>
 				</div>
 				<div>
 					<dt>Action</dt>
@@ -102,9 +102,9 @@
 					<dd data-testid="inspector-target">{formatTargetLabel(selectedCreature.target)}</dd>
 				</div>
 				<div>
-					<dt>Goal start</dt>
+					<dt>Intention start</dt>
 					<dd data-testid="inspector-goal-started">
-						{selectedCreature.goalStartedAt.toFixed(3)} s
+						{selectedCreature.intentionStartedAt.toFixed(3)} s
 					</dd>
 				</div>
 				<div>
@@ -145,16 +145,6 @@
 					</div>
 				</div>
 			{/each}
-		</section>
-
-		<section class="block" data-testid="creature-traits" aria-label="Traits">
-			<h3>Traits</h3>
-			<dl class="meta">
-				<div>
-					<dt>Curiosity</dt>
-					<dd data-testid="inspector-curiosity">{selectedCreature.curiosity.toFixed(3)}</dd>
-				</div>
-			</dl>
 		</section>
 
 		{#if memorySection}
@@ -205,53 +195,53 @@
 				<div>
 					<dt>Trigger</dt>
 					<dd data-testid="inspector-decision-trigger">
-						{selectedCreature.lastDecision?.trigger ?? '—'}
+						{selectedCreature.lastArbitration?.trigger ?? '—'}
 					</dd>
 				</div>
 				<div>
-					<dt>Selected goal</dt>
-					<dd>{selectedCreature.lastDecision?.selectedGoal ?? selectedCreature.goal}</dd>
+					<dt>Selected intention</dt>
+					<dd>
+						{selectedCreature.lastArbitration?.selectedIntention ?? selectedCreature.intention}
+					</dd>
 				</div>
 				<div>
 					<dt>Selected target</dt>
 					<dd>
 						{formatTargetLabel(
-							selectedCreature.lastDecision?.selectedTarget ?? selectedCreature.target
+							selectedCreature.lastArbitration?.selectedTarget ?? selectedCreature.target
 						)}
 					</dd>
 				</div>
 				<div>
-					<dt>Decision reason</dt>
+					<dt>Selection reasons</dt>
 					<dd data-testid="inspector-decision-reason">
-						{selectedCreature.lastDecision?.selectionReason ?? '—'}
+						{selectedCreature.lastArbitration?.selectionReasonCodes.join(', ') ?? '—'}
 					</dd>
+				</div>
+				<div>
+					<dt>Pending arbitration</dt>
+					<dd>{selectedCreature.pendingArbitrationTrigger ?? '—'}</dd>
 				</div>
 			</dl>
 
 			{#if investigation}
 				<div class="score-box" data-testid="investigation-opportunity-summary">
-					<h4>Investigation opportunities</h4>
+					<h4>Heard signals & investigation</h4>
 					<dl class="meta">
 						<div>
-							<dt>Curiosity</dt>
-							<dd data-testid="investigation-summary-curiosity">
-								{investigation.curiosity.toFixed(3)}
-							</dd>
-						</div>
-						<div>
-							<dt>Accepted pending</dt>
+							<dt>Heard-signal memories</dt>
 							<dd data-testid="investigation-summary-accepted-count">
-								{investigation.acceptedPendingCount}
+								{investigation.heardSignalMemoryCount}
 							</dd>
 						</div>
 						<div>
-							<dt>Recent decision</dt>
+							<dt>Newest heard</dt>
 							<dd data-testid="investigation-summary-recent-decision">
-								{investigation.recentDecision ?? '—'}
-								{#if investigation.recentSample !== null}
-									<span class="muted">
-										· sample={investigation.recentSample.toFixed(3)}
-									</span>
+								{#if investigation.newestHeardSymbolId}
+									<SymbolGlyph symbolId={investigation.newestHeardSymbolId} />
+									{investigation.newestHeardEmissionId}
+								{:else}
+									—
 								{/if}
 							</dd>
 						</div>
@@ -270,14 +260,14 @@
 				</div>
 			{/if}
 
-			<h4 class="subhead">Candidates</h4>
+			<h4 class="subhead">Arbitration candidates</h4>
 			<ul class="candidates" data-testid="inspector-candidates">
-				{#each candidates as candidate (candidate.goal)}
+				{#each candidates as candidate (candidate.intention)}
 					<li
-						data-testid={`inspector-candidate-${candidate.goal}`}
+						data-testid={`inspector-candidate-${candidate.intention}`}
 						class:selected={candidate.selected}
 					>
-						<strong>{candidate.goal}</strong>
+						<strong>{candidate.intention}</strong>
 						score={candidate.score.toFixed(3)}
 						{candidate.valid ? 'valid' : 'invalid'}
 						{#if candidate.scoreTerms}
@@ -287,7 +277,7 @@
 								{/each}
 							</ul>
 						{:else}
-							— {candidate.reason}
+							— {candidate.reasonCodes.join(', ') || 'n/a'}
 						{/if}
 						{#if candidate.rejectionReason}
 							<span class="reject">({candidate.rejectionReason})</span>
@@ -331,14 +321,13 @@
 					</dd>
 				</div>
 				<div>
-					<dt>Tracked</dt>
+					<dt>Observations</dt>
 					<dd data-testid="inspector-tracked">
-						{#if selectedCreature.perception.tracked}
-							{selectedCreature.perception.tracked.featureKind}:{selectedCreature.perception.tracked
-								.featureId}
-						{:else}
-							—
-						{/if}
+						{selectedCreature.perception.observations.length > 0
+							? selectedCreature.perception.observations
+									.map((o) => `${o.featureKind}:${o.featureId}`)
+									.join(', ')
+							: '—'}
 					</dd>
 				</div>
 				{#if selectedCreature.action === 'search'}
@@ -404,14 +393,9 @@
 					</dd>
 				</div>
 				<div>
-					<dt>Pending opportunities</dt>
+					<dt>Heard-signal memories</dt>
 					<dd data-testid="inspector-pending-signals">
-						{selectedCreature.pendingSignals.length}
-						{#if investigation}
-							<span class="muted">
-								· accepted={investigation.acceptedPendingCount}
-							</span>
-						{/if}
+						{investigation?.heardSignalMemoryCount ?? 0}
 					</dd>
 				</div>
 				<div>
@@ -419,7 +403,9 @@
 					<dd data-testid="inspector-active-investigation">
 						{#if selectedCreature.activeInvestigation}
 							<SymbolGlyph symbolId={selectedCreature.activeInvestigation.symbolId} />
-							from {selectedCreature.activeInvestigation.senderId}
+							@ ({selectedCreature.activeInvestigation.origin.x.toFixed(1)}, {selectedCreature.activeInvestigation.origin.y.toFixed(
+								1
+							)})
 						{:else}
 							—
 						{/if}
@@ -643,11 +629,6 @@
 
 	.fill.energy {
 		background: #22c55e;
-	}
-
-	.muted {
-		color: #94a3b8;
-		font-size: 0.85em;
 	}
 
 	.score-box {

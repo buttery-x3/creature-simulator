@@ -20,9 +20,7 @@ function baseCreature(overrides: Partial<Creature> & Pick<Creature, 'id'>): Crea
 			...template.perception,
 			observations: [],
 			perceivedFoodIds: [],
-			perceivedWaterIds: [],
-			tracked: null,
-			activeEpisodes: []
+			perceivedWaterIds: []
 		}
 	};
 }

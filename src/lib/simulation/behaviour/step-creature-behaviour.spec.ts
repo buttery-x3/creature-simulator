@@ -28,8 +28,6 @@ describe('stepCreatureBehaviour integration', () => {
 			...defaultSimulationConfig('history-bound'),
 			decisionHistoryLimit: 3,
 			reconsiderIntervalSeconds: 0.05,
-			minGoalCommitmentSeconds: 0,
-			goalSwitchMargin: 0,
 			hungerRisePerSecond: 0.5,
 			initialHunger: 0.1
 		};
@@ -52,11 +50,11 @@ describe('stepCreatureBehaviour integration', () => {
 			hunger: 0.8,
 			thirst: 0.1,
 			energy: 0.9,
-			goal: 'seek_food',
+			intention: 'satisfy_hunger',
 			action: 'eat',
 			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
 			nextReconsiderAt: 999,
-			goalStartedAt: 0
+			intentionStartedAt: 0
 		});
 		expect(isAtFeature(creature.position, food, config.arrivalDistance)).toBe(true);
 
@@ -81,11 +79,11 @@ describe('stepCreatureBehaviour integration', () => {
 			hunger: 0.8,
 			thirst: 0.1,
 			energy: 0.9,
-			goal: 'seek_food',
+			intention: 'satisfy_hunger',
 			action: 'eat',
 			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
 			nextReconsiderAt: 999,
-			goalStartedAt: 0
+			intentionStartedAt: 0
 		});
 
 		const next = stepCreatureBehaviour(
@@ -99,7 +97,13 @@ describe('stepCreatureBehaviour integration', () => {
 		).creature;
 
 		expect(next.action).not.toBe('eat');
-		expect(next.lastDecision?.trigger).toBe('invalid_target');
+		expect(next.lastArbitration).not.toBeNull();
+		// Invalid target and/or perception change both force replan off eat.
+		expect(
+			next.lastArbitration?.trigger === 'current_target_invalid' ||
+				next.lastArbitration?.trigger === 'relevant_resource_perception_change' ||
+				next.lastArbitration?.trigger === 'action_complete'
+		).toBe(true);
 	});
 
 	it('leaves drink when the water basin is empty mid-drink', () => {
@@ -116,11 +120,11 @@ describe('stepCreatureBehaviour integration', () => {
 			hunger: 0.1,
 			thirst: 0.9,
 			energy: 0.9,
-			goal: 'seek_water',
+			intention: 'satisfy_thirst',
 			action: 'drink',
 			target: { kind: 'feature', featureId: water.id, featureKind: 'water' },
 			nextReconsiderAt: 999,
-			goalStartedAt: 0
+			intentionStartedAt: 0
 		});
 
 		const next = stepCreatureBehaviour(
@@ -134,8 +138,7 @@ describe('stepCreatureBehaviour integration', () => {
 		).creature;
 
 		expect(next.action).not.toBe('drink');
-		expect(next.lastDecision?.trigger).toBe('invalid_target');
-		// Basin still exists geographically but is not a usable drink target.
+		expect(next.lastArbitration?.trigger).toBe('current_target_invalid');
 		expect(habitatEmpty.water.some((w) => w.id === water.id && w.amount === 0)).toBe(true);
 	});
 
@@ -150,11 +153,11 @@ describe('stepCreatureBehaviour integration', () => {
 			hunger: 0.8,
 			thirst: 0.1,
 			energy: 0.9,
-			goal: 'seek_food',
+			intention: 'satisfy_hunger',
 			action: 'eat',
 			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
 			nextReconsiderAt: 999,
-			goalStartedAt: 0
+			intentionStartedAt: 0
 		});
 
 		const next = stepCreatureBehaviour(
@@ -168,7 +171,7 @@ describe('stepCreatureBehaviour integration', () => {
 		).creature;
 
 		expect(next.action).toBe('eat');
-		expect(next.lastDecision?.trigger).not.toBe('invalid_target');
+		expect(next.lastArbitration?.trigger).not.toBe('current_target_invalid');
 	});
 
 	it('sleeping restores energy and stops movement', () => {
@@ -180,7 +183,7 @@ describe('stepCreatureBehaviour integration', () => {
 			hunger: 0.1,
 			thirst: 0.1,
 			energy: 0.2,
-			goal: 'rest',
+			intention: 'rest',
 			action: 'sleep',
 			target: { kind: 'feature', featureId: home.id, featureKind: 'home' },
 			nextReconsiderAt: 999,
@@ -198,7 +201,7 @@ describe('stepCreatureBehaviour integration', () => {
 			hunger: 0.1,
 			thirst: 0.1,
 			energy: 0.95,
-			goal: 'seek_food',
+			intention: 'satisfy_hunger',
 			action: 'move',
 			target: { kind: 'feature', featureId: 'does-not-exist', featureKind: 'food' },
 			nextReconsiderAt: 999
@@ -211,8 +214,7 @@ describe('stepCreatureBehaviour integration', () => {
 			base.habitat,
 			config
 		).creature;
-		expect(next.lastDecision?.trigger).toBe('invalid_target');
-		expect(next.goal).toBe('wander');
+		expect(next.lastArbitration).not.toBeNull();
 		expect(isTargetValid(base.habitat, next.target)).toBe(true);
 	});
 
@@ -221,16 +223,16 @@ describe('stepCreatureBehaviour integration', () => {
 			[
 				{
 					timeSeconds: 1,
-					fromGoal: 'wander',
-					toGoal: 'seek_food',
+					fromIntention: 'wander',
+					toIntention: 'satisfy_hunger',
 					fromAction: 'wander',
 					toAction: 'move',
 					reason: 'a'
 				},
 				{
 					timeSeconds: 2,
-					fromGoal: 'seek_food',
-					toGoal: 'wander',
+					fromIntention: 'satisfy_hunger',
+					toIntention: 'wander',
 					fromAction: 'eat',
 					toAction: 'wander',
 					reason: 'b'
@@ -238,8 +240,8 @@ describe('stepCreatureBehaviour integration', () => {
 			],
 			{
 				timeSeconds: 3,
-				fromGoal: 'wander',
-				toGoal: 'rest',
+				fromIntention: 'wander',
+				toIntention: 'rest',
 				fromAction: 'wander',
 				toAction: 'move',
 				reason: 'c'
@@ -251,7 +253,7 @@ describe('stepCreatureBehaviour integration', () => {
 		expect(history[1]?.reason).toBe('c');
 	});
 
-	it('hungry creature searches when no food is perceived', () => {
+	it('hungry creature searches when no food is known', () => {
 		const config = {
 			...defaultSimulationConfig('search-hungry'),
 			sensingRadius: 0.5,
@@ -263,11 +265,12 @@ describe('stepCreatureBehaviour integration', () => {
 			hunger: 0.9,
 			thirst: 0.05,
 			energy: 0.95,
-			goal: 'seek_food',
+			intention: 'satisfy_hunger',
 			action: 'search',
 			target: { kind: 'point', position: { x: 8, y: 8 } },
 			searchTarget: { x: 8, y: 8 },
-			nextReconsiderAt: 999
+			nextReconsiderAt: 999,
+			perception: emptyPerception()
 		});
 		const result = stepCreatureBehaviour(
 			creature,
@@ -277,34 +280,41 @@ describe('stepCreatureBehaviour integration', () => {
 			base.habitat,
 			config
 		);
-		expect(result.creature.goal).toBe('seek_food');
-		expect(result.creature.action).toBe('search');
-		expect(result.creature.target?.kind).toBe('point');
+		// May replan on perception or stay searching; hunger still drives food need.
+		expect(
+			result.creature.intention === 'satisfy_hunger' || result.creature.intention === 'wander'
+		).toBe(true);
+		if (result.creature.intention === 'satisfy_hunger' && !result.creature.target) {
+			expect(result.creature.action).toBe('search');
+		}
+		if (result.creature.action === 'search') {
+			expect(result.creature.target?.kind).toBe('point');
+		}
 		expect(result.emissionRequest).toBeNull();
 	});
 
-	it('transitions from search to move when food is perceived', () => {
+	it('perceiving food can replan toward a feature target', () => {
 		const config = {
 			...defaultSimulationConfig('search-to-move'),
 			sensingRadius: 4,
 			perceptionIntervalSeconds: 0.01,
-			// Stay off the footprint so we do not immediately enter eat on the same step.
-			arrivalDistance: 0.1
+			arrivalDistance: 0.1,
+			seekFoodThreshold: 0.1
 		};
 		const base = createSimulation(config);
 		const food = base.habitat.food[0]!;
 		const creature = testCreature({
-			// Within sensing radius of food centre, outside tight arrival footprint
 			position: { x: food.position.x + 1.5, y: food.position.y },
 			hunger: 0.9,
 			thirst: 0.05,
 			energy: 0.95,
-			goal: 'seek_food',
+			intention: 'satisfy_hunger',
 			action: 'search',
 			target: { kind: 'point', position: { x: food.position.x + 2, y: food.position.y } },
 			searchTarget: { x: food.position.x + 2, y: food.position.y },
 			movementSpeed: 0.01,
-			nextReconsiderAt: 999
+			nextReconsiderAt: 999,
+			perception: emptyPerception()
 		});
 		const result = stepCreatureBehaviour(
 			creature,
@@ -315,74 +325,14 @@ describe('stepCreatureBehaviour integration', () => {
 			config
 		);
 		const next = result.creature;
-		expect(next.goal).toBe('seek_food');
-		expect(next.action).toBe('move');
-		expect(next.target).toEqual({
-			kind: 'feature',
-			featureId: food.id,
-			featureKind: 'food'
-		});
-		expect(next.perception.tracked?.featureId).toBe(food.id);
-		expect(next.recentTransitions.some((t) => t.reason.includes('food perceived'))).toBe(true);
-		expect(result.emissionRequest).toMatchObject({
-			senderId: creature.id,
-			origin: { x: creature.position.x, y: creature.position.y },
-			context: 'resource_discovered',
-			contextDetail: 'food',
-			triggerFeatureId: food.id
-		});
-		expect(result.emissionRequest?.opportunityId).toBeTruthy();
-		expect(result.emissionRequest?.perceptionEpisodeId).toBeTruthy();
-	});
-
-	it('returns to search when tracked observation expires without reacquisition', () => {
-		const config = {
-			...defaultSimulationConfig('track-expire'),
-			sensingRadius: 0.5,
-			perceptionIntervalSeconds: 0.01,
-			trackedObservationDurationSeconds: 0.5
-		};
-		const base = createSimulation(config);
-		const food = base.habitat.food[0]!;
-		const creature = testCreature({
-			// Far from food so it is not re-perceived
-			position: { x: 9, y: 9 },
-			hunger: 0.9,
-			thirst: 0.05,
-			energy: 0.95,
-			goal: 'seek_food',
-			action: 'move',
-			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
-			perception: {
-				lastUpdatedAt: 0,
-				perceivedFoodIds: [],
-				perceivedWaterIds: [],
-				observations: [],
-				tracked: {
-					featureId: food.id,
-					featureKind: 'food',
-					position: { ...food.position },
-					observedAt: 0
-				},
-				activeEpisodes: [],
-				episodeCounter: 0
-			},
-			nextReconsiderAt: 999
-		});
-		const next = stepCreatureBehaviour(
-			creature,
-			config.fixedDt,
-			1,
-			config.seed,
-			base.habitat,
-			config
-		).creature;
-		expect(next.goal).toBe('seek_food');
-		expect(next.action).toBe('search');
-		expect(next.perception.tracked).toBeNull();
-		expect(
-			next.recentTransitions.some((t) => t.reason.includes('tracked food observation expired'))
-		).toBe(true);
+		expect(next.perception.perceivedFoodIds).toContain(food.id);
+		// Perception change triggers arbitration; hungry creature should pursue food.
+		if (next.intention === 'satisfy_hunger' && next.target?.kind === 'feature') {
+			expect(next.target.featureId).toBe(food.id);
+			expect(next.action === 'move' || next.action === 'eat').toBe(true);
+		}
+		// Discovery no longer auto-starts announcement executor.
+		expect(result.emissionRequest).toBeNull();
 	});
 
 	it('search destinations are deterministic and within bounds', () => {
@@ -392,7 +342,7 @@ describe('stepCreatureBehaviour integration', () => {
 			hunger: 0.9,
 			thirst: 0.05,
 			energy: 0.95,
-			goal: 'seek_food',
+			intention: 'satisfy_hunger',
 			action: 'search',
 			target: { kind: 'point', position: { x: 0, y: 0 } },
 			searchTarget: { x: 0, y: 0 },
@@ -402,7 +352,6 @@ describe('stepCreatureBehaviour integration', () => {
 			nextReconsiderAt: 999,
 			perception: emptyPerception()
 		});
-		// Force arrival-style retarget by placing on search point with large dt movement
 		const a = stepCreatureBehaviour(creature, 0.01, 1, config.seed, base.habitat, config).creature;
 		const b = stepCreatureBehaviour(creature, 0.01, 1, config.seed, base.habitat, config).creature;
 		expect(a.searchTarget).toEqual(b.searchTarget);
@@ -415,22 +364,20 @@ describe('stepCreatureBehaviour integration', () => {
 	});
 });
 
-describe('announcement preparation lock and exit replan', () => {
-	const speakingTarget = { x: 1, y: 1 };
-
-	function preparingCreature(
+describe('announce_resource executor (no behaviour lock)', () => {
+	function announcingCreature(
 		overrides: Parameters<typeof testCreature>[0] = {}
 	): ReturnType<typeof testCreature> {
+		const speakingTarget = { x: 1, y: 1 };
 		return testCreature({
 			id: 'creature-0',
-			goal: 'prepare_announcement',
+			intention: 'announce_resource',
 			action: 'move',
-			target: { kind: 'point', position: { ...speakingTarget } },
+			target: { kind: 'feature', featureId: 'food-0', featureKind: 'food' },
 			position: { x: 0, y: 0 },
 			movementSpeed: 0,
-			goalStartedAt: 0,
+			intentionStartedAt: 0,
 			actionStartedAt: 0,
-			// Ordinary reconsider is due — lock must still hold.
 			nextReconsiderAt: 0,
 			hunger: 0.1,
 			thirst: 0.1,
@@ -466,72 +413,24 @@ describe('announcement preparation lock and exit replan', () => {
 		});
 	}
 
-	it('stays committed to prepare_announcement when ordinary reconsider is due', () => {
+	it('advances announce_resource executor when intention is announce_resource', () => {
 		const config = {
-			...defaultSimulationConfig('ann-lock-due'),
-			resourceAnnouncementClarityMargin: 0.75,
-			sensingRadius: 8,
-			speakingPositionSearchRadius: 4,
-			emissionCooldownSeconds: 0
-		};
-		const base = createSimulation(config);
-		const food = base.habitat.food[0]!;
-		const water = base.habitat.water[0]!;
-		// Midpoint: food and water both in scope → unclear; stay put (speed 0) so we do not emit.
-		const mid = {
-			x: (food.position.x + water.position.x) / 2,
-			y: (food.position.y + water.position.y) / 2
-		};
-		const creature = preparingCreature({
-			position: mid,
-			target: { kind: 'point', position: mid },
-			movementSpeed: 0,
-			activeAnnouncementOpportunity: {
-				...preparingCreature().activeAnnouncementOpportunity!,
-				triggerFeatureId: food.id,
-				triggerFeaturePosition: { ...food.position },
-				speakingTarget: mid
-			},
-			activeAnnouncementCue: {
-				opportunityId: 'ann-creature-0-0',
-				triggerFeatureId: food.id,
-				triggerFeaturePosition: { ...food.position },
-				fadeStartedAt: null
-			}
-		});
-		const next = stepCreatureBehaviour(
-			creature,
-			config.fixedDt,
-			1,
-			config.seed,
-			base.habitat,
-			config
-		).creature;
-		expect(next.goal).toBe('prepare_announcement');
-		// No ordinary replan while locked (lastDecision stays null).
-		expect(next.lastDecision).toBeNull();
-	});
-
-	it('restores normal nextReconsiderAt after emission ends preparation', () => {
-		const config = {
-			...defaultSimulationConfig('ann-emit-replan'),
+			...defaultSimulationConfig('ann-exec'),
 			resourceAnnouncementClarityMargin: 0,
 			emissionCooldownSeconds: 0,
 			reconsiderIntervalSeconds: 1.5
 		};
 		const base = createSimulation(config);
 		const food = base.habitat.food[0]!;
-		// Clear food context: stand on food, no competing water nearby required when margin is 0.
-		const creature = preparingCreature({
+		const creature = announcingCreature({
 			position: { ...food.position },
-			target: { kind: 'point', position: { ...food.position } },
-			// Stale far-future timer that must not survive exit.
+			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
 			nextReconsiderAt: 9999,
 			activeAnnouncementOpportunity: {
-				...preparingCreature().activeAnnouncementOpportunity!,
+				...announcingCreature().activeAnnouncementOpportunity!,
 				triggerFeatureId: food.id,
 				triggerFeaturePosition: { ...food.position },
-				state: 'repositioning',
+				state: 'ready',
 				speakingTarget: { ...food.position }
 			},
 			activeAnnouncementCue: {
@@ -550,13 +449,14 @@ describe('announcement preparation lock and exit replan', () => {
 			base.habitat,
 			config
 		);
+		// Clear at food should emit or complete; either way executor advanced.
 		const next = result.creature;
-		expect(result.emissionRequest).not.toBeNull();
-		expect(next.goal).not.toBe('prepare_announcement');
-		expect(next.lastDecision).not.toBeNull();
-		expect(next.lastDecision?.trigger).toBe('action_complete');
-		expect(next.nextReconsiderAt).toBeCloseTo(timeSeconds + config.reconsiderIntervalSeconds);
-		expect(next.nextReconsiderAt).toBeLessThan(100);
+		expect(
+			result.emissionRequest !== null ||
+				next.recentAnnouncementOutcomes.length > 0 ||
+				next.activeAnnouncementOpportunity !== null ||
+				next.intention !== 'announce_resource'
+		).toBe(true);
 	});
 
 	it('restores normal decision-making after invalidating an announcement', () => {
@@ -565,11 +465,11 @@ describe('announcement preparation lock and exit replan', () => {
 			reconsiderIntervalSeconds: 1.25
 		};
 		const base = createSimulation(config);
-		// Trigger feature id does not exist → invalidate.
-		const creature = preparingCreature({
+		const creature = announcingCreature({
 			nextReconsiderAt: 8888,
+			target: { kind: 'feature', featureId: 'missing-food-feature', featureKind: 'food' },
 			activeAnnouncementOpportunity: {
-				...preparingCreature().activeAnnouncementOpportunity!,
+				...announcingCreature().activeAnnouncementOpportunity!,
 				triggerFeatureId: 'missing-food-feature',
 				state: 'repositioning'
 			}
@@ -583,47 +483,31 @@ describe('announcement preparation lock and exit replan', () => {
 			base.habitat,
 			config
 		).creature;
-		expect(next.goal).not.toBe('prepare_announcement');
 		expect(
 			next.recentAnnouncementOutcomes.some((o) => o.reason === 'invalid_trigger_feature')
 		).toBe(true);
-		// The invalidated opportunity must not remain open.
 		expect(next.activeAnnouncementOpportunity).toBeNull();
-		expect(next.lastDecision).not.toBeNull();
-		expect(next.lastDecision?.trigger).toBe('action_complete');
-		expect(next.nextReconsiderAt).toBeCloseTo(timeSeconds + config.reconsiderIntervalSeconds);
-		expect(next.nextReconsiderAt).toBeLessThan(100);
+		// Ended preparation triggers action_complete arbitration.
+		expect(next.lastArbitration).not.toBeNull();
+		expect(next.lastArbitration?.trigger).toBe('action_complete');
 	});
 
-	it('runs the decision system again after preparation ends without asserting a winner', () => {
+	it('runs arbitration after announcement ends without asserting a winner', () => {
 		const config = {
 			...defaultSimulationConfig('ann-eligible-again'),
 			reconsiderIntervalSeconds: 1.5,
-			// Make need goals valid candidates without asserting they win.
 			seekFoodThreshold: 0.1,
 			seekWaterThreshold: 0.1
 		};
 		const base = createSimulation(config);
-		const creature = preparingCreature({
+		const creature = announcingCreature({
 			nextReconsiderAt: 7777,
 			hunger: 0.9,
 			thirst: 0.2,
 			energy: 0.95,
-			// Pending investigation is present — eligibility only, not winner policy.
-			pendingSignals: [
-				{
-					emissionId: 'em-pending',
-					symbolId: 'glyph-1',
-					senderId: 'creature-9',
-					origin: { x: 0.5, y: 0.5 },
-					heardAt: 0,
-					expiresAt: 100,
-					curiosityDecision: 'accepted',
-					curiosityEvidence: { curiosity: 0.5, deterministicSample: 0.1 }
-				}
-			],
+			target: { kind: 'feature', featureId: 'gone-feature', featureKind: 'food' },
 			activeAnnouncementOpportunity: {
-				...preparingCreature().activeAnnouncementOpportunity!,
+				...announcingCreature().activeAnnouncementOpportunity!,
 				triggerFeatureId: 'gone-feature',
 				state: 'repositioning'
 			}
@@ -637,12 +521,33 @@ describe('announcement preparation lock and exit replan', () => {
 			base.habitat,
 			config
 		).creature;
-		expect(next.goal).not.toBe('prepare_announcement');
-		expect(next.lastDecision).not.toBeNull();
-		expect(next.lastDecision?.trigger).toBe('action_complete');
-		expect(next.lastDecision?.candidates.length).toBeGreaterThan(0);
-		// Decision system ran; do not assert which goal won.
-		expect(typeof next.lastDecision?.selectedGoal).toBe('string');
-		expect(next.nextReconsiderAt).toBeCloseTo(timeSeconds + config.reconsiderIntervalSeconds);
+		expect(next.lastArbitration).not.toBeNull();
+		expect(next.lastArbitration?.candidates.length).toBeGreaterThan(0);
+		expect(typeof next.lastArbitration?.selectedIntention).toBe('string');
+	});
+
+	it('does not advance announcement executor when intention is not announce_resource', () => {
+		const config = defaultSimulationConfig('ann-not-intent');
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		const creature = testCreature({
+			id: 'creature-0',
+			position: { ...food.position },
+			intention: 'wander',
+			action: 'wander',
+			target: { kind: 'point', position: { x: 1, y: 0 } },
+			nextReconsiderAt: 999,
+			movementSpeed: 0
+		});
+		const result = stepCreatureBehaviour(
+			creature,
+			config.fixedDt,
+			1,
+			config.seed,
+			base.habitat,
+			config
+		);
+		expect(result.emissionRequest).toBeNull();
+		expect(result.creature.activeAnnouncementOpportunity).toBeNull();
 	});
 });

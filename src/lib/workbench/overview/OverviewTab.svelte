@@ -123,14 +123,14 @@
 		<table class="table">
 			<thead>
 				<tr>
-					<th scope="col">Goal</th>
+					<th scope="col">Intention</th>
 					<th scope="col">Count</th>
 				</tr>
 			</thead>
 			<tbody>
-				{#each Object.entries(b.byGoal) as [goal, count] (goal)}
-					<tr data-testid={`overview-goal-${goal}`}>
-						<td>{goal}</td>
+				{#each Object.entries(b.byIntention) as [intention, count] (intention)}
+					<tr data-testid={`overview-goal-${intention}`}>
+						<td>{intention}</td>
 						<td>{count}</td>
 					</tr>
 				{/each}

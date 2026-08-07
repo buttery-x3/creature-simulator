@@ -34,14 +34,25 @@ describe('announcement memory integration', () => {
 		};
 		let state = createSimulation(config);
 		const food = state.habitat.food[0]!;
-		// Place creature on the food so perception + clarity can succeed quickly.
+		// Intention-driven announcement: place on food with announce_resource + feature target.
 		state = {
 			...state,
 			creatures: state.creatures.map((c) => ({
 				...c,
 				position: { x: food.position.x, y: food.position.y },
 				movementSpeed: 2,
-				nextReconsiderAt: 999
+				nextReconsiderAt: 999,
+				intention: 'announce_resource' as const,
+				action: 'move' as const,
+				target: {
+					kind: 'feature' as const,
+					featureId: food.id,
+					featureKind: 'food' as const
+				},
+				// Keep needs low so arbitration does not immediately replace announce.
+				hunger: 0,
+				thirst: 0,
+				energy: 1
 			}))
 		};
 

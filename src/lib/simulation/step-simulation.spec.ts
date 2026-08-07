@@ -167,11 +167,11 @@ describe('session apply keeps stepped habitat resource amounts', () => {
 			hunger: 0.9,
 			thirst: 0.1,
 			energy: 0.9,
-			goal: 'seek_food',
+			intention: 'satisfy_hunger',
 			action: 'eat',
 			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
 			nextReconsiderAt: 999,
-			goalStartedAt: 0
+			intentionStartedAt: 0
 		});
 		const prev = {
 			...createSimulation(config),

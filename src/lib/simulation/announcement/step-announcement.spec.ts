@@ -354,4 +354,173 @@ describe('stepAnnouncement integration', () => {
 			}
 		}
 	});
+
+	/**
+	 * Regression: FLAME-77 renamed featureStillExists → featureStillAvailable.
+	 * A partial rename left the call site throwing ReferenceError at runtime when
+	 * an active opportunity was advanced. These tests always hit that path.
+	 */
+	describe('active opportunity availability gate (featureStillAvailable)', () => {
+		function openFoodOpportunity(
+			creatureId: string,
+			food: { id: string; position: { x: number; y: number } }
+		) {
+			return {
+				id: `opp-${creatureId}-food`,
+				creatureId,
+				triggerFeatureId: food.id,
+				resourceKind: 'food' as const,
+				triggerFeaturePosition: { ...food.position },
+				perceptionEpisodeId: `ep-${food.id}-reg`,
+				discoveredAt: 1,
+				discoveryCreaturePosition: { ...food.position },
+				state: 'ready' as const,
+				speakingTarget: null,
+				initialClarity: null
+			};
+		}
+
+		function openWaterOpportunity(
+			creatureId: string,
+			water: { id: string; position: { x: number; y: number } }
+		) {
+			return {
+				id: `opp-${creatureId}-water`,
+				creatureId,
+				triggerFeatureId: water.id,
+				resourceKind: 'water' as const,
+				triggerFeaturePosition: { ...water.position },
+				perceptionEpisodeId: `ep-${water.id}-reg`,
+				discoveredAt: 1,
+				discoveryCreaturePosition: { ...water.position },
+				state: 'ready' as const,
+				speakingTarget: null,
+				initialClarity: null
+			};
+		}
+
+		it('does not throw when advancing an active opportunity with an available trigger', () => {
+			const config = {
+				...defaultSimulationConfig('ann-avail-ok'),
+				// Block emit so the opportunity stays open after the availability gate.
+				emissionCooldownSeconds: 100,
+				resourceAnnouncementClarityMargin: 0
+			};
+			const habitat = createSimulation(config).habitat;
+			const food = habitat.food[0]!;
+			const creature = testCreature({
+				id: 'creature-0',
+				position: { ...food.position },
+				// Recent emission so cooldown keeps opportunity open without completing.
+				lastEmissionAt: 1.5,
+				activeAnnouncementOpportunity: openFoodOpportunity('creature-0', food)
+			});
+
+			expect(() =>
+				stepAnnouncement({
+					creature,
+					habitat,
+					timeSeconds: 2,
+					newlyPerceived: [],
+					config
+				})
+			).not.toThrow();
+
+			const result = stepAnnouncement({
+				creature,
+				habitat,
+				timeSeconds: 2,
+				newlyPerceived: [],
+				config
+			});
+			// Availability gate accepted the trigger; must not invalidate as missing/empty.
+			expect(
+				result.creature.recentAnnouncementOutcomes.some(
+					(o) => o.reason === 'invalid_trigger_feature'
+				)
+			).toBe(false);
+			const stillOpen = result.creature.activeAnnouncementOpportunity?.triggerFeatureId === food.id;
+			const completedOther =
+				result.creature.recentAnnouncementOutcomes.length > 0 &&
+				result.creature.recentAnnouncementOutcomes[0]!.reason !== 'invalid_trigger_feature';
+			// Either held open under cooldown or completed for a non-availability reason.
+			expect(
+				stillOpen || completedOther || result.creature.activeAnnouncementOpportunity !== null
+			).toBe(true);
+		});
+
+		it('invalidates when the food trigger was removed (depleted), without throwing', () => {
+			const config = defaultSimulationConfig('ann-avail-food-gone');
+			const habitat = createSimulation(config).habitat;
+			const food = habitat.food[0]!;
+			const habitatWithoutFood = {
+				...habitat,
+				food: habitat.food.filter((f) => f.id !== food.id)
+			};
+			const creature = testCreature({
+				id: 'creature-0',
+				position: { ...food.position },
+				activeAnnouncementOpportunity: openFoodOpportunity('creature-0', food)
+			});
+
+			expect(() =>
+				stepAnnouncement({
+					creature,
+					habitat: habitatWithoutFood,
+					timeSeconds: 2,
+					newlyPerceived: [],
+					config
+				})
+			).not.toThrow();
+
+			const result = stepAnnouncement({
+				creature,
+				habitat: habitatWithoutFood,
+				timeSeconds: 2,
+				newlyPerceived: [],
+				config
+			});
+			expect(result.creature.activeAnnouncementOpportunity).toBeNull();
+			expect(result.creature.recentAnnouncementOutcomes[0]?.reason).toBe('invalid_trigger_feature');
+			expect(result.creature.recentAnnouncementOutcomes[0]?.triggerFeatureId).toBe(food.id);
+		});
+
+		it('invalidates empty water basins (amount 0) even though the feature still exists', () => {
+			const config = defaultSimulationConfig('ann-avail-water-empty');
+			const habitat = createSimulation(config).habitat;
+			const water = habitat.water[0]!;
+			const habitatEmptyBasin = {
+				...habitat,
+				water: habitat.water.map((w) => (w.id === water.id ? { ...w, amount: 0 } : { ...w }))
+			};
+			const creature = testCreature({
+				id: 'creature-0',
+				position: { ...water.position },
+				activeAnnouncementOpportunity: openWaterOpportunity('creature-0', water)
+			});
+
+			expect(() =>
+				stepAnnouncement({
+					creature,
+					habitat: habitatEmptyBasin,
+					timeSeconds: 2,
+					newlyPerceived: [],
+					config
+				})
+			).not.toThrow();
+
+			const result = stepAnnouncement({
+				creature,
+				habitat: habitatEmptyBasin,
+				timeSeconds: 2,
+				newlyPerceived: [],
+				config
+			});
+			// Basin remains in habitat geography but is unavailable for announcement.
+			expect(habitatEmptyBasin.water.some((w) => w.id === water.id)).toBe(true);
+			expect(result.creature.activeAnnouncementOpportunity).toBeNull();
+			expect(result.creature.recentAnnouncementOutcomes[0]?.reason).toBe('invalid_trigger_feature');
+			expect(result.creature.recentAnnouncementOutcomes[0]?.triggerFeatureId).toBe(water.id);
+		});
+	});
 });

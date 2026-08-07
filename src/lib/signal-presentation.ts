@@ -25,9 +25,19 @@ import {
 import { getSymbolPresentation, type SymbolShape } from './symbol-presentation';
 
 /** Bubble centre height above ground (above creature body). */
-const BUBBLE_HEIGHT = 1.15;
-/** Uniform scale for speech-bubble backing + glyph (presentation only). */
-const BUBBLE_SCALE = 0.5;
+const BUBBLE_HEIGHT = 1.05;
+/**
+ * World-space speech bubble size. ~50% of the original FLAME-69 draft
+ * (backing radius was 0.32; glyph extents ~0.22–0.34).
+ */
+const BUBBLE_BACKING_RADIUS = 0.16;
+const GLYPH_STAR_OUTER = 0.11;
+const GLYPH_STAR_INNER = 0.045;
+const GLYPH_TRIANGLE_H = 0.11;
+const GLYPH_TRIANGLE_HALF_W = 0.1;
+const GLYPH_SQUARE = 0.17;
+const GLYPH_CIRCLE_INNER = 0.06;
+const GLYPH_CIRCLE_OUTER = 0.1;
 /** Ring band thickness in world units (constant; not proportional to radius). */
 export const RING_BAND_THICKNESS = 0.06;
 const RING_SEGMENTS = 48;
@@ -70,11 +80,9 @@ export type SignalPresentationResources = {
 };
 
 function createStarGeometry(): THREE.BufferGeometry {
-	const outer = 0.22;
-	const inner = 0.09;
 	const points: THREE.Vector2[] = [];
 	for (let i = 0; i < 10; i++) {
-		const r = i % 2 === 0 ? outer : inner;
+		const r = i % 2 === 0 ? GLYPH_STAR_OUTER : GLYPH_STAR_INNER;
 		const a = -Math.PI / 2 + (i * Math.PI) / 5;
 		points.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r));
 	}
@@ -84,20 +92,20 @@ function createStarGeometry(): THREE.BufferGeometry {
 
 function createTriangleGeometry(): THREE.BufferGeometry {
 	const shape = new THREE.Shape([
-		new THREE.Vector2(0, 0.22),
-		new THREE.Vector2(0.2, -0.18),
-		new THREE.Vector2(-0.2, -0.18)
+		new THREE.Vector2(0, GLYPH_TRIANGLE_H),
+		new THREE.Vector2(GLYPH_TRIANGLE_HALF_W, -GLYPH_TRIANGLE_H * 0.82),
+		new THREE.Vector2(-GLYPH_TRIANGLE_HALF_W, -GLYPH_TRIANGLE_H * 0.82)
 	]);
 	return new THREE.ShapeGeometry(shape);
 }
 
 function createSquareGeometry(): THREE.BufferGeometry {
-	return new THREE.PlaneGeometry(0.34, 0.34);
+	return new THREE.PlaneGeometry(GLYPH_SQUARE, GLYPH_SQUARE);
 }
 
 function createCircleGeometry(): THREE.BufferGeometry {
 	// Ring outline so circle reads as hollow (matches UI ○).
-	return new THREE.RingGeometry(0.12, 0.2, 24);
+	return new THREE.RingGeometry(GLYPH_CIRCLE_INNER, GLYPH_CIRCLE_OUTER, 24);
 }
 
 export function createSignalPresentationResources(): SignalPresentationResources {
@@ -112,7 +120,7 @@ export function createSignalPresentationResources(): SignalPresentationResources
 			triangle: createTriangleGeometry(),
 			square: createSquareGeometry()
 		},
-		bubbleBackingGeometry: new THREE.CircleGeometry(0.32, 24),
+		bubbleBackingGeometry: new THREE.CircleGeometry(BUBBLE_BACKING_RADIUS, 24),
 		byId: new Map(),
 		materialsById: new Map(),
 		ringGeometryById: new Map(),
@@ -175,7 +183,6 @@ function createSignalGroup(
 	bubble.name = `${emission.id}-bubble`;
 	bubble.userData.billboard = true;
 	bubble.position.set(0, 0, BUBBLE_HEIGHT);
-	bubble.scale.setScalar(BUBBLE_SCALE);
 
 	const backing = new THREE.Mesh(resources.bubbleBackingGeometry, backingMaterial);
 	backing.name = `${emission.id}-bubble-backing`;

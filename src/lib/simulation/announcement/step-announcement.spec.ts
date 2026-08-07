@@ -150,4 +150,96 @@ describe('stepAnnouncement integration', () => {
 		expect(triggerId).toBe(food.id);
 		expect(open?.resourceKind ?? done?.resourceKind).toBe('food');
 	});
+
+	it('does not throw when creature.memory is missing (regression for HMR/stale state)', () => {
+		const config = defaultSimulationConfig('ann-missing-memory');
+		const habitat = createSimulation(config).habitat;
+		const food = habitat.food[0]!;
+		const base = testCreature({ id: 'creature-0', position: { ...food.position } });
+		// Simulate pre–FLAME-74 or HMR-stale creature objects.
+		const broken = {
+			...base,
+			memory: undefined,
+			recentAnnouncementOpportunityDecisions: undefined
+		} as unknown as typeof base;
+
+		expect(() =>
+			stepAnnouncement({
+				creature: broken,
+				habitat,
+				timeSeconds: 1,
+				newlyPerceived: [
+					{
+						featureId: food.id,
+						resourceKind: 'food',
+						position: { ...food.position },
+						perceptionEpisodeId: `ep-${food.id}-stale`,
+						discoveredAt: 1
+					}
+				],
+				config
+			})
+		).not.toThrow();
+
+		const result = stepAnnouncement({
+			creature: broken,
+			habitat,
+			timeSeconds: 1,
+			newlyPerceived: [
+				{
+					featureId: food.id,
+					resourceKind: 'food',
+					position: { ...food.position },
+					perceptionEpisodeId: `ep-${food.id}-stale`,
+					discoveredAt: 1
+				}
+			],
+			config
+		});
+		expect(Array.isArray(result.creature.memory.entries)).toBe(true);
+		expect(result.creature.memory.capacity).toBeGreaterThanOrEqual(1);
+		expect(Array.isArray(result.creature.recentAnnouncementOpportunityDecisions)).toBe(true);
+		// Opportunity may be created once memory is repaired.
+		const created = result.creature.recentAnnouncementOpportunityDecisions.some(
+			(d) => d.reason === 'created'
+		);
+		const open = result.creature.announcementOpportunities.some(
+			(o) => o.triggerFeatureId === food.id
+		);
+		expect(created || open || result.creature.recentAnnouncementOutcomes.length > 0).toBe(true);
+	});
+
+	it('keeps memory defined across multi-step simulation with discoveries', () => {
+		const config = {
+			...defaultSimulationConfig('ann-memory-stable'),
+			creatureCount: 1,
+			sensingRadius: 8,
+			perceptionIntervalSeconds: 0.01,
+			emissionCooldownSeconds: 0,
+			initialHunger: 0,
+			initialThirst: 0,
+			initialEnergy: 1,
+			hungerRisePerSecond: 0,
+			thirstRisePerSecond: 0,
+			energyDrainPerSecond: 0
+		};
+		let state = createSimulation(config);
+		const food = state.habitat.food[0]!;
+		state = {
+			...state,
+			creatures: state.creatures.map((c) => ({
+				...c,
+				position: { ...food.position },
+				movementSpeed: 0
+			}))
+		};
+		for (let i = 0; i < 60; i += 1) {
+			state = stepSimulation(state, config);
+			for (const c of state.creatures) {
+				expect(c.memory).toBeDefined();
+				expect(Array.isArray(c.memory.entries)).toBe(true);
+				expect(Array.isArray(c.recentAnnouncementOpportunityDecisions)).toBe(true);
+			}
+		}
+	});
 });

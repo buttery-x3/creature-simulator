@@ -15,6 +15,8 @@ import type {
 } from '$lib/simulation';
 import {
 	countAcceptedPending,
+	createEmptyMemory,
+	ensureCreatureMemory,
 	INVESTIGATION_ELIGIBLE_SCORE,
 	mostRecentCuriosityDecision,
 	selectBestAcceptedOpportunity
@@ -235,14 +237,15 @@ export type MemorySectionView = {
  * Resolves emission symbols from the creature's recentEmitted history when present.
  */
 export function buildMemorySectionView(creature: Creature): MemorySectionView {
+	const safe = ensureCreatureMemory(creature);
 	const byEmission = new Map<string, SignalEmission>();
-	for (const emission of creature.recentEmitted) {
+	for (const emission of safe.recentEmitted) {
 		byEmission.set(emission.id, emission);
 	}
 
 	// Newest last in storage; show newest first in the UI.
 	// When additional entry kinds are added, extend this switch explicitly.
-	const entries: MemoryEntryView[] = [...creature.memory.entries]
+	const entries: MemoryEntryView[] = [...safe.memory.entries]
 		.slice()
 		.reverse()
 		.map((entry) => {
@@ -260,20 +263,23 @@ export function buildMemorySectionView(creature: Creature): MemorySectionView {
 		});
 
 	return {
-		capacity: creature.memory.capacity,
-		used: creature.memory.entries.length,
+		capacity: safe.memory.capacity,
+		used: safe.memory.entries.length,
 		entries
 	};
 }
 
 /** Serialised memory for Debug tab copy/inspect. */
-export function formatCreatureMemoryJson(memory: CreatureMemory): string {
-	return JSON.stringify(memory, null, 2);
+export function formatCreatureMemoryJson(memory: CreatureMemory | null | undefined): string {
+	return JSON.stringify(memory ?? createEmptyMemory(1), null, 2);
 }
 
 export function lastAnnouncementOpportunityDecision(
 	creature: Creature
 ): AnnouncementOpportunityDecision | null {
 	const list = creature.recentAnnouncementOpportunityDecisions;
-	return list.length > 0 ? (list[list.length - 1] ?? null) : null;
+	if (!Array.isArray(list) || list.length === 0) {
+		return null;
+	}
+	return list[list.length - 1] ?? null;
 }

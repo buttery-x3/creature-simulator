@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyMemory, sampleMemoryCapacity } from './create-memory';
+import {
+	createEmptyMemory,
+	ensureCreatureMemory,
+	isValidCreatureMemory,
+	sampleMemoryCapacity
+} from './create-memory';
 import { countMemoryEntries, hasResourceAnnouncementMemory, memoryUsage } from './query';
 import { evictToCapacity, rememberResourceAnnouncement } from './mutate';
 import { applySuccessfulAnnouncementMemories } from './apply-announcement-memory';
 import { testCreature } from '../test-creature';
 import type { SignalEmission } from '../communication/types';
+import type { Creature, CreatureMemory } from '../types';
 
 function draft(featureId: string, sequenceHint = 0) {
 	return {
@@ -15,6 +21,36 @@ function draft(featureId: string, sequenceHint = 0) {
 		emissionId: `em-${featureId}`
 	};
 }
+
+describe('ensureCreatureMemory', () => {
+	it('returns the same creature when memory and decisions are valid', () => {
+		const creature = testCreature();
+		expect(ensureCreatureMemory(creature)).toBe(creature);
+		expect(isValidCreatureMemory(creature.memory)).toBe(true);
+	});
+
+	it('repairs missing memory without throwing', () => {
+		const creature = {
+			...testCreature(),
+			memory: undefined as unknown as CreatureMemory
+		} as Creature;
+		const fixed = ensureCreatureMemory(creature);
+		expect(fixed).not.toBe(creature);
+		expect(isValidCreatureMemory(fixed.memory)).toBe(true);
+		expect(Array.isArray(fixed.memory.entries)).toBe(true);
+		expect(fixed.memory.capacity).toBeGreaterThanOrEqual(1);
+	});
+
+	it('repairs missing recentAnnouncementOpportunityDecisions', () => {
+		const creature = {
+			...testCreature(),
+			recentAnnouncementOpportunityDecisions: undefined as unknown as []
+		} as Creature;
+		const fixed = ensureCreatureMemory(creature);
+		expect(Array.isArray(fixed.recentAnnouncementOpportunityDecisions)).toBe(true);
+		expect(fixed.recentAnnouncementOpportunityDecisions).toEqual([]);
+	});
+});
 
 describe('createEmptyMemory / sampleMemoryCapacity', () => {
 	it('starts empty with the given capacity', () => {

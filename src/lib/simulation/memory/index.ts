@@ -15,7 +15,14 @@ export type {
 	ResourceAnnouncementMemoryDraft
 } from './types';
 
-export { createEmptyMemory, MEMORY_CAPACITY_CHANNEL, sampleMemoryCapacity } from './create-memory';
+export {
+	createEmptyMemory,
+	DEFAULT_FALLBACK_MEMORY_CAPACITY,
+	ensureCreatureMemory,
+	isValidCreatureMemory,
+	MEMORY_CAPACITY_CHANNEL,
+	sampleMemoryCapacity
+} from './create-memory';
 
 export {
 	countMemoryEntries,

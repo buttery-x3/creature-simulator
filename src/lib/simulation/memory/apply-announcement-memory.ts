@@ -7,6 +7,7 @@
 
 import type { Creature } from '../types';
 import type { SignalEmission } from '../communication/types';
+import { ensureCreatureMemory } from './create-memory';
 import { rememberResourceAnnouncement } from './mutate';
 
 /**
@@ -45,11 +46,12 @@ export function applySuccessfulAnnouncementMemories(
 		return creatures as Creature[];
 	}
 
-	return creatures.map((creature) => {
-		const mine = bySender.get(creature.id);
+	return creatures.map((raw) => {
+		const mine = bySender.get(raw.id);
 		if (!mine || mine.length === 0) {
-			return creature;
+			return raw;
 		}
+		const creature = ensureCreatureMemory(raw);
 		let memory = creature.memory;
 		for (const emission of mine) {
 			const provenance = emission.provenance;
@@ -64,8 +66,8 @@ export function applySuccessfulAnnouncementMemories(
 				emissionId: emission.id
 			});
 		}
-		if (memory === creature.memory) {
-			return creature;
+		if (memory === creature.memory && creature === raw) {
+			return raw;
 		}
 		return { ...creature, memory };
 	});

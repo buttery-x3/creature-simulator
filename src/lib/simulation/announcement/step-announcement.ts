@@ -15,6 +15,7 @@ import type { EmissionRequest } from '../communication/types';
 import { queryFeaturesNear } from '../behaviour/habitat-feature-query';
 import type { Creature, SimulationConfig } from '../types';
 import { evaluateKindClarity, type ClarityResourceCandidate } from './clarity';
+import { ensureCreatureMemory } from '../memory/create-memory';
 import {
 	appendOpportunityDecisions,
 	appendOutcome,
@@ -122,7 +123,8 @@ export function stepAnnouncement(input: {
 	config: AnnouncementStepConfig;
 }): AnnouncementStepResult {
 	const { habitat, timeSeconds, config } = input;
-	let creature = input.creature;
+	// Repair missing memory / decision history (HMR-stale or incomplete factories).
+	let creature = ensureCreatureMemory(input.creature);
 
 	// Expire faded presentation cue.
 	if (

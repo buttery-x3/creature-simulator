@@ -157,15 +157,15 @@ export function buildCommunicationViewModel(
 			creature.announcementOpportunities.find(
 				(o) => o.state === 'ready' || o.state === 'repositioning'
 			) ?? null;
-		const lastDecision =
-			creature.recentAnnouncementOpportunityDecisions[
-				creature.recentAnnouncementOpportunityDecisions.length - 1
-			] ?? null;
+		const decisionHistory = Array.isArray(creature.recentAnnouncementOpportunityDecisions)
+			? creature.recentAnnouncementOpportunityDecisions
+			: [];
+		const lastDecision = decisionHistory[decisionHistory.length - 1] ?? null;
+		const memoryEntries = Array.isArray(creature.memory?.entries) ? creature.memory.entries : [];
 		announcementMemorySummaries.push({
 			creatureId: creature.id,
-			announcementMemoryCount: creature.memory.entries.filter(
-				(e) => e.kind === 'resource_announcement'
-			).length,
+			announcementMemoryCount: memoryEntries.filter((e) => e.kind === 'resource_announcement')
+				.length,
 			activeTriggerFeatureId: activeOpp?.triggerFeatureId ?? null,
 			queuedCount: creature.announcementOpportunities.filter((o) => o.state === 'queued').length,
 			lastDecisionReason: lastDecision?.reason ?? null,

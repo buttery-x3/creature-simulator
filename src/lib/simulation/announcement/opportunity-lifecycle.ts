@@ -278,18 +278,20 @@ export function appendOutcome(
 }
 
 export function appendOpportunityDecisions(
-	history: readonly AnnouncementOpportunityDecision[],
+	history: readonly AnnouncementOpportunityDecision[] | null | undefined,
 	decisions: readonly AnnouncementOpportunityDecision[],
 	limit: number
 ): AnnouncementOpportunityDecision[] {
+	const base = Array.isArray(history) ? history : [];
 	if (decisions.length === 0) {
-		return history as AnnouncementOpportunityDecision[];
+		return base as AnnouncementOpportunityDecision[];
 	}
-	const next = [...history, ...decisions];
-	if (next.length <= limit) {
+	const next = [...base, ...decisions];
+	const safeLimit = Number.isInteger(limit) && limit >= 1 ? limit : next.length;
+	if (next.length <= safeLimit) {
 		return next;
 	}
-	return next.slice(next.length - limit);
+	return next.slice(next.length - safeLimit);
 }
 
 /** Clear all opportunity state (reset / regeneration). */

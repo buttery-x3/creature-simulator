@@ -131,8 +131,10 @@ export {
 	applySuccessfulAnnouncementMemories,
 	countMemoryEntries,
 	createEmptyMemory,
+	ensureCreatureMemory,
 	findResourceAnnouncementMemory,
 	hasResourceAnnouncementMemory,
+	isValidCreatureMemory,
 	memoryUsage,
 	rememberResourceAnnouncement,
 	sampleMemoryCapacity

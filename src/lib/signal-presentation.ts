@@ -26,6 +26,8 @@ import { getSymbolPresentation, type SymbolShape } from './symbol-presentation';
 
 /** Bubble centre height above ground (above creature body). */
 const BUBBLE_HEIGHT = 1.15;
+/** Uniform scale for speech-bubble backing + glyph (presentation only). */
+const BUBBLE_SCALE = 0.5;
 /** Ring band thickness in world units (constant; not proportional to radius). */
 export const RING_BAND_THICKNESS = 0.06;
 const RING_SEGMENTS = 48;
@@ -173,6 +175,7 @@ function createSignalGroup(
 	bubble.name = `${emission.id}-bubble`;
 	bubble.userData.billboard = true;
 	bubble.position.set(0, 0, BUBBLE_HEIGHT);
+	bubble.scale.setScalar(BUBBLE_SCALE);
 
 	const backing = new THREE.Mesh(resources.bubbleBackingGeometry, backingMaterial);
 	backing.name = `${emission.id}-bubble-backing`;

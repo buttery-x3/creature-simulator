@@ -156,15 +156,9 @@
 				const result = advanceSimulation(simulation, elapsed, accumulator, config);
 				accumulator = result.accumulator;
 				if (result.stepsTaken > 0) {
-					// Preserve habitat object identity when only creatures/time change
-					// so the viewport does not rebuild static presentation.
-					simulation = {
-						...result.state,
-						habitat:
-							simulation.habitat.seed === result.state.habitat.seed
-								? simulation.habitat
-								: result.state.habitat
-					};
+					// Always adopt the stepped state, including habitat resource amounts.
+					// Habitat presentation reconciles by layout/feature id (no freeze needed).
+					simulation = result.state;
 					clearStaleSelection(simulation);
 				}
 			} else {

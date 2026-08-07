@@ -152,6 +152,53 @@ describe('advanceSimulation', () => {
 	});
 });
 
+describe('session apply keeps stepped habitat resource amounts', () => {
+	/**
+	 * Regression: the page used to freeze habitat object identity when seed matched
+	 * so presentation would not rebuild. That discarded eat/drink amount updates and
+	 * fed the next step a full habitat again. Session apply must keep result.state.
+	 */
+	it('must not reattach the previous habitat when seed is unchanged', () => {
+		const config = defaultSimulationConfig('session-habitat-apply');
+		const food = createSimulation(config).habitat.food[0]!;
+		const eater = testCreature({
+			id: 'creature-0',
+			position: { ...food.position },
+			hunger: 0.9,
+			thirst: 0.1,
+			energy: 0.9,
+			goal: 'seek_food',
+			action: 'eat',
+			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
+			nextReconsiderAt: 999,
+			goalStartedAt: 0
+		});
+		const prev = {
+			...createSimulation(config),
+			creatures: [eater]
+		};
+		const amountBefore = prev.habitat.food.find((f) => f.id === food.id)!.amount;
+		const next = stepSimulation(prev, config);
+		const amountAfter = next.habitat.food.find((f) => f.id === food.id)?.amount ?? 0;
+		expect(amountAfter).toBeLessThan(amountBefore);
+
+		// Historical page bug: freeze habitat when seed matches.
+		const buggySession = {
+			...next,
+			habitat: prev.habitat.seed === next.habitat.seed ? prev.habitat : next.habitat
+		};
+		expect(buggySession.habitat).toBe(prev.habitat);
+		expect(buggySession.habitat.food.find((f) => f.id === food.id)!.amount).toBe(amountBefore);
+
+		// Correct apply: full stepped state (as +page.svelte now does).
+		const applied = next;
+		expect(applied.habitat).not.toBe(prev.habitat);
+		const appliedAmount = applied.habitat.food.find((f) => f.id === food.id)?.amount ?? 0;
+		expect(appliedAmount).toBe(amountAfter);
+		expect(appliedAmount).toBeLessThan(amountBefore);
+	});
+});
+
 describe('angle helpers', () => {
 	it('shortestAngleDelta wraps correctly', () => {
 		// From 3 rad to -3 rad the short way is ≈ +0.283 (2π − 6), not −6.

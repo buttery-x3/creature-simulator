@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Habitat, HabitatFeature } from '$lib/habitat';
+import type { Habitat, ResourceFeature } from '$lib/habitat';
 import { circleIntersectsRect, queryFeaturesNear } from './habitat-feature-query';
 import { featureRect } from '$lib/habitat';
 
@@ -9,20 +9,23 @@ function feature(
 	x: number,
 	y: number,
 	w = 1,
-	h = 1
-): HabitatFeature {
+	h = 1,
+	amount = 1
+): ResourceFeature {
 	return {
 		id,
 		kind,
 		position: { x, y },
-		size: { width: w, height: h }
+		size: { width: w, height: h },
+		amount,
+		capacity: Math.max(amount, 1)
 	};
 }
 
-function miniHabitat(food: HabitatFeature[], water: HabitatFeature[] = []): Habitat {
-	const home: HabitatFeature = {
+function miniHabitat(food: ResourceFeature[], water: ResourceFeature[] = []): Habitat {
+	const home = {
 		id: 'home-0',
-		kind: 'home',
+		kind: 'home' as const,
 		position: { x: 0, y: 0 },
 		size: { width: 2, height: 2 }
 	};
@@ -68,5 +71,18 @@ describe('queryFeaturesNear', () => {
 		);
 		const near = queryFeaturesNear(habitat, { x: 0, y: 0 }, 5);
 		expect(near.map((f) => f.id)).toEqual(['food-a', 'food-b', 'water-a']);
+	});
+
+	it('excludes empty water and depleted food by default', () => {
+		const habitat = miniHabitat(
+			[feature('food-empty', 'food', 0, 0, 1, 1, 0)],
+			[feature('water-empty', 'water', 0, 0, 1, 1, 0)]
+		);
+		const near = queryFeaturesNear(habitat, { x: 0, y: 0 }, 5);
+		expect(near).toHaveLength(0);
+		const all = queryFeaturesNear(habitat, { x: 0, y: 0 }, 5, ['food', 'water'], {
+			availableOnly: false
+		});
+		expect(all.map((f) => f.id).sort()).toEqual(['food-empty', 'water-empty']);
 	});
 });

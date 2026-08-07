@@ -200,6 +200,7 @@
 				{creatures}
 				activeEmissions={simulation.activeEmissions}
 				timeSeconds={simulation.timeSeconds}
+				weather={simulation.environment.weather}
 				{selectedCreatureId}
 				sensingRadius={simulationConfigBase.sensingRadius}
 				hearingRadius={simulationConfigBase.hearingRadius}

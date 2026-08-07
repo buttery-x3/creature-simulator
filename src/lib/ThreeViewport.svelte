@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import * as THREE from 'three';
 	import type { Habitat, Vec2 } from '$lib/habitat';
-	import type { Creature, SignalEmission } from '$lib/simulation';
+	import type { Creature, SignalEmission, WeatherPhase } from '$lib/simulation';
 	import {
 		clearCreaturePresentation,
 		createCreaturePresentationResources,
@@ -10,11 +10,17 @@
 		type CreaturePresentationResources
 	} from './creature-presentation';
 	import {
-		buildHabitatPresentation,
 		clearHabitatPresentation,
 		createHabitatPresentationResources,
+		reconcileHabitatPresentation,
 		type HabitatPresentationResources
 	} from './habitat-presentation';
+	import {
+		clearRainPresentation,
+		createRainPresentationResources,
+		reconcileRainPresentation,
+		type RainPresentationResources
+	} from './rain-presentation';
 	import {
 		assessHabitatVisibility,
 		frameHabitatPerspectiveCamera,
@@ -49,7 +55,8 @@
 	 *   single-axis tilt so upright presentation reads as 3D while the layout
 	 *   stays map-like and fully framed.
 	 *
-	 * Static habitat presentation rebuilds only when habitat identity changes.
+	 * Habitat ground/home rebuilds only when layout identity changes; food/water
+	 * reconcile by feature id. Rain cue is presentation-only.
 	 * Creature meshes are reconciled by id and updated in place.
 	 * Signal visuals mirror authoritative activeEmissions only (bubbles + thin rings).
 	 * Heard cues and investigation hops are presentation-only.
@@ -61,6 +68,8 @@
 		creatures: Creature[];
 		activeEmissions?: SignalEmission[];
 		timeSeconds?: number;
+		/** Authoritative weather phase (presentation rain cue only). */
+		weather?: WeatherPhase;
 		selectedCreatureId?: string | null;
 		/** Authoritative sensing radius from SimulationConfig (presentation overlay only). */
 		sensingRadius?: number;
@@ -78,6 +87,7 @@
 		creatures,
 		activeEmissions = [],
 		timeSeconds = 0,
+		weather = 'clear',
 		selectedCreatureId = null,
 		sensingRadius = 3,
 		hearingRadius = 12,
@@ -89,7 +99,7 @@
 	let container: HTMLDivElement | undefined = $state();
 
 	/** Set by onMount; used by $effect to sync presentation with props. */
-	let applyHabitat: ((data: Habitat) => void) | undefined = $state();
+	let applyHabitat: ((data: Habitat, weatherPhase: WeatherPhase) => void) | undefined = $state();
 	let applyCreatures:
 		| ((list: Creature[], selectedId: string | null, radius: number, simTime: number) => void)
 		| undefined = $state();
@@ -124,6 +134,9 @@
 
 		const habitatResources: HabitatPresentationResources = createHabitatPresentationResources();
 		scene.add(habitatResources.root);
+
+		const rainResources: RainPresentationResources = createRainPresentationResources();
+		scene.add(rainResources.root);
 
 		const creatureResources: CreaturePresentationResources = createCreaturePresentationResources();
 		scene.add(creatureResources.root);
@@ -194,6 +207,8 @@
 			canvas.dataset.sensingOverlayVisible = sensingRing.visible ? 'true' : 'false';
 			canvas.dataset.sensingRadius = String(currentSensingRadius);
 			canvas.dataset.hearingRadius = String(currentHearingRadius);
+			canvas.dataset.habitatStructureVersion = String(habitatResources.structureVersion);
+			canvas.dataset.rainVisible = rainResources.visible ? 'true' : 'false';
 		}
 
 		function updateSensingOverlay(
@@ -233,18 +248,16 @@
 			renderer.render(scene, camera);
 		}
 
-		applyHabitat = (data: Habitat) => {
-			const habitatChanged =
-				!currentHabitat || currentHabitat.seed !== data.seed || currentHabitat !== data;
-
-			// Rebuild static habitat only when the habitat reference or seed changes.
-			// Ordinary creature movement must not call this path with a new habitat object
-			// that is deeply equal — page keeps habitat stable across steps.
-			if (habitatChanged) {
-				currentHabitat = data;
-				buildHabitatPresentation(habitatResources, data);
+		applyHabitat = (data: Habitat, weatherPhase: WeatherPhase) => {
+			const previousVersion = habitatResources.structureVersion;
+			// Reconcile food/water by id; full static rebuild only when layout identity changes.
+			reconcileHabitatPresentation(habitatResources, data);
+			if (habitatResources.structureVersion !== previousVersion) {
 				habitatBuildCount += 1;
 			}
+			currentHabitat = data;
+			reconcileRainPresentation(rainResources, weatherPhase, data.bounds);
+			publishCreatureMeta(creatureResources.byId.size);
 			renderFrame();
 		};
 
@@ -344,7 +357,7 @@
 
 		renderer.domElement.addEventListener('click', onCanvasClick);
 
-		applyHabitat(habitat);
+		applyHabitat(habitat, weather);
 		applyCreatures(creatures, selectedCreatureId, sensingRadius, timeSeconds);
 		applySignals(
 			activeEmissions,
@@ -365,11 +378,13 @@
 			applySignals = undefined;
 			publishSelection = undefined;
 			clearHabitatPresentation(habitatResources);
+			clearRainPresentation(rainResources);
 			clearCreaturePresentation(creatureResources);
 			clearSignalPresentation(signalResources);
 			clearListenerCuePresentation(listenerCueResources);
 			clearAnnouncementCuePresentation(announcementCueResources);
 			scene.remove(habitatResources.root);
+			scene.remove(rainResources.root);
 			scene.remove(creatureResources.root);
 			scene.remove(signalResources.root);
 			scene.remove(listenerCueResources.root);
@@ -383,7 +398,8 @@
 
 	$effect(() => {
 		const data = habitat;
-		applyHabitat?.(data);
+		const weatherPhase = weather;
+		applyHabitat?.(data, weatherPhase);
 	});
 
 	$effect(() => {

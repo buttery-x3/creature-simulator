@@ -19,6 +19,7 @@ import { sampleSearchTarget, sampleWanderTarget } from './creature-movement';
 import { emptyLexicon } from './learning/lexicon-resolution';
 import { createEmptyAssociations } from './learning/signal-associations';
 import { createEmptyMemory, sampleMemoryCapacity } from './memory/create-memory';
+import { createInitialEnvironment } from './resources';
 import type { Creature, SimulationConfig, SimulationState } from './types';
 
 export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
@@ -31,7 +32,9 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 		foodSize: { ...DEFAULT_HABITAT_CONFIG.foodSize },
 		waterSize: { ...DEFAULT_HABITAT_CONFIG.waterSize },
 		minSpacing: DEFAULT_HABITAT_CONFIG.minSpacing,
-		maxPlacementAttempts: DEFAULT_HABITAT_CONFIG.maxPlacementAttempts
+		maxPlacementAttempts: DEFAULT_HABITAT_CONFIG.maxPlacementAttempts,
+		foodCapacity: DEFAULT_HABITAT_CONFIG.foodCapacity,
+		waterCapacity: DEFAULT_HABITAT_CONFIG.waterCapacity
 	},
 	creatureCount: 12,
 	movementSpeed: { min: 0.85, max: 1.35 },
@@ -113,7 +116,17 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 
 	initialHunger: 0.2,
 	initialThirst: 0.2,
-	initialEnergy: 0.85
+	initialEnergy: 0.85,
+
+	// Finite renewable resources + rain (FLAME-77).
+	// Food is scarcer/more volatile; water is more abundant but can dry between rains.
+	maxActiveFoodSources: 5,
+	// Spawn cadence visible over a practical run without flooding the map.
+	foodSpawnIntervalSeconds: 18,
+	// Rain every ~45–75s of sim time; brief visible rain window.
+	rainIntervalMinSeconds: 45,
+	rainIntervalMaxSeconds: 75,
+	rainDurationSeconds: 4
 };
 
 /**
@@ -338,6 +351,38 @@ function validateSimulationConfig(config: SimulationConfig): void {
 			throw new SimulationCreationError(`${key} must be in [0, 1], received ${value}`);
 		}
 	}
+
+	if (!Number.isInteger(config.maxActiveFoodSources) || config.maxActiveFoodSources < 0) {
+		throw new SimulationCreationError(
+			`maxActiveFoodSources must be a non-negative integer, received ${config.maxActiveFoodSources}`
+		);
+	}
+	for (const key of [
+		'foodSpawnIntervalSeconds',
+		'rainIntervalMinSeconds',
+		'rainIntervalMaxSeconds',
+		'rainDurationSeconds'
+	] as const) {
+		const value = config[key];
+		if (typeof value !== 'number' || !(value > 0) || !Number.isFinite(value)) {
+			throw new SimulationCreationError(`${key} must be a finite number > 0, received ${value}`);
+		}
+	}
+	if (config.rainIntervalMaxSeconds < config.rainIntervalMinSeconds) {
+		throw new SimulationCreationError(
+			`rainIntervalMaxSeconds must be >= rainIntervalMinSeconds, received [${config.rainIntervalMinSeconds}, ${config.rainIntervalMaxSeconds}]`
+		);
+	}
+	if (!(config.habitat.foodCapacity > 0) || !Number.isFinite(config.habitat.foodCapacity)) {
+		throw new SimulationCreationError(
+			`habitat.foodCapacity must be a finite number > 0, received ${config.habitat.foodCapacity}`
+		);
+	}
+	if (!(config.habitat.waterCapacity > 0) || !Number.isFinite(config.habitat.waterCapacity)) {
+		throw new SimulationCreationError(
+			`habitat.waterCapacity must be a finite number > 0, received ${config.habitat.waterCapacity}`
+		);
+	}
 }
 
 /**
@@ -491,11 +536,18 @@ export function createSimulation(config: SimulationConfig): SimulationState {
 
 	const habitat = generateHabitat(habitatConfig);
 	const creatures = createCreatures(config, habitat);
+	const environment = createInitialEnvironment(config.seed, {
+		rainIntervalMinSeconds: config.rainIntervalMinSeconds,
+		rainIntervalMaxSeconds: config.rainIntervalMaxSeconds,
+		rainDurationSeconds: config.rainDurationSeconds,
+		foodSpawnIntervalSeconds: config.foodSpawnIntervalSeconds
+	});
 
 	return {
 		seed: config.seed,
 		timeSeconds: 0,
 		habitat,
+		environment,
 		creatures,
 		activeEmissions: [],
 		recentEmissions: []

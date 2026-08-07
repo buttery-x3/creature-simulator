@@ -30,7 +30,7 @@ import {
 import type { Creature, SimulationConfig } from '../types';
 import { appendTransition, applyDecision, transitionToConsumptive } from './actions';
 import { commitDecision } from './decisions';
-import { advanceNeeds, recoveryComplete } from './needs';
+import { advanceNeeds, recoveryComplete, type ConsumptionGrants } from './needs';
 import { clearTracked, isTrackedUsable, startTracking, updatePerception } from './perception';
 import {
 	ensureSearchTarget,
@@ -231,6 +231,7 @@ function replan(
 
 /**
  * Advance one creature through needs, perception, decisions and actions for a fixed dt.
+ * `grants` are world-resource consumption amounts for this step (eat/drink recovery).
  */
 export function stepCreatureBehaviour(
 	creature: Creature,
@@ -238,9 +239,10 @@ export function stepCreatureBehaviour(
 	timeSeconds: number,
 	simulationSeed: string,
 	habitat: Habitat,
-	config: BehaviourStepConfig
+	config: BehaviourStepConfig,
+	grants: ConsumptionGrants = { food: 0, water: 0 }
 ): CreatureBehaviourStepResult {
-	const needs = advanceNeeds(creature, dt, config);
+	const needs = advanceNeeds(creature, dt, config, grants);
 	let next: Creature = { ...creature, ...needs };
 	let emissionRequest: EmissionRequest | null = null;
 

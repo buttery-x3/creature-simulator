@@ -50,6 +50,7 @@
 
 	const configJson = $derived(JSON.stringify(config, null, 2));
 	const snapshot = $derived(simulationSnapshot(simulation));
+	const environmentJson = $derived(JSON.stringify(simulation.environment, null, 2));
 
 	async function copyText(text: string, label: string) {
 		try {
@@ -128,6 +129,20 @@
 		{:else}
 			<p class="empty">No creature selected.</p>
 		{/if}
+	</section>
+
+	<section class="block">
+		<div class="heading-row">
+			<h3>Environment / resources (raw)</h3>
+			<button
+				type="button"
+				onclick={() => copyText(environmentJson, 'environment')}
+				data-testid="debug-copy-environment"
+			>
+				Copy
+			</button>
+		</div>
+		<pre data-testid="debug-environment-json">{environmentJson}</pre>
 	</section>
 
 	<section class="block">

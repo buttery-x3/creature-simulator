@@ -11,11 +11,15 @@ export type {
 	HabitatFeature,
 	HabitatFeatureKind,
 	HabitatGenerationConfig,
+	HomeFeature,
+	ResourceFeature,
 	Size2,
 	SizeRange,
 	Vec2,
 	WorldBounds
 } from './types';
+
+export { isResourceFeature } from './types';
 
 export {
 	DEFAULT_HABITAT_CONFIG,
@@ -36,3 +40,13 @@ export {
 	rectsOverlap,
 	type Rect
 } from './geometry';
+
+export {
+	placeFeatureOrThrow,
+	sampleSize,
+	tryPlaceFeature,
+	type PlaceFeatureFailure,
+	type PlaceFeatureResult,
+	type PlaceFeatureSuccess,
+	type PlacementFootprint
+} from './place-feature';

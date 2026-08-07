@@ -2,10 +2,11 @@
  * Fixed-step simulation advancement and bounded wall-clock catch-up.
  *
  * Step order (authoritative):
- * 1. Behaviour for all creatures (needs, perception, learning evidence, decisions, movement)
- * 2. Communication: apply emission requests, reception, expire active emissions
- * 3. Memory: write resource_announcement entries for successful announcement emissions
- * 4. Learning post-reception: convert newly heard signals into pending investigation candidates
+ * 1. Resources/weather: rain schedule/refill, food spawn, eat/drink consumption grants
+ * 2. Behaviour for all creatures (needs apply grants; perception sees post-consumption world)
+ * 3. Communication: apply emission requests, reception, expire active emissions
+ * 4. Memory: write resource_announcement entries for successful announcement emissions
+ * 5. Learning post-reception: convert newly heard signals into pending investigation candidates
  *
  * Eligibility: a signal heard in step N becomes pending at end of N and is investigable from N+1.
  */
@@ -15,6 +16,7 @@ import { stepCommunication } from './communication/step-communication';
 import type { EmissionRequest } from './communication/types';
 import { stepPostReceptionLearning } from './learning/step-signal-learning';
 import { applySuccessfulAnnouncementMemories } from './memory/apply-announcement-memory';
+import { emptyGrant, stepResources } from './resources';
 import type { SimulationConfig, SimulationState } from './types';
 
 export type StepSimulationConfig = Pick<
@@ -67,6 +69,12 @@ export type StepSimulationConfig = Pick<
 	| 'recentAnnouncementOutcomeHistoryLimit'
 	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
 	| 'triggerFeatureCueFadeSeconds'
+	| 'maxActiveFoodSources'
+	| 'foodSpawnIntervalSeconds'
+	| 'rainIntervalMinSeconds'
+	| 'rainIntervalMaxSeconds'
+	| 'rainDurationSeconds'
+	| 'habitat'
 >;
 
 /**
@@ -81,15 +89,22 @@ export function stepSimulation(
 	// Behaviour sees the time *after* this step so need-driven clocks align with state.timeSeconds.
 	const timeSeconds = state.timeSeconds + dt;
 
+	// 1. World resources / weather before creature behaviour.
+	const resources = stepResources(state, timeSeconds, dt, config);
+	const habitat = resources.habitat;
+	const environment = resources.environment;
+
 	const emissionRequests: EmissionRequest[] = [];
 	const creatures = state.creatures.map((creature) => {
+		const grants = resources.grantsByCreatureId.get(creature.id) ?? emptyGrant();
 		const result = stepCreatureBehaviour(
 			creature,
 			dt,
 			timeSeconds,
 			state.seed,
-			state.habitat,
-			config
+			habitat,
+			config,
+			grants
 		);
 		if (result.emissionRequest) {
 			emissionRequests.push(result.emissionRequest);
@@ -103,6 +118,8 @@ export function stepSimulation(
 	const afterBehaviour: SimulationState = {
 		...state,
 		timeSeconds,
+		habitat,
+		environment,
 		creatures
 	};
 

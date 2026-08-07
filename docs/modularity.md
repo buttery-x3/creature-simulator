@@ -108,13 +108,15 @@ Do not store closure-owned RNG state on authoritative simulation or habitat mode
 
 Current responsibilities are separated as follows:
 
-- `types.ts` — serialisable habitat, feature and generation configuration types;
+- `types.ts` — serialisable habitat, feature (home vs food/water with amount/capacity) and generation configuration types;
 - `geometry.ts` — ground-plane footprint and spacing calculations;
-- `generate-habitat.ts` — configuration validation and seeded feature placement;
+- `place-feature.ts` — pure bounded placement shared by generation and runtime food spawn;
+- `generate-habitat.ts` — configuration validation and seeded initial feature placement;
 - `diagnostics.ts` — human-readable and structured habitat evidence;
 - `index.ts` — explicit public exports only.
 
 Do not move Three.js objects, Svelte state, creatures or browser APIs into this subsystem.
+Runtime resource mutation and weather clocks live in `simulation/resources/`, not here.
 
 ### Simulation subsystem
 
@@ -124,11 +126,25 @@ Top-level modules:
 
 - `types.ts` — `SimulationState`, `Creature`, needs/goals/actions/decision types and configuration;
 - `create-simulation.ts` — deterministic habitat + creature population creation;
-- `step-simulation.ts` — fixed-step advance and bounded catch-up;
+- `step-simulation.ts` — fixed-step advance and bounded catch-up (resources phase first);
 - `creature-movement.ts` — pure turn, translate, clamp and wander retarget helpers;
 - `diagnostics.ts` — simulation and creature inspection text from structured evidence;
 - `population-symbol-diagnostics.ts` — pure population association/emission summaries (observational only);
 - `index.ts` — explicit public exports only.
+
+Internal resources subdomain (`simulation/resources/`), introduced for finite
+renewable resources and minimal rain (FLAME-77):
+
+- `types.ts` — environment/weather state, consumption grants, spawn outcomes;
+- `availability.ts` — pure `amount > 0` availability predicate;
+- `consumption.ts` — deterministic multi-consumer withdrawal and grants;
+- `food-spawn.ts` — time-driven capped food spawn with new feature ids;
+- `weather.ts` — clear/rain schedule and basin refill;
+- `step-resources.ts` — one fixed-step orchestration (weather → spawn → consumption);
+- `index.ts` — exports for simulation siblings.
+
+Do not fold world lifecycle into `behaviour/`. Do not invent a general weather
+framework or ecosystem solver here.
 
 Internal behaviour subdomain (`simulation/behaviour/`), introduced for the
 needs/goal/action state machine and local resource perception:
@@ -213,7 +229,8 @@ root (`population-symbol-diagnostics.ts`), not authoritative state.
 
 Three.js presentation is split:
 
-- `habitat-presentation.ts` — static habitat mesh construction and disposal;
+- `habitat-presentation.ts` — habitat mesh construction; food/water reconcile-by-id; ground/home rebuild on layout identity only;
+- `rain-presentation.ts` — presentation-only rain cue from weather phase;
 - `creature-presentation.ts` — dynamic creature mesh reconcile by id, action visuals, and one-shot investigation hop;
 - `symbol-presentation.ts` — pure shared symbol presentation registry (shape/label/color);
 - `signal-presentation.ts` — emission speech bubbles, thin hearing-radius rings, selected investigation overlay;

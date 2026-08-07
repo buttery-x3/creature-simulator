@@ -27,6 +27,8 @@ export type {
 	CreatureTarget,
 	DecisionRecord,
 	DecisionTrigger,
+	EnvironmentState,
+	FoodSpawnOutcome,
 	HeardSignal,
 	LearningHistoryEntry,
 	LearningOutcome,
@@ -48,7 +50,8 @@ export type {
 	SymbolSelectionEvidence,
 	SymbolSelectionMode,
 	CuriosityDecision,
-	CuriosityEvidence
+	CuriosityEvidence,
+	WeatherPhase
 } from './types';
 
 export { DEFAULT_SYMBOL_INVENTORY, LEXICON_MEANINGS } from './types';
@@ -140,3 +143,12 @@ export {
 	rememberResourceAnnouncement,
 	sampleMemoryCapacity
 } from './memory';
+
+export {
+	createInitialEnvironment,
+	emptyGrant,
+	filterAvailableResources,
+	isResourceAvailable,
+	resolveConsumption,
+	stepResources
+} from './resources';

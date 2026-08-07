@@ -25,26 +25,43 @@ export type NeedRates = Pick<
 >;
 
 /**
+ * Optional consumption grants from the world-resource phase.
+ * When eating/drinking, recovery is bounded by actual quantity granted
+ * (not the full recovery rate if the source is nearly empty).
+ */
+export type ConsumptionGrants = {
+	/** Hunger pressure reduction granted this step (abstract units, 1:1). */
+	food: number;
+	/** Thirst pressure reduction granted this step. */
+	water: number;
+};
+
+/**
  * Advance needs for one fixed step based on the current action.
- * Eating/drinking/sleeping recover the corresponding need and still apply
- * other need pressures as documented (only the matching recovery replaces rise).
+ * Eating/drinking recover only from world consumption grants when provided;
+ * without grants, eat/drink apply zero recovery (callers must pass grants
+ * from the resource step). Sleeping still uses sleepRecoveryPerSecond.
  */
 export function advanceNeeds(
 	creature: Pick<Creature, 'hunger' | 'thirst' | 'energy' | 'action'>,
 	dt: number,
-	rates: NeedRates
+	rates: NeedRates,
+	grants: ConsumptionGrants = { food: 0, water: 0 }
 ): { hunger: number; thirst: number; energy: number } {
 	const action: CreatureAction = creature.action;
 	let { hunger, thirst, energy } = creature;
 
 	if (action === 'eat') {
-		hunger -= rates.eatRecoveryPerSecond * dt;
+		// Recovery limited by actual food withdrawn this step (never exceeds grant).
+		const granted = Number.isFinite(grants.food) ? Math.max(0, grants.food) : 0;
+		hunger -= granted;
 	} else {
 		hunger += rates.hungerRisePerSecond * dt;
 	}
 
 	if (action === 'drink') {
-		thirst -= rates.drinkRecoveryPerSecond * dt;
+		const granted = Number.isFinite(grants.water) ? Math.max(0, grants.water) : 0;
+		thirst -= granted;
 	} else {
 		thirst += rates.thirstRisePerSecond * dt;
 	}

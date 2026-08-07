@@ -1,11 +1,13 @@
 import { createSeededRng, type SeededRng } from '$lib/determinism';
-import {
-	featureRect,
-	featuresViolateSpacing,
-	randomCentreForSize,
-	rectInsideBounds
-} from './geometry';
-import type { Habitat, HabitatFeature, HabitatGenerationConfig, Size2, SizeRange } from './types';
+import { placeFeatureOrThrow, type PlacementFootprint } from './place-feature';
+import type {
+	Habitat,
+	HabitatFeature,
+	HabitatGenerationConfig,
+	HomeFeature,
+	ResourceFeature,
+	SizeRange
+} from './types';
 
 export class HabitatGenerationError extends Error {
 	constructor(message: string) {
@@ -38,7 +40,11 @@ export const DEFAULT_HABITAT_CONFIG: Omit<HabitatGenerationConfig, 'seed'> = {
 		maxHeight: 2.2
 	},
 	minSpacing: 0.6,
-	maxPlacementAttempts: 80
+	maxPlacementAttempts: 80,
+	// Food is the scarce/volatile resource: a few full eat sessions deplete a bush.
+	foodCapacity: 1.5,
+	// Water is comparatively abundant but can still run dry under sustained use.
+	waterCapacity: 12
 };
 
 /**
@@ -54,30 +60,6 @@ export function defaultHabitatConfig(seed = 'demo'): HabitatGenerationConfig {
 		foodSize: { ...DEFAULT_HABITAT_CONFIG.foodSize },
 		waterSize: { ...DEFAULT_HABITAT_CONFIG.waterSize }
 	};
-}
-
-function sampleSize(range: SizeRange, rng: SeededRng): Size2 {
-	if (
-		range.maxWidth < range.minWidth ||
-		range.maxHeight < range.minHeight ||
-		range.minWidth <= 0 ||
-		range.minHeight <= 0
-	) {
-		throw new HabitatGenerationError(
-			`Invalid size range: width [${range.minWidth}, ${range.maxWidth}], height [${range.minHeight}, ${range.maxHeight}]`
-		);
-	}
-
-	try {
-		return {
-			width: rng.nextRange(range.minWidth, range.maxWidth),
-			height: rng.nextRange(range.minHeight, range.maxHeight)
-		};
-	} catch (error) {
-		throw new HabitatGenerationError(
-			error instanceof Error ? error.message : 'Failed to sample feature size'
-		);
-	}
 }
 
 function validateConfig(config: HabitatGenerationConfig): void {
@@ -107,58 +89,77 @@ function validateConfig(config: HabitatGenerationConfig): void {
 			`maxPlacementAttempts must be a positive integer, received ${config.maxPlacementAttempts}`
 		);
 	}
+	if (!(config.foodCapacity > 0) || !Number.isFinite(config.foodCapacity)) {
+		throw new HabitatGenerationError(
+			`foodCapacity must be a finite number > 0, received ${config.foodCapacity}`
+		);
+	}
+	if (!(config.waterCapacity > 0) || !Number.isFinite(config.waterCapacity)) {
+		throw new HabitatGenerationError(
+			`waterCapacity must be a finite number > 0, received ${config.waterCapacity}`
+		);
+	}
 }
 
-function conflictsWithPlaced(
-	candidate: Pick<HabitatFeature, 'position' | 'size'>,
-	placed: HabitatFeature[],
-	minSpacing: number
-): boolean {
-	return placed.some((feature) => featuresViolateSpacing(candidate, feature, minSpacing));
-}
-
-function placeFeature(
-	kind: HabitatFeature['kind'],
-	id: string,
+function placeHome(
 	sizeRange: SizeRange,
 	config: HabitatGenerationConfig,
 	rng: SeededRng,
-	placed: HabitatFeature[]
-): HabitatFeature {
-	const bounds = { width: config.worldWidth, height: config.worldHeight };
-	const margin = 0;
-
-	for (let attempt = 0; attempt < config.maxPlacementAttempts; attempt += 1) {
-		const size = sampleSize(sizeRange, rng);
-		let position;
-		try {
-			position = randomCentreForSize(bounds, size, margin, (min, max) => rng.nextRange(min, max));
-		} catch (error) {
-			throw new HabitatGenerationError(
-				error instanceof Error
-					? error.message
-					: `Cannot place ${kind} ${id}: size does not fit world`
-			);
-		}
-
-		const candidate: HabitatFeature = { id, kind, position, size };
-		const rect = featureRect(candidate);
-
-		if (!rectInsideBounds(rect, bounds)) {
-			continue;
-		}
-		if (conflictsWithPlaced(candidate, placed, config.minSpacing)) {
-			continue;
-		}
-
-		return candidate;
+	placed: PlacementFootprint[]
+): HomeFeature {
+	try {
+		const bare = placeFeatureOrThrow(
+			'home',
+			'home',
+			sizeRange,
+			{ width: config.worldWidth, height: config.worldHeight },
+			config.minSpacing,
+			config.maxPlacementAttempts,
+			placed,
+			rng
+		);
+		return {
+			id: bare.id,
+			kind: 'home',
+			position: bare.position,
+			size: bare.size
+		};
+	} catch (error) {
+		throw new HabitatGenerationError(error instanceof Error ? error.message : String(error));
 	}
+}
 
-	throw new HabitatGenerationError(
-		`Failed to place ${kind} "${id}" after ${config.maxPlacementAttempts} attempts ` +
-			`(world ${config.worldWidth}×${config.worldHeight}, minSpacing ${config.minSpacing}, ` +
-			`${placed.length} features already placed). Configuration may be impossible.`
-	);
+function placeResource(
+	kind: 'food' | 'water',
+	id: string,
+	sizeRange: SizeRange,
+	capacity: number,
+	config: HabitatGenerationConfig,
+	rng: SeededRng,
+	placed: PlacementFootprint[]
+): ResourceFeature {
+	try {
+		const bare = placeFeatureOrThrow(
+			kind,
+			id,
+			sizeRange,
+			{ width: config.worldWidth, height: config.worldHeight },
+			config.minSpacing,
+			config.maxPlacementAttempts,
+			placed,
+			rng
+		);
+		return {
+			id: bare.id,
+			kind,
+			position: bare.position,
+			size: bare.size,
+			amount: capacity,
+			capacity
+		};
+	} catch (error) {
+		throw new HabitatGenerationError(error instanceof Error ? error.message : String(error));
+	}
 }
 
 /**
@@ -168,26 +169,44 @@ function placeFeature(
  * rectangles that must stay inside world bounds and respect minSpacing.
  * Impossible configurations fail with {@link HabitatGenerationError} after
  * bounded attempts — counts are never silently reduced.
+ *
+ * Food and water start at full capacity. Home has no resource quantity.
  */
 export function generateHabitat(config: HabitatGenerationConfig): Habitat {
 	validateConfig(config);
 
 	const rng = createSeededRng(config.seed);
-	const placed: HabitatFeature[] = [];
+	const placed: PlacementFootprint[] = [];
 
-	const home = placeFeature('home', 'home', config.homeSize, config, rng, placed);
+	const home = placeHome(config.homeSize, config, rng, placed);
 	placed.push(home);
 
-	const water: HabitatFeature[] = [];
+	const water: ResourceFeature[] = [];
 	for (let i = 0; i < config.waterCount; i += 1) {
-		const feature = placeFeature('water', `water-${i}`, config.waterSize, config, rng, placed);
+		const feature = placeResource(
+			'water',
+			`water-${i}`,
+			config.waterSize,
+			config.waterCapacity,
+			config,
+			rng,
+			placed
+		);
 		placed.push(feature);
 		water.push(feature);
 	}
 
-	const food: HabitatFeature[] = [];
+	const food: ResourceFeature[] = [];
 	for (let i = 0; i < config.foodCount; i += 1) {
-		const feature = placeFeature('food', `food-${i}`, config.foodSize, config, rng, placed);
+		const feature = placeResource(
+			'food',
+			`food-${i}`,
+			config.foodSize,
+			config.foodCapacity,
+			config,
+			rng,
+			placed
+		);
 		placed.push(feature);
 		food.push(feature);
 	}
@@ -208,3 +227,6 @@ export function generateHabitat(config: HabitatGenerationConfig): Habitat {
 export function habitatSnapshot(habitat: Habitat): string {
 	return JSON.stringify(habitat);
 }
+
+/** @internal re-export for tests that inspect placement helpers indirectly */
+export type { HabitatFeature };

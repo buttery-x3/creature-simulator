@@ -11,28 +11,29 @@ selection is presentation state only.
 
 ## Responsibilities present today
 
-| Area                      | Ownership                                             | Notes                                                                       |
-| ------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
-| App shell                 | SvelteKit routes under `src/routes/`                  | Desktop page; session simulation state, rAF stepping, creature selection id |
-| Determinism               | `src/lib/determinism/`                                | Seeded PRNG and pure seed derivation for independent streams                |
-| Habitat model             | `src/lib/habitat/`                                    | Types, seeded generation, geometry validation, diagnostics                  |
-| Simulation                | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                    |
-| Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets       |
-| Announcement subdomain    | `src/lib/simulation/announcement/`                    | Resource opportunities, kind-level clarity, speaking position, preparation  |
-| Memory subdomain          | `src/lib/simulation/memory/`                          | First-class bounded creature memory; announcement recall; pure ops          |
-| Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry |
-| Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation            |
-| Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                    |
-| Workbench UI              | `src/lib/workbench/`                                  | Domain-tab shell (Overview…Debug), pure view-models, presentation-only nav  |
-| WebGL presentation        | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state          |
-| Habitat presentation      | `src/lib/habitat-presentation.ts`                     | Static habitat mesh build/dispose                                           |
-| Creature presentation     | `src/lib/creature-presentation.ts`                    | Dynamic mesh reconcile + action visuals + investigation hop                 |
-| Symbol presentation       | `src/lib/symbol-presentation.ts`                      | Shared glyph shape/label/color registry (presentation only)                 |
-| Signal presentation       | `src/lib/signal-presentation.ts`                      | Speech bubbles + thin hearing-radius rings + investigation overlay          |
-| Listener cue presentation | `src/lib/listener-cue-presentation.ts`                | Neutral `?` on recent hear (brief) or while investigating (held)            |
-| Announcement cue          | `src/lib/announcement-cue-presentation.ts`            | Dashed creature→trigger-feature lines (presentation only)                   |
-| Habitat camera            | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                     |
-| Reserved ports            | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                         |
+| Area                      | Ownership                                             | Notes                                                                               |
+| ------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| App shell                 | SvelteKit routes under `src/routes/`                  | Desktop page; session simulation state, rAF stepping, creature selection id         |
+| Determinism               | `src/lib/determinism/`                                | Seeded PRNG and pure seed derivation for independent streams                        |
+| Habitat model             | `src/lib/habitat/`                                    | Types (incl. food/water amount/capacity), seeded generation, placement, diagnostics |
+| Simulation                | `src/lib/simulation/`                                 | SimulationState, creation, step, needs/decisions/actions                            |
+| Resources subdomain       | `src/lib/simulation/resources/`                       | Availability, consumption grants, food spawn, minimal rain weather                  |
+| Behaviour subdomain       | `src/lib/simulation/behaviour/`                       | Needs, decisions, actions, local perception, search, resource targets               |
+| Announcement subdomain    | `src/lib/simulation/announcement/`                    | Resource opportunities, kind-level clarity, speaking position, preparation          |
+| Memory subdomain          | `src/lib/simulation/memory/`                          | First-class bounded creature memory; announcement recall; pure ops                  |
+| Communication subdomain   | `src/lib/simulation/communication/`                   | Arbitrary symbols, context-sensitive emission, reception, histories, expiry         |
+| Learning subdomain        | `src/lib/simulation/learning/`                        | Raw symbol evidence, exclusive lexicon resolution, investigation                    |
+| Population diagnostics    | `src/lib/simulation/population-symbol-diagnostics.ts` | Observational evidence/lexicon/emission summaries (pure)                            |
+| Workbench UI              | `src/lib/workbench/`                                  | Domain-tab shell (Overview…Debug), pure view-models, presentation-only nav          |
+| WebGL presentation        | `src/lib/ThreeViewport.svelte`                        | Scene lifecycle, pick ray; never owns authoritative creature state                  |
+| Habitat presentation      | `src/lib/habitat-presentation.ts`                     | Static habitat mesh build/dispose                                                   |
+| Creature presentation     | `src/lib/creature-presentation.ts`                    | Dynamic mesh reconcile + action visuals + investigation hop                         |
+| Symbol presentation       | `src/lib/symbol-presentation.ts`                      | Shared glyph shape/label/color registry (presentation only)                         |
+| Signal presentation       | `src/lib/signal-presentation.ts`                      | Speech bubbles + thin hearing-radius rings + investigation overlay                  |
+| Listener cue presentation | `src/lib/listener-cue-presentation.ts`                | Neutral `?` on recent hear (brief) or while investigating (held)                    |
+| Announcement cue          | `src/lib/announcement-cue-presentation.ts`            | Dashed creature→trigger-feature lines (presentation only)                           |
+| Habitat camera            | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                             |
+| Reserved ports            | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                                 |
 
 ## Habitat coordinate convention
 
@@ -59,7 +60,7 @@ determinism  (seeded RNG + seed derivation; no domain state)
      ↑
 habitat      (layout generation only)
      ↑
-simulation   (SimulationState, create, step, behaviour, announcement, memory, communication, learning)
+simulation   (SimulationState, create, step, resources, behaviour, announcement, memory, communication, learning)
      ↑
 routes / workbench  (session orchestration, domain-tab UI, selection, diagnostics)
      ↑
@@ -106,6 +107,7 @@ Stream isolation:
 | Serializable types           | `src/lib/habitat/types.ts`            |
 | Footprint geometry / spacing | `src/lib/habitat/geometry.ts`         |
 | Placement + validation       | `src/lib/habitat/generate-habitat.ts` |
+| Pure place-candidate helper  | `src/lib/habitat/place-feature.ts`    |
 | Diagnostic formatting        | `src/lib/habitat/diagnostics.ts`      |
 | Public barrel                | `src/lib/habitat/index.ts`            |
 
@@ -113,7 +115,8 @@ Generation places **one home region**, then water regions, then food sources.
 Features must stay inside world bounds, respect configurable minimum spacing,
 and never overlap the home region. Impossible configurations fail with
 `HabitatGenerationError` after bounded attempts; requested counts are never
-silently reduced.
+silently reduced. Food and water start at full `amount = capacity`; home has no
+quantity fields. Runtime food spawn reuses pure placement (`tryPlaceFeature`).
 
 ## Simulation ownership
 
@@ -121,6 +124,7 @@ silently reduced.
 | --------------------------------------- | --------------------------------------------------------- |
 | Serializable types                      | `src/lib/simulation/types.ts`                             |
 | Create habitat + creatures              | `src/lib/simulation/create-simulation.ts`                 |
+| Runtime resources + rain                | `src/lib/simulation/resources/`                           |
 | Fixed-step / catch-up advance           | `src/lib/simulation/step-simulation.ts`                   |
 | Turn, move, bound, retarget             | `src/lib/simulation/creature-movement.ts`                 |
 | Need progression                        | `src/lib/simulation/behaviour/needs.ts`                   |
@@ -148,6 +152,25 @@ Simulation advances with a **fixed timestep** (default 30 Hz). The browser
 session may use `requestAnimationFrame` with an accumulator; elapsed wall time
 is converted into a **bounded** number of fixed steps. The renderer never
 advances simulation state.
+
+### Finite renewable resources and rain (FLAME-77)
+
+| Concern                | Rule                                                                                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Food**               | Finite `amount`/`capacity`. Eating withdraws quantity. At zero the feature is **removed**. New food spawns later at new valid positions with **new ids**, time-driven and capped by `maxActiveFoodSources` (not hunger-driven). |
+| **Water**              | Fixed basin geography/ids. Drinking withdraws amount; at zero the basin **remains** but is unavailable until rain refills all basins to capacity.                                                                               |
+| **Availability**       | Shared pure rule: `available ⇔ amount > 0`. Perception, targets, announcement clarity, and investigation evidence use available resources only.                                                                                 |
+| **Consumption grants** | Multi-consumer allocation is deterministic (creature-id order). Need recovery from eat/drink is bounded by actual grants (1:1 with recovery units).                                                                             |
+| **Weather**            | Minimal `clear` \| `rain` on `SimulationState.environment`. Rain start refills water; rain is presentation-visible only as a cue.                                                                                               |
+| **Ownership**          | `simulation/resources/` owns runtime lifecycle; habitat owns geometry/placement; behaviour does not mutate habitat.                                                                                                             |
+
+Authoritative fixed-step order:
+
+1. Resources/weather (rain, food spawn, eat/drink consumption grants)
+2. Behaviour (needs apply grants; perception sees post-consumption world)
+3. Communication
+4. Successful-announcement memory
+5. Post-reception learning
 
 ### Needs, goals, actions and targets
 
@@ -204,7 +227,9 @@ Brief tracking:
 - Expiry without reacquisition keeps the need-driven goal and returns to `search`.
 
 Creatures interact with **simulation footprints** (`featureRect`), not
-presentation-only bush meshes. Food and water are not depleted.
+presentation-only bush meshes. Food and water have finite quantities (see
+resource lifecycle above); empty water basins are not selectable as available
+resources.
 
 The selected-creature **sensing-radius overlay** in the viewport is
 presentation-only (reads config radius + selection id); Three.js never computes
@@ -289,10 +314,11 @@ announcement opportunity state, communication history, or lexicon evidence.
 
 Fixed-step order (authoritative):
 
-1. Behaviour for all creatures (needs, perception episodes when not investigation-locked, single active announcement opportunity/preparation with memory consult, expire pending, decisions including investigation, movement or learning-only site inspection+completion, emission requests).
-2. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, produce authoritative `emittedThisStep`, write bounded histories, expire active emissions.
-3. Memory: write `resource_announcement` entries from **`emittedThisStep` only** (not from bounded `recentEmissions` / diagnostic retention).
-4. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into investigation opportunities with one-shot curiosity decisions (accepted may prompt wander reconsider).
+1. Resources/weather: advance rain schedule (refill basins on rain start), food-spawn opportunities, resolve eat/drink consumption grants against habitat (deterministic creature-id order).
+2. Behaviour for all creatures (needs apply consumption grants; perception episodes when not investigation-locked, single active announcement opportunity/preparation with memory consult, expire pending, decisions including investigation, movement or learning-only site inspection+completion, emission requests).
+3. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, produce authoritative `emittedThisStep`, write bounded histories, expire active emissions.
+4. Memory: write `resource_announcement` entries from **`emittedThisStep` only** (not from bounded `recentEmissions` / diagnostic retention).
+5. Learning post-reception: convert newly heard signals (`heardAt === timeSeconds`) into investigation opportunities with one-shot curiosity decisions (accepted may prompt wander reconsider).
 
 **Eligibility:** a signal heard in step _N_ becomes an opportunity at the end of step _N_ (curiosity decided then) and accepted opportunities are eligible for investigation from step _N+1_. No Svelte/renderer timing.
 

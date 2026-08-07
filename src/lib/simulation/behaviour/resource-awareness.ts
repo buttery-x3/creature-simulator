@@ -8,6 +8,7 @@
 
 import { featureRect, type Habitat, type HabitatFeature, type Vec2 } from '$lib/habitat';
 import { distanceSquared, sampleSearchTarget } from '../creature-movement';
+import { isResourceAvailable } from '../resources/availability';
 import type {
 	Creature,
 	CreaturePerception,
@@ -46,7 +47,8 @@ export function resolveFeature(
 
 /**
  * True when the target is a usable pursuit destination.
- * Food/water feature targets require current perception or a non-expired track.
+ * Food/water feature targets require current perception or a non-expired track,
+ * and the feature must be currently available (amount > 0).
  */
 export function isTargetValid(
 	habitat: Habitat,
@@ -64,8 +66,9 @@ export function isTargetValid(
 	if (target.featureKind === 'home') {
 		return resolveFeature(habitat, target) !== null;
 	}
-	// Food / water
-	if (resolveFeature(habitat, target) === null) {
+	// Food / water — must exist and have amount > 0
+	const feature = resolveFeature(habitat, target);
+	if (feature === null || !isResourceAvailable(feature)) {
 		return false;
 	}
 	if (perception === undefined || timeSeconds === undefined || trackDurationSeconds === undefined) {
@@ -186,16 +189,19 @@ export function foodTarget(
 	if (
 		tracked &&
 		tracked.featureKind === 'food' &&
-		isTrackedUsable(tracked, timeSeconds, trackDurationSeconds) &&
-		habitat.food.some((f) => f.id === tracked.featureId)
+		isTrackedUsable(tracked, timeSeconds, trackDurationSeconds)
 	) {
-		return observationToTarget(tracked);
+		const feature = habitat.food.find((f) => f.id === tracked.featureId);
+		if (feature && isResourceAvailable(feature)) {
+			return observationToTarget(tracked);
+		}
 	}
 	const nearest = selectNearestPerceived(position, perception, 'food');
 	if (!nearest) {
 		return null;
 	}
-	if (!habitat.food.some((f) => f.id === nearest.featureId)) {
+	const feature = habitat.food.find((f) => f.id === nearest.featureId);
+	if (!feature || !isResourceAvailable(feature)) {
 		return null;
 	}
 	return observationToTarget(nearest);
@@ -215,16 +221,19 @@ export function waterTarget(
 	if (
 		tracked &&
 		tracked.featureKind === 'water' &&
-		isTrackedUsable(tracked, timeSeconds, trackDurationSeconds) &&
-		habitat.water.some((f) => f.id === tracked.featureId)
+		isTrackedUsable(tracked, timeSeconds, trackDurationSeconds)
 	) {
-		return observationToTarget(tracked);
+		const feature = habitat.water.find((f) => f.id === tracked.featureId);
+		if (feature && isResourceAvailable(feature)) {
+			return observationToTarget(tracked);
+		}
 	}
 	const nearest = selectNearestPerceived(position, perception, 'water');
 	if (!nearest) {
 		return null;
 	}
-	if (!habitat.water.some((f) => f.id === nearest.featureId)) {
+	const feature = habitat.water.find((f) => f.id === nearest.featureId);
+	if (!feature || !isResourceAvailable(feature)) {
 		return null;
 	}
 	return observationToTarget(nearest);

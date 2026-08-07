@@ -94,9 +94,15 @@ export function collectClarityCandidates(
 	);
 }
 
-function featureStillExists(habitat: Habitat, featureId: string, kind: 'food' | 'water'): boolean {
+function featureStillAvailable(
+	habitat: Habitat,
+	featureId: string,
+	kind: 'food' | 'water'
+): boolean {
+	// Food is removed when depleted; empty water basins remain but are unavailable.
 	const list = kind === 'food' ? habitat.food : habitat.water;
-	return list.some((f) => f.id === featureId);
+	const feature = list.find((f) => f.id === featureId);
+	return feature !== undefined && feature.amount > 0;
 }
 
 function isInvestigationLocked(creature: Creature): boolean {
@@ -172,12 +178,12 @@ export function stepAnnouncement(input: {
 		return { creature, emissionRequest: null, endedPreparation: false };
 	}
 
-	// 3. Invalidate if trigger gone or no announced-kind resources remain in habitat.
-	if (!featureStillExists(habitat, active.triggerFeatureId, active.resourceKind)) {
+	// 3. Invalidate if trigger gone/empty or no announced-kind resources remain available.
+	if (!featureStillAvailable(habitat, active.triggerFeatureId, active.resourceKind)) {
 		return finalizeInvalid(creature, active, timeSeconds, 'invalid_trigger_feature', config);
 	}
 	const kindList = active.resourceKind === 'food' ? habitat.food : habitat.water;
-	if (kindList.length === 0) {
+	if (!kindList.some((f) => f.amount > 0)) {
 		return finalizeInvalid(creature, active, timeSeconds, 'no_announced_kind_available', config);
 	}
 

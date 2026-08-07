@@ -28,11 +28,14 @@ export type {
 	HabitatFeature,
 	HabitatFeatureKind,
 	HabitatGenerationConfig,
+	HomeFeature,
+	ResourceFeature,
 	Size2,
 	SizeRange,
 	Vec2,
 	WorldBounds
 } from './habitat';
+export { isResourceFeature } from './habitat';
 export {
 	DEFAULT_SIMULATION_CONFIG,
 	SimulationCreationError,
@@ -40,7 +43,15 @@ export {
 	createSimulation,
 	defaultSimulationConfig,
 	formatSimulationDiagnostics,
+	isResourceAvailable,
 	simulationSnapshot,
 	stepSimulation
 } from './simulation';
-export type { Creature, SimulationConfig, SimulationState, SpeedRange } from './simulation';
+export type {
+	Creature,
+	EnvironmentState,
+	SimulationConfig,
+	SimulationState,
+	SpeedRange,
+	WeatherPhase
+} from './simulation';

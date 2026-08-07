@@ -74,6 +74,22 @@ describe('generateHabitat', () => {
 		expect(habitat.water.map((f) => f.id)).toEqual(['water-0', 'water-1', 'water-2']);
 	});
 
+	it('initialises food and water at full capacity with no amount on home', () => {
+		const config = defaultHabitatConfig('capacity');
+		const habitat = generateHabitat(config);
+		expect(habitat.home).not.toHaveProperty('amount');
+		for (const f of habitat.food) {
+			expect(f.amount).toBe(config.foodCapacity);
+			expect(f.capacity).toBe(config.foodCapacity);
+			expect(f.kind).toBe('food');
+		}
+		for (const w of habitat.water) {
+			expect(w.amount).toBe(config.waterCapacity);
+			expect(w.capacity).toBe(config.waterCapacity);
+			expect(w.kind).toBe('water');
+		}
+	});
+
 	it('regeneration with the same seed restores the same habitat', () => {
 		const config = defaultHabitatConfig('regen');
 		const first = generateHabitat(config);

@@ -25,6 +25,7 @@ import type {
 	SymbolAssociation
 } from './learning/types';
 import type { AnnouncementOpportunityDecision, CreatureMemory } from './memory/types';
+import type { EnvironmentState } from './resources/types';
 
 export type {
 	HeardSignal,
@@ -281,12 +282,19 @@ export type SimulationState = {
 	/** Simulated seconds advanced by fixed steps. */
 	timeSeconds: number;
 	habitat: Habitat;
+	/**
+	 * Runtime resource/weather clocks and counters (plain serialisable).
+	 * Initial schedules are deterministic from seed + config.
+	 */
+	environment: EnvironmentState;
 	creatures: Creature[];
 	/** Currently active (non-expired) emissions. */
 	activeEmissions: SignalEmission[];
 	/** Bounded recent emission history for diagnostics, newest last. */
 	recentEmissions: SignalEmission[];
 };
+
+export type { EnvironmentState, FoodSpawnOutcome, WeatherPhase } from './resources/types';
 
 /** Inclusive movement-speed range sampled at creature creation. */
 export type SpeedRange = {
@@ -466,4 +474,23 @@ export type SimulationConfig = {
 	initialThirst: number;
 	/** Initial energy satisfaction at creation. */
 	initialEnergy: number;
+
+	// --- Finite renewable resources + minimal rain (FLAME-77) ---
+
+	/**
+	 * Maximum simultaneous food features (initial + runtime).
+	 * Uneaten food cannot accumulate without bound.
+	 */
+	maxActiveFoodSources: number;
+	/**
+	 * Simulated seconds between runtime food-spawn opportunities.
+	 * Time-driven only — never hunger-driven rescue.
+	 */
+	foodSpawnIntervalSeconds: number;
+	/** Minimum simulated seconds between rain events (clear→rain schedule). */
+	rainIntervalMinSeconds: number;
+	/** Maximum simulated seconds between rain events. */
+	rainIntervalMaxSeconds: number;
+	/** How long weather stays `rain` after a rain event starts. */
+	rainDurationSeconds: number;
 };

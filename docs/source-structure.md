@@ -35,6 +35,7 @@ src/
             index.ts
             types.ts
             geometry.ts
+            place-feature.ts
             generate-habitat.ts
             diagnostics.ts
             *.spec.ts
@@ -47,6 +48,15 @@ src/
             creature-movement.ts
             diagnostics.ts
             *.spec.ts
+            resources/
+                index.ts
+                types.ts
+                availability.ts
+                consumption.ts
+                food-spawn.ts
+                weather.ts
+                step-resources.ts
+                *.spec.ts
             behaviour/
                 index.ts
                 needs.ts
@@ -112,6 +122,7 @@ src/
         SymbolGlyph.svelte
         ThreeViewport.svelte
         habitat-presentation.ts
+        rain-presentation.ts
         creature-presentation.ts
         symbol-presentation.ts
         signal-presentation.ts
@@ -138,15 +149,17 @@ Obsolete files should not remain in this topology merely because they were creat
 | Area                               | Owns                                                                                                                                                 | Does not own                                                         |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `src/lib/determinism/`             | Seeded PRNG and pure seed derivation for independent streams                                                                                         | Habitat layout, creature behaviour, UI                               |
-| `src/lib/habitat/`                 | Authoritative serialisable habitat data, seeded generation, geometry validation and habitat diagnostics                                              | Creatures, Three.js objects, Svelte state, browser controls          |
+| `src/lib/habitat/`                 | Authoritative serialisable habitat data (incl. food/water amount/capacity), seeded generation, pure placement, geometry validation and diagnostics   | Creatures, Three.js objects, Svelte state, browser controls          |
 | `src/lib/simulation/`              | Authoritative simulation state, creature creation, fixed-step advance, public diagnostics                                                            | Three.js resources, Svelte components, browser rAF ownership         |
+| `simulation/resources/`            | Runtime resource availability, consumption grants, food spawn, minimal rain weather                                                                  | Creature goals, communication, presentation meshes                   |
 | `simulation/behaviour/`            | Needs, goal decisions, actions, local perception, habitat-feature query, search, resource targets, per-creature behaviour step                       | Transmission/reception of signals, association updates, presentation |
 | `simulation/announcement/`         | Resource-announcement opportunities, kind-level clarity, speaking-position search, preparation lifecycle, emission handoff provenance fields         | Memory storage semantics, transmission range, presentation meshes    |
 | `simulation/memory/`               | First-class bounded creature memory container, pure remember/recall/evict, capacity sampling, post-emission announcement memory writes               | Perception, opportunity lifecycle, transmission, lexicon learning    |
 | `simulation/communication/`        | Arbitrary symbols, emission construction, lexicon/exploratory selection, hearing radius, reception records, emission expiry, communication histories | Evidence/lexicon mutation, memory storage, presentation meshes       |
 | `simulation/learning/`             | Raw symbol evidence, exclusive lexicon resolution, pending investigation candidates, reinforcement, learning/lexicon history                         | Emission construction, reception range, goal selection, presentation |
 | `population-symbol-diagnostics.ts` | Pure observational population evidence/lexicon/emission summaries                                                                                    | Authoritative creature state, selection policy                       |
-| `habitat-presentation.ts`          | Static habitat mesh construction and disposal                                                                                                        | Creature meshes, simulation stepping                                 |
+| `habitat-presentation.ts`          | Habitat mesh build + food/water reconcile-by-id; ground/home rebuild on layout change only                                                           | Creature meshes, simulation stepping                                 |
+| `rain-presentation.ts`             | Presentation-only rain drop cue from weather phase                                                                                                   | Authoritative weather or refill                                      |
 | `creature-presentation.ts`         | Dynamic creature mesh reconcile by id, action-derived visuals, presentation-only investigation hop                                                   | Authoritative creature state, habitat rebuilds                       |
 | `symbol-presentation.ts`           | Shared symbol→shape/label/color registry for viewport and UI                                                                                         | Simulation semantics, Three.js resources                             |
 | `SymbolGlyph.svelte`               | Svelte icon + stable id from the shared registry                                                                                                     | Domain algorithms                                                    |
@@ -167,7 +180,7 @@ determinism
         ↓
 habitat model and generation
         ↓
-simulation (creatures + behaviour + announcement + memory + communication + learning + fixed-step advance)
+simulation (creatures + resources + behaviour + announcement + memory + communication + learning + fixed-step advance)
         ↓
 page-level application state (incl. selection id)
         ↓
@@ -187,7 +200,8 @@ viewport            -> habitat-presentation, creature-presentation, signal-prese
 habitat-camera      -> habitat types
 habitat subsystem   -> determinism
 simulation          -> determinism + habitat
-simulation/behaviour -> simulation sibling modules + habitat (private to simulation); may construct EmissionRequest only; thin hooks into learning/announcement
+simulation/resources -> determinism + habitat (placement, resource features); no behaviour/presentation
+simulation/behaviour -> simulation sibling modules + habitat (private to simulation); may construct EmissionRequest only; thin hooks into learning/announcement; reads availability via resources
 simulation/announcement -> simulation types + habitat + behaviour habitat-feature-query + memory query (private); pure clarity/speaking search; emission requests only
 simulation/memory -> simulation types + communication emission shapes + determinism (capacity); pure ops; no presentation
 simulation/communication -> simulation types + determinism (private to simulation); reads association values from creature state only; no learning/memory manager role

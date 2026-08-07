@@ -21,15 +21,38 @@ export type Size2 = {
 export type HabitatFeatureKind = 'home' | 'food' | 'water';
 
 /**
- * A flat region or source on the ground plane.
+ * Home region on the ground plane.
  * `position` is the centre of the axis-aligned footprint.
+ * Home has no resource quantity.
  */
-export type HabitatFeature = {
+export type HomeFeature = {
 	id: string;
-	kind: HabitatFeatureKind;
+	kind: 'home';
 	position: Vec2;
 	size: Size2;
 };
+
+/**
+ * Food or water feature with finite renewable quantity.
+ * Invariant: `0 <= amount <= capacity`, capacity > 0.
+ * Food at amount 0 is removed from the habitat; water basins remain when empty.
+ */
+export type ResourceFeature = {
+	id: string;
+	kind: 'food' | 'water';
+	position: Vec2;
+	size: Size2;
+	/** Current consumable quantity (abstract units, 1:1 with need recovery). */
+	amount: number;
+	/** Maximum quantity; refill and initial fill clamp to this. */
+	capacity: number;
+};
+
+/**
+ * A flat region or source on the ground plane.
+ * `position` is the centre of the axis-aligned footprint.
+ */
+export type HabitatFeature = HomeFeature | ResourceFeature;
 
 /**
  * Rectangular world bounds centred on the origin.
@@ -66,6 +89,13 @@ export type HabitatGenerationConfig = {
 	minSpacing: number;
 	/** Placement attempts per feature before generation fails. */
 	maxPlacementAttempts: number;
+	/**
+	 * Initial and maximum food quantity per bush (abstract units).
+	 * Runtime spawns use the same capacity from simulation config.
+	 */
+	foodCapacity: number;
+	/** Initial and maximum water quantity per basin. */
+	waterCapacity: number;
 };
 
 /**
@@ -74,7 +104,12 @@ export type HabitatGenerationConfig = {
 export type Habitat = {
 	seed: string;
 	bounds: WorldBounds;
-	home: HabitatFeature;
-	food: HabitatFeature[];
-	water: HabitatFeature[];
+	home: HomeFeature;
+	food: ResourceFeature[];
+	water: ResourceFeature[];
 };
+
+/** True when a feature carries finite resource quantity. */
+export function isResourceFeature(feature: HabitatFeature): feature is ResourceFeature {
+	return feature.kind === 'food' || feature.kind === 'water';
+}

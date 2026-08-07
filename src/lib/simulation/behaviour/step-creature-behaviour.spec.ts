@@ -60,7 +60,10 @@ describe('stepCreatureBehaviour integration', () => {
 		});
 		expect(isAtFeature(creature.position, food, config.arrivalDistance)).toBe(true);
 
-		const next = stepCreatureBehaviour(creature, 1, 1, config.seed, base.habitat, config).creature;
+		const next = stepCreatureBehaviour(creature, 1, 1, config.seed, base.habitat, config, {
+			food: config.eatRecoveryPerSecond,
+			water: 0
+		}).creature;
 		expect(next.hunger).toBeLessThan(0.8);
 	});
 

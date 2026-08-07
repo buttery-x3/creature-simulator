@@ -28,7 +28,7 @@ selection is presentation state only.
 | Creature presentation     | `src/lib/creature-presentation.ts`                    | Dynamic mesh reconcile + action visuals + investigation hop                 |
 | Symbol presentation       | `src/lib/symbol-presentation.ts`                      | Shared glyph shape/label/color registry (presentation only)                 |
 | Signal presentation       | `src/lib/signal-presentation.ts`                      | Speech bubbles + thin hearing-radius rings + investigation overlay          |
-| Listener cue presentation | `src/lib/listener-cue-presentation.ts`                | Brief neutral heard-`?` cues (coalesced per creature)                       |
+| Listener cue presentation | `src/lib/listener-cue-presentation.ts`                | Neutral `?` on recent hear (brief) or while investigating (held)            |
 | Habitat camera            | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                     |
 | Reserved ports            | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                         |
 
@@ -289,9 +289,10 @@ Signal and communication visuals are presentation-only:
   `hearingRadius`. Opacity uses shared `distanceFalloffFactor` × lifetime fade. The
   ring is an **illustrative** range/falloff cue — hearing remains instantaneous within
   radius at emission time (no propagation delay).
-- **Heard cues** (`listener-cue-presentation.ts`) show a brief neutral `?` when a
-  creature has a recent `HeardSignal` (coalesced per listener). Does not imply
-  understanding or investigation.
+- **Listener `?` cues** (`listener-cue-presentation.ts`) show one neutral mark per
+  creature when it has a recent `HeardSignal` (brief pulse) **or** while
+  `activeInvestigation` is set (held for the full investigation). Coalesced per
+  listener; not a symbol-identity cue.
 - **Investigation hop** (`creature-presentation.ts`) is a one-shot vertical
   presentation offset when `activeInvestigation` commitment changes. Authoritative
   position is never modified.

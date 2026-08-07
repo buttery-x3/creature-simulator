@@ -71,7 +71,9 @@ describe('reconcileHeardCues', () => {
 		reconcileHeardCues(resources, list, 1.1);
 		expect(resources.byCreatureId.size).toBe(1);
 		const group = resources.byCreatureId.get('creature-1')!;
-		expect(group.userData.cueKind).toBe('heard');
+		expect(group.userData.cueKind).toBe('listener');
+		expect(group.userData.recentlyHeard).toBe(true);
+		expect(group.userData.investigating).toBe(false);
 		expect(group.position.x).toBeCloseTo(1);
 		expect(group.position.y).toBeCloseTo(2);
 		clearListenerCuePresentation(resources);
@@ -96,7 +98,7 @@ describe('reconcileHeardCues', () => {
 		clearListenerCuePresentation(resources);
 	});
 
-	it('expires and disposes the cue after the presentation duration', () => {
+	it('expires and disposes a hear-only cue after the presentation duration', () => {
 		const resources = createListenerCuePresentationResources();
 		const list = [creature('creature-1', [heard({ emissionId: 'e1', heardAt: 1.0 })])];
 		reconcileHeardCues(resources, list, 1.1);
@@ -106,7 +108,7 @@ describe('reconcileHeardCues', () => {
 		clearListenerCuePresentation(resources);
 	});
 
-	it('does not create cues from investigation state alone', () => {
+	it('holds a steady cue for the full active investigation lifetime', () => {
 		const resources = createListenerCuePresentationResources();
 		const c = creature('creature-1', []);
 		c.activeInvestigation = {
@@ -116,7 +118,53 @@ describe('reconcileHeardCues', () => {
 			origin: { x: 0, y: 0 },
 			startedAt: 1
 		};
+		c.position = { x: 3, y: 4 };
 		reconcileHeardCues(resources, [c], 1.1);
+		expect(resources.byCreatureId.size).toBe(1);
+		const group = resources.byCreatureId.get('creature-1')!;
+		expect(group.userData.investigating).toBe(true);
+		expect(group.position.x).toBeCloseTo(3);
+		expect(group.position.y).toBeCloseTo(4);
+		const mat = resources.materialsById.get('creature-1')!;
+		expect(mat.opacity).toBeCloseTo(1);
+
+		// Continues while investigation remains (long after any hear window).
+		const version = resources.structureVersion;
+		c.position = { x: 5, y: 6 };
+		reconcileHeardCues(resources, [c], 50);
+		expect(resources.byCreatureId.size).toBe(1);
+		expect(resources.structureVersion).toBe(version);
+		expect(group.position.x).toBeCloseTo(5);
+		expect(mat.opacity).toBeCloseTo(1);
+
+		// Removed when investigation ends and no recent hear.
+		c.activeInvestigation = null;
+		reconcileHeardCues(resources, [c], 50.1);
+		expect(resources.byCreatureId.size).toBe(0);
+		clearListenerCuePresentation(resources);
+	});
+
+	it('keeps the cue after the hear window while investigation remains active', () => {
+		const resources = createListenerCuePresentationResources();
+		const c = creature('creature-1', [heard({ emissionId: 'e1', heardAt: 1.0 })]);
+		c.activeInvestigation = {
+			emissionId: 'e1',
+			symbolId: 'glyph-0',
+			senderId: 's',
+			origin: { x: 0, y: 0 },
+			startedAt: 1.2
+		};
+		reconcileHeardCues(resources, [c], 1.3);
+		expect(resources.byCreatureId.size).toBe(1);
+
+		const pastHearWindow = 1.0 + DEFAULT_HEARD_CUE_DURATION_SECONDS + 1;
+		reconcileHeardCues(resources, [c], pastHearWindow);
+		expect(resources.byCreatureId.size).toBe(1);
+		expect(resources.byCreatureId.get('creature-1')!.userData.investigating).toBe(true);
+		expect(resources.byCreatureId.get('creature-1')!.userData.recentlyHeard).toBe(false);
+
+		c.activeInvestigation = null;
+		reconcileHeardCues(resources, [c], pastHearWindow + 0.1);
 		expect(resources.byCreatureId.size).toBe(0);
 		clearListenerCuePresentation(resources);
 	});

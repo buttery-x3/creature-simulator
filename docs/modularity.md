@@ -187,7 +187,7 @@ Three.js presentation is split:
 - `creature-presentation.ts` — dynamic creature mesh reconcile by id, action visuals, and one-shot investigation hop;
 - `symbol-presentation.ts` — pure shared symbol presentation registry (shape/label/color);
 - `signal-presentation.ts` — emission speech bubbles, thin hearing-radius rings, selected investigation overlay;
-- `listener-cue-presentation.ts` — transient coalesced heard-`?` cues (separate lifecycle from emissions);
+- `listener-cue-presentation.ts` — coalesced neutral `?` cues (brief on hear, held while investigating);
 - `SymbolGlyph.svelte` — Svelte consumer of the symbol registry for diagnostics;
 - `ThreeViewport.svelte` — scene lifecycle, camera framing, pick ray, prop wiring;
 - `habitat-camera.ts` — pure framing and visibility calculations.

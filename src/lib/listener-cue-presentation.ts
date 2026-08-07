@@ -1,23 +1,27 @@
 /**
- * Presentation-only "heard something" cues for listeners.
+ * Presentation-only neutral "?" cues for listeners.
  *
- * A brief neutral question-mark appears when a creature has a recent HeardSignal.
- * Multiple hears in a short window coalesce to one cue per creature. This does
- * not imply understanding or investigation commitment.
+ * One coalesced mark per creature when either:
+ * - a recent HeardSignal is within the brief hear-pulse window, or
+ * - the creature has an active investigation (held for the full investigation).
  *
- * Timing derives from authoritative HeardSignal.heardAt and simulation time.
- * Cue duration is presentation configuration only — not SimulationConfig.
+ * Brief pulse alone means “just heard something.” A held mark while
+ * activeInvestigation is set means the creature is currently investigating.
+ * Multiple hears still coalesce to one cue. Hop remains separate (creature
+ * presentation). Cue duration for the hear pulse is presentation-only config.
  */
 
 import * as THREE from 'three';
 import type { Creature } from '$lib/simulation';
 
-/** How long a heard cue remains visible after heardAt (presentation only). */
+/** How long a hear-only cue remains visible after heardAt (presentation only). */
 export const DEFAULT_HEARD_CUE_DURATION_SECONDS = 0.75;
 
 const CUE_HEIGHT = 0.95;
 const CUE_SIDE_OFFSET = 0.32;
 const CUE_COLOR = 0xe2e8f0;
+const INVESTIGATION_OPACITY = 1;
+const INVESTIGATION_SCALE = 1;
 
 export type ListenerCuePresentationResources = {
 	root: THREE.Group;
@@ -26,7 +30,7 @@ export type ListenerCuePresentationResources = {
 	planeGeometry: THREE.BufferGeometry;
 	byCreatureId: Map<string, THREE.Group>;
 	materialsById: Map<string, THREE.MeshBasicMaterial>;
-	/** Last heardAt that refreshed the cue (coalesce). */
+	/** Last heardAt that refreshed a hear pulse (coalesce diagnostics). */
 	heardAtById: Map<string, number>;
 	structureVersion: number;
 };
@@ -104,7 +108,7 @@ function createCueGroup(
 	group.name = `heard-cue-${creatureId}`;
 	group.userData.creatureId = creatureId;
 	group.userData.presentationOnly = true;
-	group.userData.cueKind = 'heard';
+	group.userData.cueKind = 'listener';
 
 	const material = new THREE.MeshBasicMaterial({
 		map: resources.questionTexture,
@@ -123,9 +127,16 @@ function createCueGroup(
 	return group;
 }
 
+function hearPulseOpacity(age: number, duration: number): { opacity: number; scale: number } {
+	const t = age / duration;
+	const fade = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+	const opacity = Math.max(0, Math.min(1, fade));
+	return { opacity, scale: 0.85 + 0.25 * opacity };
+}
+
 /**
- * Reconcile one coalesced heard cue per creature from recentHeard + time.
- * Does not read activeInvestigation (hearing ≠ investigation).
+ * Reconcile one coalesced "?" cue per creature from recentHeard and/or
+ * activeInvestigation. Does not mutate simulation state.
  */
 export function reconcileHeardCues(
 	resources: ListenerCuePresentationResources,
@@ -142,11 +153,11 @@ export function reconcileHeardCues(
 
 	for (const creature of creatures) {
 		const heardAt = latestHeardAt(creature);
-		if (heardAt === null) {
-			continue;
-		}
-		const age = timeSeconds - heardAt;
-		if (age < 0 || age > duration) {
+		const age = heardAt === null ? null : timeSeconds - heardAt;
+		const recentlyHeard = age !== null && age >= 0 && age <= duration;
+		const investigating = creature.activeInvestigation !== null;
+
+		if (!recentlyHeard && !investigating) {
 			continue;
 		}
 
@@ -159,16 +170,23 @@ export function reconcileHeardCues(
 			resources.structureVersion += 1;
 		}
 
-		// Coalesce: refresh heardAt tracking without creating extra groups.
-		resources.heardAtById.set(creature.id, heardAt);
+		if (heardAt !== null) {
+			resources.heardAtById.set(creature.id, heardAt);
+		}
 
 		group.position.set(creature.position.x, creature.position.y, 0);
+		group.userData.investigating = investigating;
+		group.userData.recentlyHeard = recentlyHeard;
 
-		// Brief scale / fade: peak early, fade out by duration end.
-		const t = age / duration;
-		const fade = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
-		const opacity = Math.max(0, Math.min(1, fade));
-		const scale = 0.85 + 0.25 * opacity;
+		// Investigation hold wins over hear-pulse fade when both apply.
+		let opacity = INVESTIGATION_OPACITY;
+		let scale = INVESTIGATION_SCALE;
+		if (!investigating && recentlyHeard && age !== null) {
+			const pulse = hearPulseOpacity(age, duration);
+			opacity = pulse.opacity;
+			scale = pulse.scale;
+		}
+
 		const mark = group.children[0];
 		if (mark) {
 			mark.scale.setScalar(scale);

@@ -43,6 +43,11 @@ export type AnnouncementStepConfig = Pick<
 export type AnnouncementStepResult = {
 	creature: Creature;
 	emissionRequest: EmissionRequest | null;
+	/**
+	 * True when this step ended `prepare_announcement` (emit, invalidate, or stuck).
+	 * Orchestrator must run an `action_complete` replan so normal decision timing resumes.
+	 */
+	endedPreparation: boolean;
 };
 
 function canEmitNow(lastEmissionAt: number, timeSeconds: number, cooldownSeconds: number): boolean {
@@ -152,23 +157,16 @@ export function stepAnnouncement(input: {
 	// 2. Do not start/advance preparation while investigation travel/inspect is locked.
 	//    Queued opportunities remain; preparation waits.
 	if (isInvestigationLocked(creature) && !isAnnouncementLocked(creature)) {
-		return { creature, emissionRequest: null };
+		return { creature, emissionRequest: null, endedPreparation: false };
 	}
 
 	let active = getActiveOpportunity(creature.announcementOpportunities);
 	if (!active) {
-		// Clear preparation goal if somehow stuck without opportunity.
+		// Stuck prepare without an open opportunity — leave goal for action_complete replan.
 		if (creature.goal === 'prepare_announcement') {
-			creature = {
-				...creature,
-				goal: 'wander',
-				action: 'wander',
-				target: { kind: 'point', position: { ...creature.wanderTarget } },
-				goalStartedAt: timeSeconds,
-				actionStartedAt: timeSeconds
-			};
+			return { creature, emissionRequest: null, endedPreparation: true };
 		}
-		return { creature, emissionRequest: null };
+		return { creature, emissionRequest: null, endedPreparation: false };
 	}
 
 	// 3. Invalidate if trigger gone or no announced-kind resources remain in habitat.
@@ -211,11 +209,7 @@ export function stepAnnouncement(input: {
 	if (clarity.clear) {
 		if (!canEmitNow(creature.lastEmissionAt, timeSeconds, config.emissionCooldownSeconds)) {
 			// Stay committed if already preparing; otherwise hold ready without force-moving.
-			if (creature.goal === 'prepare_announcement') {
-				// Idle at speaking target until cooldown clears.
-				return { creature, emissionRequest: null };
-			}
-			return { creature, emissionRequest: null };
+			return { creature, emissionRequest: null, endedPreparation: false };
 		}
 
 		const emissionRequest: EmissionRequest = {
@@ -234,6 +228,7 @@ export function stepAnnouncement(input: {
 		const repositioningRequired =
 			active.state === 'repositioning' ||
 			(active.initialClarity !== null && !active.initialClarity.clear);
+		const wasPreparing = creature.goal === 'prepare_announcement';
 
 		const outcome = buildOutcome({
 			opportunity: active,
@@ -250,7 +245,6 @@ export function stepAnnouncement(input: {
 		});
 
 		const remaining = removeOpportunityAndPromote(creature.announcementOpportunities, active.id);
-		const nextActive = getActiveOpportunity(remaining);
 
 		creature = {
 			...creature,
@@ -265,24 +259,11 @@ export function stepAnnouncement(input: {
 				triggerFeatureId: active.triggerFeatureId,
 				triggerFeaturePosition: { ...active.triggerFeaturePosition },
 				fadeStartedAt: timeSeconds
-			},
-			// Leave prepare_announcement so behaviour can replan next; emission still goes out.
-			goal: creature.goal === 'prepare_announcement' ? 'wander' : creature.goal,
-			action: creature.goal === 'prepare_announcement' ? 'wander' : creature.action,
-			target:
-				creature.goal === 'prepare_announcement'
-					? { kind: 'point', position: { ...creature.wanderTarget } }
-					: creature.target,
-			goalStartedAt:
-				creature.goal === 'prepare_announcement' ? timeSeconds : creature.goalStartedAt,
-			actionStartedAt:
-				creature.goal === 'prepare_announcement' ? timeSeconds : creature.actionStartedAt
+			}
+			// Keep prepare_announcement until orchestrator runs action_complete replan.
 		};
 
-		// Further ready opportunities process on later steps (one emission per creature per step).
-		void nextActive;
-
-		return { creature, emissionRequest };
+		return { creature, emissionRequest, endedPreparation: wasPreparing };
 	}
 
 	// 5. Unclear → find speaking position and commit to preparation.
@@ -354,8 +335,7 @@ export function stepAnnouncement(input: {
 			creature.goal === 'prepare_announcement' && creature.action === 'move'
 				? creature.actionStartedAt
 				: timeSeconds,
-		// Push next ordinary reconsider far ahead while committed.
-		nextReconsiderAt: Math.max(creature.nextReconsiderAt, timeSeconds + 3600),
+		// Commitment is the prepare_announcement lock only — do not push nextReconsiderAt.
 		activeAnnouncementCue: {
 			opportunityId: active.id,
 			triggerFeatureId: active.triggerFeatureId,
@@ -364,7 +344,7 @@ export function stepAnnouncement(input: {
 		}
 	};
 
-	return { creature, emissionRequest: null };
+	return { creature, emissionRequest: null, endedPreparation: false };
 }
 
 function finalizeInvalid(
@@ -387,6 +367,7 @@ function finalizeInvalid(
 		productionMode: null
 	});
 	const remaining = removeOpportunityAndPromote(creature.announcementOpportunities, active.id);
+	const wasPreparing = creature.goal === 'prepare_announcement';
 	return {
 		creature: {
 			...creature,
@@ -399,19 +380,11 @@ function finalizeInvalid(
 			activeAnnouncementCue:
 				creature.activeAnnouncementCue?.opportunityId === active.id
 					? null
-					: creature.activeAnnouncementCue,
-			goal: creature.goal === 'prepare_announcement' ? 'wander' : creature.goal,
-			action: creature.goal === 'prepare_announcement' ? 'wander' : creature.action,
-			target:
-				creature.goal === 'prepare_announcement'
-					? { kind: 'point', position: { ...creature.wanderTarget } }
-					: creature.target,
-			goalStartedAt:
-				creature.goal === 'prepare_announcement' ? timeSeconds : creature.goalStartedAt,
-			actionStartedAt:
-				creature.goal === 'prepare_announcement' ? timeSeconds : creature.actionStartedAt
+					: creature.activeAnnouncementCue
+			// Keep prepare_announcement until orchestrator runs action_complete replan.
 		},
-		emissionRequest: null
+		emissionRequest: null,
+		endedPreparation: wasPreparing
 	};
 }
 

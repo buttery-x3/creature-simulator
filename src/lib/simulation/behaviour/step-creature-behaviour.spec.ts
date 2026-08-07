@@ -307,3 +307,243 @@ describe('stepCreatureBehaviour integration', () => {
 		expect(a.searchTarget.y).toBeLessThanOrEqual(halfH);
 	});
 });
+
+describe('announcement preparation lock and exit replan', () => {
+	const speakingTarget = { x: 1, y: 1 };
+
+	function preparingCreature(
+		overrides: Parameters<typeof testCreature>[0] = {}
+	): ReturnType<typeof testCreature> {
+		return testCreature({
+			id: 'creature-0',
+			goal: 'prepare_announcement',
+			action: 'move',
+			target: { kind: 'point', position: { ...speakingTarget } },
+			position: { x: 0, y: 0 },
+			movementSpeed: 0,
+			goalStartedAt: 0,
+			actionStartedAt: 0,
+			// Ordinary reconsider is due — lock must still hold.
+			nextReconsiderAt: 0,
+			hunger: 0.1,
+			thirst: 0.1,
+			energy: 0.95,
+			announcementOpportunities: [
+				{
+					id: 'ann-creature-0-0',
+					creatureId: 'creature-0',
+					triggerFeatureId: 'food-0',
+					resourceKind: 'food',
+					triggerFeaturePosition: { x: 2, y: 0 },
+					perceptionEpisodeId: 'ep-food-0-0',
+					discoveredAt: 0,
+					discoveryCreaturePosition: { x: 0, y: 0 },
+					state: 'repositioning',
+					speakingTarget: { ...speakingTarget },
+					initialClarity: {
+						announcedKind: 'food',
+						nearestAnnouncedKindDistance: 2,
+						nearestOppositeKindDistance: 2.1,
+						clarityMargin: 0.75,
+						clear: false,
+						reason: 'unclear_margin'
+					}
+				}
+			],
+			announcementOpportunityCounter: 1,
+			activeAnnouncementCue: {
+				opportunityId: 'ann-creature-0-0',
+				triggerFeatureId: 'food-0',
+				triggerFeaturePosition: { x: 2, y: 0 },
+				fadeStartedAt: null
+			},
+			...overrides
+		});
+	}
+
+	it('stays committed to prepare_announcement when ordinary reconsider is due', () => {
+		const config = {
+			...defaultSimulationConfig('ann-lock-due'),
+			resourceAnnouncementClarityMargin: 0.75,
+			sensingRadius: 8,
+			speakingPositionSearchRadius: 4,
+			emissionCooldownSeconds: 0
+		};
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		const water = base.habitat.water[0]!;
+		// Midpoint: food and water both in scope → unclear; stay put (speed 0) so we do not emit.
+		const mid = {
+			x: (food.position.x + water.position.x) / 2,
+			y: (food.position.y + water.position.y) / 2
+		};
+		const creature = preparingCreature({
+			position: mid,
+			target: { kind: 'point', position: mid },
+			movementSpeed: 0,
+			announcementOpportunities: [
+				{
+					...preparingCreature().announcementOpportunities[0]!,
+					triggerFeatureId: food.id,
+					triggerFeaturePosition: { ...food.position },
+					speakingTarget: mid
+				}
+			],
+			activeAnnouncementCue: {
+				opportunityId: 'ann-creature-0-0',
+				triggerFeatureId: food.id,
+				triggerFeaturePosition: { ...food.position },
+				fadeStartedAt: null
+			}
+		});
+		const next = stepCreatureBehaviour(
+			creature,
+			config.fixedDt,
+			1,
+			config.seed,
+			base.habitat,
+			config
+		).creature;
+		expect(next.goal).toBe('prepare_announcement');
+		// No ordinary replan while locked (lastDecision stays null).
+		expect(next.lastDecision).toBeNull();
+	});
+
+	it('restores normal nextReconsiderAt after emission ends preparation', () => {
+		const config = {
+			...defaultSimulationConfig('ann-emit-replan'),
+			resourceAnnouncementClarityMargin: 0,
+			emissionCooldownSeconds: 0,
+			reconsiderIntervalSeconds: 1.5
+		};
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		// Clear food context: stand on food, no competing water nearby required when margin is 0.
+		const creature = preparingCreature({
+			position: { ...food.position },
+			target: { kind: 'point', position: { ...food.position } },
+			// Stale far-future timer that must not survive exit.
+			nextReconsiderAt: 9999,
+			announcementOpportunities: [
+				{
+					...preparingCreature().announcementOpportunities[0]!,
+					triggerFeatureId: food.id,
+					triggerFeaturePosition: { ...food.position },
+					state: 'repositioning',
+					speakingTarget: { ...food.position }
+				}
+			],
+			activeAnnouncementCue: {
+				opportunityId: 'ann-creature-0-0',
+				triggerFeatureId: food.id,
+				triggerFeaturePosition: { ...food.position },
+				fadeStartedAt: null
+			}
+		});
+		const timeSeconds = 10;
+		const result = stepCreatureBehaviour(
+			creature,
+			config.fixedDt,
+			timeSeconds,
+			config.seed,
+			base.habitat,
+			config
+		);
+		const next = result.creature;
+		expect(result.emissionRequest).not.toBeNull();
+		expect(next.goal).not.toBe('prepare_announcement');
+		expect(next.lastDecision).not.toBeNull();
+		expect(next.lastDecision?.trigger).toBe('action_complete');
+		expect(next.nextReconsiderAt).toBeCloseTo(timeSeconds + config.reconsiderIntervalSeconds);
+		expect(next.nextReconsiderAt).toBeLessThan(100);
+	});
+
+	it('restores normal decision-making after invalidating an announcement', () => {
+		const config = {
+			...defaultSimulationConfig('ann-invalidate-replan'),
+			reconsiderIntervalSeconds: 1.25
+		};
+		const base = createSimulation(config);
+		// Trigger feature id does not exist → invalidate.
+		const creature = preparingCreature({
+			nextReconsiderAt: 8888,
+			announcementOpportunities: [
+				{
+					...preparingCreature().announcementOpportunities[0]!,
+					triggerFeatureId: 'missing-food-feature',
+					state: 'repositioning'
+				}
+			]
+		});
+		const timeSeconds = 5;
+		const next = stepCreatureBehaviour(
+			creature,
+			config.fixedDt,
+			timeSeconds,
+			config.seed,
+			base.habitat,
+			config
+		).creature;
+		expect(next.goal).not.toBe('prepare_announcement');
+		expect(
+			next.recentAnnouncementOutcomes.some((o) => o.reason === 'invalid_trigger_feature')
+		).toBe(true);
+		// The invalidated opportunity must not remain open.
+		expect(next.announcementOpportunities.some((o) => o.id === 'ann-creature-0-0')).toBe(false);
+		expect(next.lastDecision).not.toBeNull();
+		expect(next.lastDecision?.trigger).toBe('action_complete');
+		expect(next.nextReconsiderAt).toBeCloseTo(timeSeconds + config.reconsiderIntervalSeconds);
+		expect(next.nextReconsiderAt).toBeLessThan(100);
+	});
+
+	it('runs the decision system again after preparation ends without asserting a winner', () => {
+		const config = {
+			...defaultSimulationConfig('ann-eligible-again'),
+			reconsiderIntervalSeconds: 1.5,
+			// Make need goals valid candidates without asserting they win.
+			seekFoodThreshold: 0.1,
+			seekWaterThreshold: 0.1
+		};
+		const base = createSimulation(config);
+		const creature = preparingCreature({
+			nextReconsiderAt: 7777,
+			hunger: 0.9,
+			thirst: 0.2,
+			energy: 0.95,
+			// Pending investigation is present — eligibility only, not winner policy.
+			pendingSignals: [
+				{
+					emissionId: 'em-pending',
+					symbolId: 'glyph-1',
+					senderId: 'creature-9',
+					origin: { x: 0.5, y: 0.5 },
+					heardAt: 0,
+					expiresAt: 100
+				}
+			],
+			announcementOpportunities: [
+				{
+					...preparingCreature().announcementOpportunities[0]!,
+					triggerFeatureId: 'gone-feature',
+					state: 'repositioning'
+				}
+			]
+		});
+		const timeSeconds = 3;
+		const next = stepCreatureBehaviour(
+			creature,
+			config.fixedDt,
+			timeSeconds,
+			config.seed,
+			base.habitat,
+			config
+		).creature;
+		expect(next.goal).not.toBe('prepare_announcement');
+		expect(next.lastDecision).not.toBeNull();
+		expect(next.lastDecision?.trigger).toBe('action_complete');
+		expect(next.lastDecision?.candidates.length).toBeGreaterThan(0);
+		// Decision system ran; do not assert which goal won.
+		expect(typeof next.lastDecision?.selectedGoal).toBe('string');
+		expect(next.nextReconsiderAt).toBeCloseTo(timeSeconds + config.reconsiderIntervalSeconds);
+	});
+});

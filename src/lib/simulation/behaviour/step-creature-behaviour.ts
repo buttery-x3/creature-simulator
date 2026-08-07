@@ -276,6 +276,10 @@ export function stepCreatureBehaviour(
 	if (announced.emissionRequest) {
 		emissionRequest = announced.emissionRequest;
 	}
+	// Preparation ended: restore normal decision flow (restores nextReconsiderAt via applyDecision).
+	if (announced.endedPreparation) {
+		next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
+	}
 
 	// 2b. Learning: expire pending only
 	next = advanceActiveLearning(next, timeSeconds, config);
@@ -479,6 +483,9 @@ export function stepCreatureBehaviour(
 		next = afterMove.creature;
 		if (afterMove.emissionRequest && !emissionRequest) {
 			emissionRequest = afterMove.emissionRequest;
+		}
+		if (afterMove.endedPreparation) {
+			next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
 		}
 	}
 

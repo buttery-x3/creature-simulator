@@ -168,17 +168,23 @@ describe('resource memory targeting', () => {
 			position: { x: 5, y: 5 },
 			empty: false
 		});
+		const result = selectResourceNeedTarget({ x: 0, y: 0 }, [], memory, 'food');
+		expect(result.source).toBe('remembered');
+		expect(result.featureId).toBe('food-mem');
+		expect(result.target).toEqual({
+			kind: 'point',
+			position: { x: 5, y: 5 }
+		});
 		const record = arbitrate(baseInput({ hunger: 0.8, memory, availableFood: [] }));
 		const hunger = byIntention(record).satisfy_hunger!;
 		expect(hunger.target).toEqual({
-			kind: 'feature',
-			featureId: 'food-mem',
-			featureKind: 'food'
+			kind: 'point',
+			position: { x: 5, y: 5 }
 		});
 		expect(hunger.reasonCodes).toContain('remembered_resource');
 	});
 
-	it('uses remembered non-empty water for thirst', () => {
+	it('uses remembered non-empty water for thirst as a stored point', () => {
 		let memory = emptyMemory();
 		memory = rememberResourceObservation(memory, {
 			rememberedAt: 2,
@@ -190,9 +196,8 @@ describe('resource memory targeting', () => {
 		const record = arbitrate(baseInput({ thirst: 0.8, memory }));
 		const thirst = byIntention(record).satisfy_thirst!;
 		expect(thirst.target).toEqual({
-			kind: 'feature',
-			featureId: 'water-ok',
-			featureKind: 'water'
+			kind: 'point',
+			position: { x: 2, y: 2 }
 		});
 	});
 
@@ -548,7 +553,7 @@ describe('determinism', () => {
 });
 
 describe('open decision preferences', () => {
-	it('uses feature targets for remembered resources (not point fallback when id known)', () => {
+	it('uses stored point targets for remembered resources (not authoritative feature ids)', () => {
 		let memory = emptyMemory();
 		memory = rememberResourceObservation(memory, {
 			rememberedAt: 1,
@@ -558,10 +563,11 @@ describe('open decision preferences', () => {
 			empty: false
 		});
 		const result = selectResourceNeedTarget({ x: 0, y: 0 }, [], memory, 'food');
-		expect(result.target?.kind).toBe('feature');
-		if (result.target?.kind === 'feature') {
-			expect(result.target.featureId).toBe('food-x');
-		}
+		expect(result.featureId).toBe('food-x');
+		expect(result.target).toEqual({
+			kind: 'point',
+			position: { x: 4, y: 4 }
+		});
 	});
 
 	it('does not emit a separate continue intention kind', () => {

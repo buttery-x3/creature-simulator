@@ -1,9 +1,13 @@
 /**
- * Pure target selection for cognition candidates (FLAME-79).
+ * Pure target selection for cognition candidates.
  *
  * Resource order: currently perceived usable → newest usable memory → none
- * (search_fallback). Feature targets when featureId is known; signal origins
- * use point targets.
+ * (search_fallback).
+ *
+ * - Visible resources → authoritative feature targets (habitat availability).
+ * - Remembered observations → point targets at the stored belief position
+ *   (not habitat feature identity — creature may be wrong until re-sensed).
+ * - Signal origins → point targets at stored origin.
  */
 
 import type { Vec2 } from '$lib/habitat';
@@ -52,8 +56,12 @@ export type ResourceTargetResult = {
 
 /**
  * Hunger/thirst target: perception first, then newest usable memory, else null.
- * Preferred open decision: feature target when featureId is known; null +
- * search_fallback when no useful knowledge (executor samples search).
+ *
+ * Visible → feature target (authoritative while currently perceived).
+ * Remembered → point at stored observation position (belief navigation).
+ * featureId on the result remains diagnostic/identity for memory; navigation
+ * must not resolve remembered ids through current habitat.
+ * No knowledge → null + search_fallback (executor samples search).
  */
 export function selectResourceNeedTarget(
 	position: Vec2,
@@ -79,9 +87,8 @@ export function selectResourceNeedTarget(
 	if (remembered) {
 		return {
 			target: {
-				kind: 'feature',
-				featureId: remembered.featureId,
-				featureKind: resourceKind
+				kind: 'point',
+				position: { x: remembered.position.x, y: remembered.position.y }
 			},
 			featureId: remembered.featureId,
 			source: 'remembered',

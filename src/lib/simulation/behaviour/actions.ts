@@ -14,14 +14,20 @@ import type {
 
 /**
  * Choose the action for an intention.
- * Need intentions without a usable resource/feature target enter `search` (not wander).
- * Signal investigation: move to origin, then `investigate` (stop and inspect).
+ *
+ * Need intentions:
+ * - no target → `search` (no useful knowledge)
+ * - feature target → move / eat / drink
+ * - point target (remembered belief) → move toward stored position (never search)
+ *
+ * Signal investigation: move to origin, then `investigate`.
  * Announcement: move/reposition only (never consumptive).
  */
 export function actionForIntention(
 	intention: IntentionKind,
 	arrived: boolean,
-	hasUsableFeatureTarget: boolean
+	hasUsableFeatureTarget: boolean,
+	hasConcreteDestination = hasUsableFeatureTarget
 ): CreatureAction {
 	if (intention === 'wander') {
 		return 'wander';
@@ -33,10 +39,15 @@ export function actionForIntention(
 		return 'move';
 	}
 	if (intention === 'satisfy_hunger' || intention === 'satisfy_thirst') {
-		if (!hasUsableFeatureTarget) {
+		// Search only when cognition supplied no destination (search_fallback).
+		if (!hasConcreteDestination) {
 			return 'search';
 		}
 		if (!arrived) {
+			return 'move';
+		}
+		// Consumptive only on authoritative feature targets (not remembered points).
+		if (!hasUsableFeatureTarget) {
 			return 'move';
 		}
 		return intention === 'satisfy_hunger' ? 'eat' : 'drink';
@@ -93,6 +104,29 @@ function intentionHasFeatureTarget(
 	);
 }
 
+/** True when the intention has a navigation destination (feature or remembered point). */
+function intentionHasConcreteDestination(
+	target: CreatureTarget | null,
+	intention: IntentionKind
+): boolean {
+	if (intentionHasFeatureTarget(target, intention)) {
+		return true;
+	}
+	if (
+		(intention === 'satisfy_hunger' || intention === 'satisfy_thirst') &&
+		target?.kind === 'point'
+	) {
+		return Number.isFinite(target.position.x) && Number.isFinite(target.position.y);
+	}
+	if (intention === 'investigate_signal' && target?.kind === 'point') {
+		return Number.isFinite(target.position.x) && Number.isFinite(target.position.y);
+	}
+	if (intention === 'announce_resource') {
+		return target !== null;
+	}
+	return false;
+}
+
 function selectionReasonText(record: ArbitrationRecord): string {
 	const codes = record.selectionReasonCodes.join(',');
 	const selected = record.candidates.find((c) => c.intention === record.selectedIntention);
@@ -122,7 +156,13 @@ export function applyArbitration(
 ): ApplyArbitrationResult {
 	const intention = record.selectedIntention;
 	const hasFeature = intentionHasFeatureTarget(record.selectedTarget, intention);
-	const action = actionForIntention(intention, arrived && hasFeature, hasFeature);
+	const hasDestination = intentionHasConcreteDestination(record.selectedTarget, intention);
+	const action = actionForIntention(
+		intention,
+		arrived && (hasFeature || hasDestination),
+		hasFeature,
+		hasDestination
+	);
 	const target = record.selectedTarget;
 	const intentionChanged = intention !== creature.intention;
 	const actionChanged = action !== creature.action;
@@ -168,7 +208,8 @@ export function transitionToConsumptive(
 		return null;
 	}
 	const hasFeature = intentionHasFeatureTarget(creature.target, creature.intention);
-	const nextAction = actionForIntention(creature.intention, true, hasFeature);
+	const hasDestination = intentionHasConcreteDestination(creature.target, creature.intention);
+	const nextAction = actionForIntention(creature.intention, true, hasFeature, hasDestination);
 	if (nextAction === 'move' || nextAction === 'wander' || nextAction === 'search') {
 		return null;
 	}

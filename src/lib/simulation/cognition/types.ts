@@ -5,8 +5,9 @@
  * and applies ArbitrationRecord via behaviour execution.
  *
  * Target representation:
- * - Resource pursuit prefers a feature target when a feature id is known
- *   (perceived or remembered observation).
+ * - Currently perceived resources use authoritative feature targets.
+ * - Remembered resource observations use point targets at the stored position
+ *   (belief navigation; featureId remains diagnostic only).
  * - Remembered signal investigation uses a point target at the stored origin.
  * - When no usable resource knowledge exists, need candidates stay valid with
  *   target null and reason code `search_fallback` (executor samples search).

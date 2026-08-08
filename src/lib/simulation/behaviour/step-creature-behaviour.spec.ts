@@ -5,8 +5,10 @@ import {
 	simulationSnapshot,
 	stepSimulation
 } from '../index';
+import { createEmptyMemory } from '../memory/create-memory';
+import { rememberResourceObservation } from '../memory/mutate';
 import { testCreature } from '../test-creature';
-import { appendTransition } from './actions';
+import { actionForIntention, appendTransition } from './actions';
 import { emptyPerception } from './perception';
 import { isAtFeature, isTargetValid } from './resource-awareness';
 import { stepCreatureBehaviour } from './step-creature-behaviour';
@@ -216,6 +218,114 @@ describe('stepCreatureBehaviour integration', () => {
 		).creature;
 		expect(next.lastArbitration).not.toBeNull();
 		expect(isTargetValid(base.habitat, next.target)).toBe(true);
+	});
+
+	it('remembered missing food uses a point target and does not invalid-target loop', () => {
+		const config = {
+			...defaultSimulationConfig('mem-point-nav'),
+			reconsiderIntervalSeconds: 10,
+			seekFoodThreshold: 0.45,
+			sensingRadius: 2,
+			habitat: {
+				...defaultSimulationConfig('mem-point-nav').habitat,
+				foodCount: 0,
+				waterCount: 0
+			}
+		};
+		const base = createSimulation(config);
+		const belief = { x: 8, y: 8 };
+		let memory = createEmptyMemory(8);
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 0,
+			featureId: 'food-gone',
+			resourceKind: 'food',
+			position: belief,
+			empty: false
+		});
+		expect(base.habitat.food).toHaveLength(0);
+
+		const creature = testCreature({
+			position: { x: 0, y: 0 },
+			hunger: 0.9,
+			thirst: 0.1,
+			energy: 0.95,
+			intention: 'wander',
+			action: 'wander',
+			memory,
+			nextReconsiderAt: 0,
+			movementSpeed: 1
+		});
+
+		const triggers: string[] = [];
+		let next = creature;
+		for (let i = 0; i < 5; i += 1) {
+			const time = (i + 1) * config.fixedDt;
+			next = stepCreatureBehaviour(
+				next,
+				config.fixedDt,
+				time,
+				config.seed,
+				base.habitat,
+				config
+			).creature;
+			if (next.lastArbitration) {
+				triggers.push(next.lastArbitration.trigger);
+			}
+		}
+
+		expect(next.intention).toBe('satisfy_hunger');
+		expect(next.target).toEqual({ kind: 'point', position: belief });
+		expect(next.action).toBe('move');
+		expect(isTargetValid(base.habitat, next.target)).toBe(true);
+		expect(triggers.filter((t) => t === 'current_target_invalid').length).toBe(0);
+	});
+
+	it('visible food feature target becomes invalid when the feature is removed', () => {
+		const config = {
+			...defaultSimulationConfig('visible-deplete'),
+			reconsiderIntervalSeconds: 10,
+			perceptionIntervalSeconds: 10
+		};
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		const creature = testCreature({
+			position: { x: food.position.x + 2, y: food.position.y },
+			hunger: 0.9,
+			intention: 'satisfy_hunger',
+			action: 'move',
+			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
+			// Perception already current so no perception-change replan masks invalid-target.
+			perception: {
+				lastUpdatedAt: 1,
+				perceivedFoodIds: [],
+				perceivedWaterIds: [],
+				observations: []
+			},
+			nextReconsiderAt: 999,
+			movementSpeed: 0
+		});
+		expect(isTargetValid(base.habitat, creature.target)).toBe(true);
+		const habitatWithoutFood = {
+			...base.habitat,
+			food: base.habitat.food.filter((f) => f.id !== food.id)
+		};
+		expect(isTargetValid(habitatWithoutFood, creature.target)).toBe(false);
+		const next = stepCreatureBehaviour(
+			creature,
+			config.fixedDt,
+			1,
+			config.seed,
+			habitatWithoutFood,
+			config
+		).creature;
+		expect(next.lastArbitration?.trigger).toBe('current_target_invalid');
+	});
+
+	it('maps need + remembered point to move (not search)', () => {
+		expect(actionForIntention('satisfy_hunger', false, false, true)).toBe('move');
+		expect(actionForIntention('satisfy_hunger', false, false, false)).toBe('search');
+		expect(actionForIntention('satisfy_hunger', true, true, true)).toBe('eat');
+		expect(actionForIntention('satisfy_hunger', true, false, true)).toBe('move');
 	});
 
 	it('appendTransition drops oldest entries beyond the limit', () => {

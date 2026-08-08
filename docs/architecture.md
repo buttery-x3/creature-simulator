@@ -219,11 +219,13 @@ Sensing:
 
 Search:
 
-- When `satisfy_hunger` / `satisfy_thirst` is selected without a usable feature target,
-  the action is **`search`** (not `wander`), with a deterministic point target
-  from the `search` seed stream (`sampleSearchTarget`).
-- Finding a resource while searching leads to ordinary arbitration (or target
-  validity on the next reconsider), not a helper that silently forces `move`.
+- When `satisfy_hunger` / `satisfy_thirst` is selected with **no** destination
+  (search fallback), the action is **`search`** (not `wander`), with a deterministic
+  point from the `search` seed stream (`sampleSearchTarget`).
+- Remembered resource beliefs use a **point** at the stored observation position and
+  **`move`** toward it; sensing/memory updates correct stale beliefs only when near.
+- Currently perceived resources use authoritative **feature** targets (depletion can
+  invalidate mid-pursuit).
 
 Brief tracking:
 
@@ -322,17 +324,17 @@ snapshot it builds a small candidate set, scores simply, applies soft continuity
 and returns an `ArbitrationRecord`. Behaviour applies that record; no other
 subsystem selects intentions.
 
-| Concern            | Rule                                                                                                                                                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Placement**      | `simulation/cognition/` — not more helpers under capacity-full `behaviour/`.                                                                                                                        |
-| **Runtime status** | **Authoritative.** Single decision system; legacy goal/lock/opportunity machinery removed.                                                                                                          |
-| **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `wander`. No predator/social/mating types.                                                                   |
-| **Need targets**   | Perception first, then newest usable resource memory (water skips `empty: true`), else `target: null` + `search_fallback` (executor samples search). Feature targets when feature id is known.      |
-| **Signal**         | From `heard_signal` memory only (newest sequence). Point target at origin. No lexicon or confidence. Modest baseline + simple sequence recency.                                                     |
-| **Announce**       | Perceived available resource not suppressed by `resource_announcement` memory. Baseline above wander, below need thresholds. Deterministic feature-id pick. Clarity/speaking-position are executor. |
-| **Continuity**     | Soft score bonus on the current non-wander intention. Wander gets no continuity stickiness. No min-commitment, switch-margin, investigation/announcement locks.                                     |
-| **Triggers**       | `ArbitrationTrigger` values request reconsideration only; they never force an intention.                                                                                                            |
-| **Evidence**       | Structured `ArbitrationRecord` / factors / reason codes — workbench formats; UI strings are not authority.                                                                                          |
+| Concern            | Rule                                                                                                                                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Placement**      | `simulation/cognition/` — not more helpers under capacity-full `behaviour/`.                                                                                                                                                                  |
+| **Runtime status** | **Authoritative.** Single decision system; legacy goal/lock/opportunity machinery removed.                                                                                                                                                    |
+| **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `wander`. No predator/social/mating types.                                                                                                             |
+| **Need targets**   | Perception first (feature target), then newest usable resource memory as a **point** at the stored position (water skips `empty: true`), else `target: null` + `search_fallback`. Remote habitat changes do not invalidate remembered points. |
+| **Signal**         | From `heard_signal` memory only (newest sequence). Point target at origin. No lexicon or confidence. Modest baseline + simple sequence recency.                                                                                               |
+| **Announce**       | Perceived available resource not suppressed by `resource_announcement` memory. Baseline above wander, below need thresholds. Deterministic feature-id pick. Clarity/speaking-position are executor.                                           |
+| **Continuity**     | Soft score bonus on the current non-wander intention. Wander gets no continuity stickiness. No min-commitment, switch-margin, investigation/announcement locks.                                                                               |
+| **Triggers**       | `ArbitrationTrigger` values request reconsideration only; they never force an intention.                                                                                                                                                      |
+| **Evidence**       | Structured `ArbitrationRecord` / factors / reason codes — workbench formats; UI strings are not authority.                                                                                                                                    |
 
 Fixed-step order (authoritative):
 

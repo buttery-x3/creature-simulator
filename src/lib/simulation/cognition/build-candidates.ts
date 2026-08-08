@@ -15,6 +15,7 @@ import type {
 	IntentionCandidate,
 	IntentionKind
 } from './types';
+import { verbosityToSpeechWeight } from './speech-weight';
 import {
 	homeTarget,
 	selectAnnounceTarget,
@@ -155,16 +156,19 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 
 	const announceValid = announce.featureId !== null;
 	// Preference weight only — verbosity never decides validity.
-	const verbosityFactor = input.verbosity;
-	const announceBase = announceValid ? config.announceBaseline * verbosityFactor : 0;
+	// Map trait → bounded speech multiplier so mid-range stays quieter than the
+	// old raw announceBaseline while high verbosity can still beat signal traffic.
+	const speechWeight = verbosityToSpeechWeight(input.verbosity);
+	const announceBase = announceValid ? config.announceBaseline * speechWeight : 0;
 	const announceFactors: CandidateFactor[] = announceValid
 		? [
 				{ code: 'announce_baseline', value: config.announceBaseline },
-				{ code: 'verbosity_factor', value: verbosityFactor }
+				{ code: 'verbosity', value: input.verbosity },
+				{ code: 'speech_weight', value: speechWeight }
 			]
 		: [];
 	const announceReasons: CandidateReasonCode[] = announceValid
-		? ['announce_baseline', 'verbosity_factor']
+		? ['announce_baseline', 'verbosity', 'speech_weight']
 		: ['no_unannounced_resource'];
 	const announceReference: CandidateReference | null =
 		announce.featureId && announce.resourceKind

@@ -123,8 +123,10 @@ function factorLabel(code: string): string {
 			return 'Signal recency';
 		case 'announce_baseline':
 			return 'Announce baseline';
-		case 'verbosity_factor':
-			return 'Verbosity factor';
+		case 'verbosity':
+			return 'Verbosity';
+		case 'speech_weight':
+			return 'Speech weight';
 		case 'wander_baseline':
 			return 'Wander baseline';
 		case 'continuity_bonus':

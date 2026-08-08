@@ -13,7 +13,8 @@ import {
 	mergeCognitionConfig,
 	selectBestCandidate,
 	selectResourceNeedTarget,
-	selectSignalInvestigationTarget
+	selectSignalInvestigationTarget,
+	verbosityToSpeechWeight
 } from './index';
 import type { ArbitrationInput, IntentionKind, PerceivedResource } from './types';
 
@@ -388,22 +389,27 @@ describe('announcement candidate', () => {
 			featureId: 'food-1',
 			featureKind: 'food'
 		});
-		// Fully talkative fixture: announce score equals baseline × verbosity (1).
-		expect(announce.score).toBe(DEFAULT_COGNITION_CONFIG.announceBaseline);
+		// Fully talkative fixture uses mapped speech weight (not raw trait identity).
+		const speechWeight = verbosityToSpeechWeight(1);
+		expect(announce.score).toBeCloseTo(
+			DEFAULT_COGNITION_CONFIG.announceBaseline * speechWeight,
+			10
+		);
 		expect(announce.factors).toEqual(
 			expect.arrayContaining([
 				{ code: 'announce_baseline', value: DEFAULT_COGNITION_CONFIG.announceBaseline },
-				{ code: 'verbosity_factor', value: 1 }
+				{ code: 'verbosity', value: 1 },
+				{ code: 'speech_weight', value: speechWeight }
 			])
 		);
+		// Raw baseline constant still sits between wander and bare-threshold visible need;
+		// scored announce uses speech weight so high verbosity can exceed that constant.
 		expect(DEFAULT_COGNITION_CONFIG.announceBaseline).toBeGreaterThan(
 			DEFAULT_COGNITION_CONFIG.wanderBaseline
 		);
-		// Bare-threshold *visible* need (threshold × 1.0) must still beat announce.
 		expect(DEFAULT_COGNITION_CONFIG.announceBaseline).toBeLessThan(
 			DEFAULT_COGNITION_CONFIG.seekFoodThreshold * DEFAULT_COGNITION_CONFIG.targetQualityVisible
 		);
-		// Announce beats max signal so post-consumption sharing wins over generic investigation.
 		expect(DEFAULT_COGNITION_CONFIG.announceBaseline).toBeGreaterThan(
 			DEFAULT_COGNITION_CONFIG.signalBaseline + DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax
 		);
@@ -825,7 +831,7 @@ describe('actionable resource weighting', () => {
 	});
 });
 
-describe('verbosity weighting (FLAME-84)', () => {
+describe('verbosity speech-weight mapping (FLAME-84)', () => {
 	const idleWithFood = {
 		currentIntention: 'wander' as const,
 		hunger: 0.1,
@@ -833,6 +839,21 @@ describe('verbosity weighting (FLAME-84)', () => {
 		energy: 0.95,
 		availableFood: [foodPerceived('food-1')]
 	};
+
+	function announceScoreAt(verbosity: number): number {
+		return DEFAULT_COGNITION_CONFIG.announceBaseline * verbosityToSpeechWeight(verbosity);
+	}
+
+	it('maps verbosity through a bounded speech weight (not raw identity)', () => {
+		expect(verbosityToSpeechWeight(0)).toBeCloseTo(0.1, 10);
+		expect(verbosityToSpeechWeight(0.5)).toBeCloseTo(0.65, 10);
+		expect(verbosityToSpeechWeight(1)).toBeCloseTo(1.2, 10);
+		// Midpoint stays quieter than the old always-chatty .44 baseline.
+		expect(announceScoreAt(0.5)).toBeLessThan(DEFAULT_COGNITION_CONFIG.announceBaseline);
+		// Upper range reaches/exceeds the old baseline so speech is not mute.
+		expect(announceScoreAt(0.85)).toBeGreaterThan(DEFAULT_COGNITION_CONFIG.announceBaseline);
+		expect(announceScoreAt(1)).toBeGreaterThan(DEFAULT_COGNITION_CONFIG.announceBaseline);
+	});
 
 	it('monotonically increases announce_resource score with higher verbosity', () => {
 		const low = byIntention(
@@ -844,11 +865,12 @@ describe('verbosity weighting (FLAME-84)', () => {
 		const high = byIntention(
 			arbitrate(baseInput({ ...idleWithFood, verbosity: 1 }))
 		).announce_resource!;
-		expect(low.score).toBeCloseTo(DEFAULT_COGNITION_CONFIG.announceBaseline * 0.2, 10);
-		expect(mid.score).toBeCloseTo(DEFAULT_COGNITION_CONFIG.announceBaseline * 0.5, 10);
-		expect(high.score).toBeCloseTo(DEFAULT_COGNITION_CONFIG.announceBaseline, 10);
-		expect(mid.score).toBeGreaterThan(low.score);
-		expect(high.score).toBeGreaterThan(mid.score);
+		expect(low.score).toBeCloseTo(announceScoreAt(0.2), 10);
+		expect(mid.score).toBeCloseTo(announceScoreAt(0.5), 10);
+		expect(high.score).toBeCloseTo(announceScoreAt(1), 10);
+		expect(mid.score).toBeGreaterThanOrEqual(low.score);
+		expect(high.score).toBeGreaterThanOrEqual(mid.score);
+		expect(high.score).toBeGreaterThan(low.score);
 	});
 
 	it('does not change other intention base scores when only verbosity changes', () => {
@@ -882,33 +904,89 @@ describe('verbosity weighting (FLAME-84)', () => {
 		expect(loud.announce_resource!.baseScore).toBeGreaterThan(quiet.announce_resource!.baseScore);
 	});
 
-	it('keeps announce_resource valid at minimum verbosity', () => {
-		const announce = byIntention(
-			arbitrate(baseInput({ ...idleWithFood, verbosity: 0 }))
-		).announce_resource!;
+	it('keeps announce_resource valid and strongly suppressed at low verbosity', () => {
+		const record = arbitrate(baseInput({ ...idleWithFood, verbosity: 0 }));
+		const announce = byIntention(record).announce_resource!;
 		expect(announce.valid).toBe(true);
-		expect(announce.score).toBe(0);
+		expect(announce.score).toBeCloseTo(announceScoreAt(0), 10);
 		// Valid-but-not-selected is annotated after choice; not an eligibility rejection.
 		expect(announce.rejectionReason).toBe('not_selected');
+		expect(announce.score).toBeLessThan(byIntention(record).wander!.score);
+		expect(record.selectedIntention).not.toBe('announce_resource');
 		expect(announce.factors).toEqual(
 			expect.arrayContaining([
 				{ code: 'announce_baseline', value: DEFAULT_COGNITION_CONFIG.announceBaseline },
-				{ code: 'verbosity_factor', value: 0 }
+				{ code: 'verbosity', value: 0 },
+				{ code: 'speech_weight', value: verbosityToSpeechWeight(0) }
 			])
 		);
 	});
 
-	it('lets quiet creatures prefer wander while talkative ones announce', () => {
-		const quiet = arbitrate(baseInput({ ...idleWithFood, verbosity: 0.2 }));
-		const loud = arbitrate(baseInput({ ...idleWithFood, verbosity: 1 }));
-		expect(quiet.selectedIntention).toBe('wander');
-		expect(loud.selectedIntention).toBe('announce_resource');
-		const quietMap = byIntention(quiet);
-		expect(quietMap.announce_resource!.valid).toBe(true);
-		expect(quietMap.announce_resource!.score).toBeLessThan(quietMap.wander!.score);
+	it('keeps medium verbosity quieter than the old raw baseline', () => {
+		const mid = byIntention(
+			arbitrate(baseInput({ ...idleWithFood, verbosity: 0.5 }))
+		).announce_resource!;
+		expect(mid.valid).toBe(true);
+		expect(mid.score).toBeLessThan(DEFAULT_COGNITION_CONFIG.announceBaseline);
+		// Mid speech is not the old always-chatty behaviour — wander can still win.
+		const midRecord = arbitrate(baseInput({ ...idleWithFood, verbosity: 0.5 }));
+		expect(midRecord.selectedIntention).toBe('wander');
 	});
 
-	it('does not force announcement over strong visible hunger even at high verbosity', () => {
+	it('lets moderately high verbosity announce when little else competes', () => {
+		const record = arbitrate(baseInput({ ...idleWithFood, verbosity: 0.8 }));
+		expect(record.selectedIntention).toBe('announce_resource');
+		const map = byIntention(record);
+		expect(map.announce_resource!.score).toBeGreaterThan(map.wander!.score);
+	});
+
+	it('lets high verbosity beat generic signal traffic', () => {
+		let memory = emptyMemory();
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 9,
+			emissionId: 'em-noise',
+			symbolId: 'glyph-0',
+			origin: { x: 4, y: 4 }
+		});
+		const record = arbitrate(
+			baseInput({
+				...idleWithFood,
+				verbosity: 0.9,
+				memory,
+				currentIntention: 'wander'
+			})
+		);
+		expect(record.selectedIntention).toBe('announce_resource');
+		const map = byIntention(record);
+		expect(map.announce_resource!.score).toBeGreaterThan(map.investigate_signal!.score);
+	});
+
+	it('lets very high verbosity interrupt ongoing generic investigation despite continuity', () => {
+		let memory = emptyMemory();
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 9,
+			emissionId: 'em-noise',
+			symbolId: 'glyph-0',
+			origin: { x: 4, y: 4 }
+		});
+		const record = arbitrate(
+			baseInput({
+				...idleWithFood,
+				verbosity: 1,
+				memory,
+				currentIntention: 'investigate_signal',
+				currentTarget: { kind: 'point', position: { x: 4, y: 4 } }
+			})
+		);
+		expect(record.selectedIntention).toBe('announce_resource');
+		const map = byIntention(record);
+		expect(map.investigate_signal!.continuityAdjustment).toBe(
+			DEFAULT_COGNITION_CONFIG.continuityBonus
+		);
+		expect(map.announce_resource!.score).toBeGreaterThan(map.investigate_signal!.score);
+	});
+
+	it('does not force announcement over strong visible hunger even at very high verbosity', () => {
 		const record = arbitrate(
 			baseInput({
 				verbosity: 1,

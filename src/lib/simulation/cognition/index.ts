@@ -24,6 +24,8 @@ export { INTENTION_RANK, INTENTION_TIE_BREAK_ORDER } from './types';
 
 export { DEFAULT_COGNITION_CONFIG, mergeCognitionConfig } from './score-constants';
 
+export { SPEECH_WEIGHT_FLOOR, SPEECH_WEIGHT_SPAN, verbosityToSpeechWeight } from './speech-weight';
+
 export {
 	homeTarget,
 	selectAnnounceTarget,

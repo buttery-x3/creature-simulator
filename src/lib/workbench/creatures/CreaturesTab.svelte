@@ -88,6 +88,10 @@
 					<dd data-testid="inspector-facing">{selectedCreature.facing.toFixed(3)}</dd>
 				</div>
 				<div>
+					<dt>Verbosity</dt>
+					<dd data-testid="inspector-verbosity">{selectedCreature.verbosity.toFixed(2)}</dd>
+				</div>
+				<div>
 					<dt>Intention</dt>
 					<dd data-testid="inspector-intention">{selectedCreature.intention}</dd>
 				</div>

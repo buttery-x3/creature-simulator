@@ -154,11 +154,17 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 		: null;
 
 	const announceValid = announce.featureId !== null;
+	// Preference weight only — verbosity never decides validity.
+	const verbosityFactor = input.verbosity;
+	const announceBase = announceValid ? config.announceBaseline * verbosityFactor : 0;
 	const announceFactors: CandidateFactor[] = announceValid
-		? [{ code: 'announce_baseline', value: config.announceBaseline }]
+		? [
+				{ code: 'announce_baseline', value: config.announceBaseline },
+				{ code: 'verbosity_factor', value: verbosityFactor }
+			]
 		: [];
 	const announceReasons: CandidateReasonCode[] = announceValid
-		? ['announce_baseline']
+		? ['announce_baseline', 'verbosity_factor']
 		: ['no_unannounced_resource'];
 	const announceReference: CandidateReference | null =
 		announce.featureId && announce.resourceKind
@@ -229,7 +235,7 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 		candidate({
 			intention: 'announce_resource',
 			valid: announceValid,
-			baseScore: announceValid ? config.announceBaseline : 0,
+			baseScore: announceBase,
 			target: announce.target,
 			reference: announceReference,
 			factors: announceFactors,

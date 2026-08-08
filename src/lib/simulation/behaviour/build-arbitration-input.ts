@@ -91,6 +91,7 @@ export function buildArbitrationInput(
 		hunger: creature.hunger,
 		thirst: creature.thirst,
 		energy: creature.energy,
+		verbosity: creature.verbosity,
 		availableFood,
 		availableWater,
 		memory: creature.memory,

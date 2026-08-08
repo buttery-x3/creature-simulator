@@ -28,6 +28,7 @@ function formatCreature(creature: Creature): string {
 		position,
 		facing,
 		movementSpeed,
+		verbosity,
 		hunger,
 		thirst,
 		energy,
@@ -39,6 +40,7 @@ function formatCreature(creature: Creature): string {
 	return (
 		`${id}: pos=(${position.x.toFixed(3)}, ${position.y.toFixed(3)}) ` +
 		`facing=${facing.toFixed(3)} speed=${movementSpeed.toFixed(3)} ` +
+		`verbosity=${verbosity.toFixed(3)} ` +
 		`needs=[h=${hunger.toFixed(2)} t=${thirst.toFixed(2)} e=${energy.toFixed(2)}] ` +
 		`intention=${intention} action=${action} target=${formatTarget(target)} ` +
 		`reconsider@${nextReconsiderAt.toFixed(2)}`
@@ -129,6 +131,7 @@ export function formatCreatureInspection(
 		`id: ${creature.id}`,
 		`position: (${creature.position.x.toFixed(3)}, ${creature.position.y.toFixed(3)})`,
 		`facing: ${creature.facing.toFixed(3)}`,
+		`verbosity: ${creature.verbosity.toFixed(3)} (speech preference; 0=quiet 1=talkative)`,
 		`hunger: ${creature.hunger.toFixed(3)} (pressure; 0=sated 1=max)`,
 		`thirst: ${creature.thirst.toFixed(3)} (pressure; 0=quenched 1=max)`,
 		`energy: ${creature.energy.toFixed(3)} (satisfaction; 0=exhausted 1=full)`,
@@ -196,10 +199,14 @@ export function formatCreatureInspection(
 			const reject = c.rejectionReason ? ` | reject: ${c.rejectionReason}` : '';
 			const continuity =
 				c.continuityAdjustment !== 0 ? ` cont=${c.continuityAdjustment.toFixed(3)}` : '';
+			const factors =
+				c.factors.length > 0
+					? ` factors=[${c.factors.map((f) => `${f.code}=${f.value.toFixed(3)}`).join(', ')}]`
+					: '';
 			lines.push(
 				`  ${c.intention}: score=${c.score.toFixed(3)} base=${c.baseScore.toFixed(3)}${continuity} ${flag}` +
 					` codes=[${c.reasonCodes.join(',')}]${reject}` +
-					` target=${formatTarget(c.target)}`
+					` target=${formatTarget(c.target)}${factors}`
 			);
 		}
 	}

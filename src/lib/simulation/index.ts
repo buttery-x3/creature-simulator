@@ -59,8 +59,10 @@ export { DEFAULT_SYMBOL_INVENTORY, LEXICON_MEANINGS } from './types';
 export {
 	DEFAULT_SIMULATION_CONFIG,
 	SimulationCreationError,
+	VERBOSITY_CHANNEL,
 	createSimulation,
 	defaultSimulationConfig,
+	sampleVerbosity,
 	simulationSnapshot
 } from './create-simulation';
 

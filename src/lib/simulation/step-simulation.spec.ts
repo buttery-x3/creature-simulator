@@ -37,6 +37,17 @@ describe('stepSimulation', () => {
 		expect(a.timeSeconds).toBeCloseTo(90 * config.fixedDt, 10);
 	});
 
+	it('does not mutate lifetime verbosity under ordinary stepping', () => {
+		const config = defaultSimulationConfig('verbosity-stable');
+		const initial = createSimulation(config);
+		const before = initial.creatures.map((c) => ({ id: c.id, verbosity: c.verbosity }));
+		let state = initial;
+		for (let i = 0; i < 120; i += 1) {
+			state = stepSimulation(state, config);
+		}
+		expect(state.creatures.map((c) => ({ id: c.id, verbosity: c.verbosity }))).toEqual(before);
+	});
+
 	it('keeps creatures inside world bounds over a long run', () => {
 		const config = longRunConfig('long-bounds');
 		let state = createSimulation(config);
@@ -373,6 +384,7 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			hunger: announcedCreature.hunger,
 			thirst: announcedCreature.thirst,
 			energy: announcedCreature.energy,
+			verbosity: announcedCreature.verbosity,
 			availableFood: [
 				{
 					featureId: food.id,
@@ -424,5 +436,80 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 		expect(c.intention).toBe('satisfy_hunger');
 		expect(c.emissionCount).toBe(0);
 		expect(hasResourceAnnouncementMemory(c.memory, food.id)).toBe(false);
+	});
+});
+
+describe('mixed verbosity population (FLAME-84)', () => {
+	it('does not make every eligible creature announce while some still communicate', () => {
+		const config: SimulationConfig = {
+			...defaultSimulationConfig('mixed-verbosity-pop'),
+			creatureCount: 12,
+			sensingRadius: 6,
+			perceptionIntervalSeconds: 0.01,
+			emissionCooldownSeconds: 0,
+			resourceAnnouncementClarityMargin: 0,
+			initialHunger: 0.1,
+			initialThirst: 0.1,
+			initialEnergy: 1,
+			hungerRisePerSecond: 0,
+			thirstRisePerSecond: 0,
+			energyDrainPerSecond: 0,
+			wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+			announceBaseline: DEFAULT_COGNITION_CONFIG.announceBaseline,
+			signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
+			continuityBonus: DEFAULT_COGNITION_CONFIG.continuityBonus
+		};
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		// Place everyone on the same unannounced food with low needs so announce
+		// competes only with wander/optional behaviour — eligibility is uniform.
+		const creatures = base.creatures.map((c) => ({
+			...c,
+			position: { x: food.position.x, y: food.position.y },
+			hunger: 0.1,
+			thirst: 0.1,
+			energy: 1,
+			intention: 'wander' as const,
+			action: 'wander' as const,
+			movementSpeed: 0,
+			nextReconsiderAt: 0,
+			pendingArbitrationTrigger: 'relevant_resource_perception_change' as const,
+			// Clear any initial announce memory so validity is uniform.
+			memory: {
+				...c.memory,
+				entries: c.memory.entries.filter((e) => e.kind !== 'resource_announcement')
+			}
+		}));
+		// Verbosity variation must exist for the scenario to be meaningful.
+		const verbosityValues = new Set(creatures.map((c) => c.verbosity));
+		expect(verbosityValues.size).toBeGreaterThan(1);
+
+		let state: SimulationState = {
+			...base,
+			creatures,
+			activeEmissions: [],
+			recentEmissions: []
+		};
+
+		// One behaviour step: perception + arbitration with the shared resource in view.
+		state = stepSimulation(state, config);
+
+		const announcers = state.creatures.filter((c) => c.intention === 'announce_resource');
+		const nonAnnouncers = state.creatures.filter((c) => c.intention !== 'announce_resource');
+		// Mixed outcomes: not everyone talks, but communication still occurs.
+		expect(announcers.length).toBeGreaterThan(0);
+		expect(nonAnnouncers.length).toBeGreaterThan(0);
+		// Preference-only: every creature still had a valid announce candidate.
+		for (const c of state.creatures) {
+			const announce = c.lastArbitration?.candidates.find(
+				(cand) => cand.intention === 'announce_resource'
+			);
+			expect(announce?.valid).toBe(true);
+			expect(announce?.factors.some((f) => f.code === 'verbosity_factor')).toBe(true);
+		}
+		// Talkative announcers are at least as verbose as the quietest non-announcer.
+		const maxNonAnnounce = Math.max(...nonAnnouncers.map((c) => c.verbosity));
+		const minAnnounce = Math.min(...announcers.map((c) => c.verbosity));
+		expect(minAnnounce).toBeGreaterThanOrEqual(maxNonAnnounce);
 	});
 });

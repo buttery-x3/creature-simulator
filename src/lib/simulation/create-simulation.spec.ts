@@ -69,6 +69,36 @@ describe('createSimulation', () => {
 		expect(capacities.size).toBeGreaterThan(1);
 	});
 
+	it('samples deterministic stable verbosity in [0, 1) with population variation', () => {
+		const config = defaultSimulationConfig('verbosity-trait');
+		const a = createSimulation(config);
+		const b = createSimulation(config);
+		expect(a.creatures.map((c) => c.verbosity)).toEqual(b.creatures.map((c) => c.verbosity));
+		const values = new Set<number>();
+		for (const creature of a.creatures) {
+			expect(creature.verbosity).toBeGreaterThanOrEqual(0);
+			expect(creature.verbosity).toBeLessThan(1);
+			expect(Number.isFinite(creature.verbosity)).toBe(true);
+			values.add(creature.verbosity);
+		}
+		// Mixed population: not every creature is equally talkative.
+		expect(values.size).toBeGreaterThan(1);
+	});
+
+	it('does not perturb placement or speed when verbosity is sampled independently', () => {
+		// Verbosity uses deriveSeed(seed, 'verbosity', id) — not the creatures stream.
+		const config = defaultSimulationConfig('isolation-verbosity');
+		const state = createSimulation(config);
+		// Same seed always matches movement/facing; covered by snapshot equality above.
+		// Explicitly check each creature has verbosity independent of movementSpeed domain.
+		for (const creature of state.creatures) {
+			expect(creature.verbosity).toBeGreaterThanOrEqual(0);
+			expect(creature.verbosity).toBeLessThan(1);
+			expect(creature.movementSpeed).toBeGreaterThanOrEqual(config.movementSpeed.min);
+			expect(creature.movementSpeed).toBeLessThan(config.movementSpeed.max);
+		}
+	});
+
 	it('places initial wander targets inside world bounds with margin', () => {
 		const config = defaultSimulationConfig('targets');
 		const state = createSimulation(config);

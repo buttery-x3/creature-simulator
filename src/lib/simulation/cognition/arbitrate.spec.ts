@@ -29,6 +29,8 @@ function baseInput(overrides: Partial<ArbitrationInput> = {}): ArbitrationInput 
 		hunger: 0.1,
 		thirst: 0.1,
 		energy: 0.95,
+		// Fully talkative default so existing announce-vs-baseline margins stay true.
+		verbosity: 1,
 		availableFood: [],
 		availableWater: [],
 		memory: emptyMemory(),
@@ -386,7 +388,14 @@ describe('announcement candidate', () => {
 			featureId: 'food-1',
 			featureKind: 'food'
 		});
+		// Fully talkative fixture: announce score equals baseline × verbosity (1).
 		expect(announce.score).toBe(DEFAULT_COGNITION_CONFIG.announceBaseline);
+		expect(announce.factors).toEqual(
+			expect.arrayContaining([
+				{ code: 'announce_baseline', value: DEFAULT_COGNITION_CONFIG.announceBaseline },
+				{ code: 'verbosity_factor', value: 1 }
+			])
+		);
 		expect(DEFAULT_COGNITION_CONFIG.announceBaseline).toBeGreaterThan(
 			DEFAULT_COGNITION_CONFIG.wanderBaseline
 		);
@@ -813,5 +822,124 @@ describe('actionable resource weighting', () => {
 		);
 		expect(withNeed.selectedIntention).toBe('satisfy_hunger');
 		expect(withNeed.selectedIntention).not.toBe('wander');
+	});
+});
+
+describe('verbosity weighting (FLAME-84)', () => {
+	const idleWithFood = {
+		currentIntention: 'wander' as const,
+		hunger: 0.1,
+		thirst: 0.1,
+		energy: 0.95,
+		availableFood: [foodPerceived('food-1')]
+	};
+
+	it('monotonically increases announce_resource score with higher verbosity', () => {
+		const low = byIntention(
+			arbitrate(baseInput({ ...idleWithFood, verbosity: 0.2 }))
+		).announce_resource!;
+		const mid = byIntention(
+			arbitrate(baseInput({ ...idleWithFood, verbosity: 0.5 }))
+		).announce_resource!;
+		const high = byIntention(
+			arbitrate(baseInput({ ...idleWithFood, verbosity: 1 }))
+		).announce_resource!;
+		expect(low.score).toBeCloseTo(DEFAULT_COGNITION_CONFIG.announceBaseline * 0.2, 10);
+		expect(mid.score).toBeCloseTo(DEFAULT_COGNITION_CONFIG.announceBaseline * 0.5, 10);
+		expect(high.score).toBeCloseTo(DEFAULT_COGNITION_CONFIG.announceBaseline, 10);
+		expect(mid.score).toBeGreaterThan(low.score);
+		expect(high.score).toBeGreaterThan(mid.score);
+	});
+
+	it('does not change other intention base scores when only verbosity changes', () => {
+		let memory = emptyMemory();
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 5,
+			emissionId: 'em-1',
+			symbolId: 'glyph-0',
+			origin: { x: 3, y: 4 }
+		});
+		const shared = {
+			hunger: 0.5,
+			thirst: 0.55,
+			energy: 0.5,
+			memory,
+			availableFood: [foodPerceived('food-1')],
+			availableWater: [waterPerceived('water-1')]
+		};
+		const quiet = byIntention(arbitrate(baseInput({ ...shared, verbosity: 0.1 })));
+		const loud = byIntention(arbitrate(baseInput({ ...shared, verbosity: 0.9 })));
+		for (const intention of [
+			'satisfy_hunger',
+			'satisfy_thirst',
+			'rest',
+			'investigate_signal',
+			'wander'
+		] as const) {
+			expect(quiet[intention]!.baseScore).toBeCloseTo(loud[intention]!.baseScore, 10);
+			expect(quiet[intention]!.score).toBeCloseTo(loud[intention]!.score, 10);
+		}
+		expect(loud.announce_resource!.baseScore).toBeGreaterThan(quiet.announce_resource!.baseScore);
+	});
+
+	it('keeps announce_resource valid at minimum verbosity', () => {
+		const announce = byIntention(
+			arbitrate(baseInput({ ...idleWithFood, verbosity: 0 }))
+		).announce_resource!;
+		expect(announce.valid).toBe(true);
+		expect(announce.score).toBe(0);
+		// Valid-but-not-selected is annotated after choice; not an eligibility rejection.
+		expect(announce.rejectionReason).toBe('not_selected');
+		expect(announce.factors).toEqual(
+			expect.arrayContaining([
+				{ code: 'announce_baseline', value: DEFAULT_COGNITION_CONFIG.announceBaseline },
+				{ code: 'verbosity_factor', value: 0 }
+			])
+		);
+	});
+
+	it('lets quiet creatures prefer wander while talkative ones announce', () => {
+		const quiet = arbitrate(baseInput({ ...idleWithFood, verbosity: 0.2 }));
+		const loud = arbitrate(baseInput({ ...idleWithFood, verbosity: 1 }));
+		expect(quiet.selectedIntention).toBe('wander');
+		expect(loud.selectedIntention).toBe('announce_resource');
+		const quietMap = byIntention(quiet);
+		expect(quietMap.announce_resource!.valid).toBe(true);
+		expect(quietMap.announce_resource!.score).toBeLessThan(quietMap.wander!.score);
+	});
+
+	it('does not force announcement over strong visible hunger even at high verbosity', () => {
+		const record = arbitrate(
+			baseInput({
+				verbosity: 1,
+				hunger: 0.9,
+				availableFood: [foodPerceived('food-1')]
+			})
+		);
+		expect(record.selectedIntention).toBe('satisfy_hunger');
+		const map = byIntention(record);
+		expect(map.announce_resource!.valid).toBe(true);
+		expect(map.satisfy_hunger!.score).toBeGreaterThan(map.announce_resource!.score);
+	});
+
+	it('still suppresses announced features regardless of verbosity', () => {
+		let memory = emptyMemory();
+		memory = rememberResourceAnnouncement(memory, {
+			rememberedAt: 1,
+			featureId: 'food-1',
+			resourceKind: 'food',
+			emissionId: 'em-1'
+		});
+		const announce = byIntention(
+			arbitrate(
+				baseInput({
+					verbosity: 1,
+					memory,
+					availableFood: [foodPerceived('food-1')]
+				})
+			)
+		).announce_resource!;
+		expect(announce.valid).toBe(false);
+		expect(announce.rejectionReason).toBe('no_unannounced_resource');
 	});
 });

@@ -383,6 +383,19 @@ function sampleHomeSpawn(
 	};
 }
 
+/** Seed channel for independent per-creature speech-preference sampling. */
+export const VERBOSITY_CHANNEL = 'verbosity';
+
+/**
+ * Sample lifetime-stable verbosity in [0, 1) from an independent seeded stream.
+ * Identical (seed, creatureId) always yields the same value; does not share the
+ * creatures placement/speed stream.
+ */
+export function sampleVerbosity(simulationSeed: string, creatureId: string): number {
+	const rng = createSeededRng(deriveSeed(simulationSeed, VERBOSITY_CHANNEL, creatureId));
+	return rng.next();
+}
+
 function createCreatures(
 	config: SimulationConfig,
 	habitat: SimulationState['habitat']
@@ -416,12 +429,14 @@ function createCreatures(
 
 		const preferredSymbolId = selectPreferredSymbol(config.seed, id, config.symbolInventory);
 		const memoryCapacity = sampleMemoryCapacity(config.seed, id, config.memoryCapacityRange);
+		const verbosity = sampleVerbosity(config.seed, id);
 
 		const draft: Creature = {
 			id,
 			position,
 			facing,
 			movementSpeed,
+			verbosity,
 			wanderTarget,
 			wanderDecisionIndex,
 			searchTarget,

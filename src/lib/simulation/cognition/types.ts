@@ -66,6 +66,7 @@ export type CandidateReasonCode =
 	| 'signal_baseline'
 	| 'signal_recency'
 	| 'announce_baseline'
+	| 'verbosity_factor'
 	| 'continuity_bonus'
 	| 'target_quality'
 	| 'search_fallback'
@@ -140,6 +141,11 @@ export type ArbitrationInput = {
 	hunger: number;
 	thirst: number;
 	energy: number;
+	/**
+	 * Creature speech-preference scalar in [0, 1].
+	 * Weights announce_resource (and future speech intentions) only — never eligibility.
+	 */
+	verbosity: number;
 	/** Available food currently in perception (already filtered usable). */
 	availableFood: readonly PerceivedResource[];
 	/** Available water currently in perception (already filtered usable). */

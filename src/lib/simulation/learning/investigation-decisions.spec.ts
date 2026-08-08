@@ -16,6 +16,7 @@ function baseInput(overrides: Partial<ArbitrationInput> = {}): ArbitrationInput 
 		hunger: 0.1,
 		thirst: 0.1,
 		energy: 0.95,
+		verbosity: 1,
 		availableFood: [],
 		availableWater: [],
 		memory: createEmptyMemory(16),

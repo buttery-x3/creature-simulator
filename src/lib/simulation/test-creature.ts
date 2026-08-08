@@ -18,6 +18,8 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		position: { x: 0, y: 0 },
 		facing: 0,
 		movementSpeed: 1,
+		// Talkative default so pure fixtures keep full announce_baseline competitiveness.
+		verbosity: 1,
 		wanderTarget,
 		wanderDecisionIndex: 0,
 		searchTarget,

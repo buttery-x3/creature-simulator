@@ -14,6 +14,7 @@ describe('selection purity', () => {
 		const text = formatCreatureInspection(creature, state.timeSeconds);
 		expect(text).toContain(creature.id);
 		expect(text).toContain('hunger:');
+		expect(text).toContain('verbosity:');
 		expect(simulationSnapshot(state)).toBe(before);
 	});
 });

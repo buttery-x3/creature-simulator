@@ -136,6 +136,13 @@ export type Creature = {
 	facing: number;
 	/** Simulation units per simulated second. */
 	movementSpeed: number;
+	/**
+	 * Lifetime-stable preference for speech/communication intentions (domain [0, 1]).
+	 * Sampled deterministically at creation from an independent seed channel.
+	 * Generic trait — first consumer is announce_resource cognition scoring only.
+	 * Not derived from needs, memory, lexicon, or current action; not mutated over time.
+	 */
+	verbosity: number;
 	/** Wander stream destination (also mirrored in target when intention is wander). */
 	wanderTarget: Vec2;
 	/** Increments each time a new wander target is chosen. */

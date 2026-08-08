@@ -23,6 +23,7 @@ function baseArbitration(overrides: Partial<ArbitrationInput> = {}): Arbitration
 		hunger: 0,
 		thirst: 0,
 		energy: 1,
+		verbosity: 1,
 		availableFood: [],
 		availableWater: [],
 		memory: createEmptyMemory(4),

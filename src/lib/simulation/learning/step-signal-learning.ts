@@ -2,14 +2,16 @@
  * Fixed-step learning advance hooks.
  *
  * - Arrival resolution: ephemeral local inspection for evidence only, reinforce once,
- *   recompute lexicon, clear investigation execution context.
- * - Interruption: clear context when arbitration selects a different intention.
+ *   recompute lexicon, consume the investigated heard_signal memory, clear execution context.
+ * - Interruption: clear context when arbitration selects a different intention;
+ *   heard_signal memory is retained (still unresolved).
  *
- * Heard signals are retained in memory (FLAME-78); investigation selection is cognition.
+ * Investigation selection is cognition from remaining heard_signal memories.
  */
 
 import type { Habitat } from '$lib/habitat';
 import { queryFeaturesNear } from '../behaviour/habitat-feature-query';
+import { forgetHeardSignal } from '../memory/mutate';
 import type { Creature, SimulationConfig } from '../types';
 import { applyLexiconResolution } from './lexicon-resolution';
 import {
@@ -78,7 +80,11 @@ function snapshotStrengths(
 
 /**
  * Resolve investigation at the origin: ephemeral local inspection for learning
- * evidence, reinforce once, clear active. Call only when action is `investigate`.
+ * evidence, reinforce once, consume the heard_signal for this emission, clear active.
+ * Call only when action is `investigate` after successful arrival.
+ *
+ * Memory consumption happens here so subsequent action_complete arbitration no
+ * longer sees this emission as an investigate_signal candidate.
  */
 export function resolveInvestigationAtSite(
 	creature: Creature,
@@ -160,8 +166,12 @@ export function resolveInvestigationAtSite(
 		`after investigation ${active.emissionId} symbol=${active.symbolId} outcome=${outcome}`
 	);
 
+	// Successful inspection resolves the actionable chirp — even on no_evidence.
+	const memory = forgetHeardSignal(creature.memory, active.emissionId);
+
 	return {
 		...creature,
+		memory,
 		symbolAssociations: associations,
 		lexicon: lexiconApplied.lexicon,
 		recentLexiconChanges: lexiconApplied.recentLexiconChanges,

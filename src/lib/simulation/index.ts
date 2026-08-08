@@ -141,6 +141,7 @@ export {
 	listHeardSignalMemories,
 	listResourceObservations,
 	memoryUsage,
+	forgetHeardSignal,
 	rememberHeardSignal,
 	rememberResourceAnnouncement,
 	rememberResourceObservation,

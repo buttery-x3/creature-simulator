@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { generateHabitat } from '$lib/habitat';
-import { createSimulation, defaultSimulationConfig, stepSimulation } from '../index';
+import {
+	arbitrate,
+	createSimulation,
+	defaultSimulationConfig,
+	DEFAULT_COGNITION_CONFIG,
+	hasHeardSignalMemory,
+	stepSimulation
+} from '../index';
 import { testCreature } from '../test-creature';
 import { emptyPerception } from '../behaviour/perception';
 import { stepCreatureBehaviour } from '../behaviour/step-creature-behaviour';
 import { DEFAULT_SIMULATION_CONFIG } from '../create-simulation';
+import { createEmptyMemory } from '../memory/create-memory';
+import { rememberHeardSignal } from '../memory/mutate';
 import { beginInvestigation } from './signal-investigation';
 import { interruptInvestigation, resolveInvestigationAtSite } from './step-signal-learning';
 
@@ -64,10 +73,18 @@ describe('step signal learning', () => {
 			waterCount: 0
 		});
 		const food = habitat.food[0]!;
+		let memory = createEmptyMemory(8);
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 1,
+			emissionId: 'em-1',
+			symbolId: 'glyph-2',
+			origin: { x: food.position.x, y: food.position.y }
+		});
 		const creature = testCreature({
 			position: { x: food.position.x, y: food.position.y },
 			action: 'investigate',
 			intention: 'investigate_signal',
+			memory,
 			activeInvestigation: beginInvestigation(
 				{
 					emissionId: 'em-1',
@@ -79,6 +96,7 @@ describe('step signal learning', () => {
 		});
 		const next = resolveInvestigationAtSite(creature, habitat, 2, learningConfig);
 		expect(next.activeInvestigation).toBeNull();
+		expect(hasHeardSignalMemory(next.memory, 'em-1')).toBe(false);
 		const assoc = next.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!;
 		expect(assoc.foodStrength).toBe(0.25);
 		expect(assoc.foodEvidenceCount).toBe(1);
@@ -94,6 +112,7 @@ describe('step signal learning', () => {
 		expect(again.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!.foodEvidenceCount).toBe(
 			1
 		);
+		expect(again.recentLearning).toHaveLength(1);
 	});
 
 	it('records no_evidence without changing associations and clears active', () => {
@@ -142,6 +161,126 @@ describe('step signal learning', () => {
 		const next = interruptInvestigation(creature, 3, 'switched intention', learningConfig);
 		expect(next.activeInvestigation).toBeNull();
 		expect(next.recentLearning.at(-1)?.outcome).toBe('interrupted');
+	});
+
+	it('retains heard_signal memory when investigation is interrupted', () => {
+		let memory = createEmptyMemory(8);
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 1,
+			emissionId: 'em-1',
+			symbolId: 'glyph-1',
+			origin: { x: 1, y: 1 }
+		});
+		const creature = testCreature({
+			memory,
+			activeInvestigation: beginInvestigation(
+				{
+					emissionId: 'em-1',
+					symbolId: 'glyph-1',
+					origin: { x: 1, y: 1 }
+				},
+				1
+			)
+		});
+		const next = interruptInvestigation(creature, 3, 'switched intention', learningConfig);
+		expect(next.activeInvestigation).toBeNull();
+		expect(hasHeardSignalMemory(next.memory, 'em-1')).toBe(true);
+	});
+
+	it('consumes only the investigated emission when multiple signals are remembered', () => {
+		const habitat = generateHabitat({
+			...DEFAULT_SIMULATION_CONFIG.habitat,
+			seed: 'resolve-multi-signal',
+			foodCount: 1,
+			waterCount: 0
+		});
+		const food = habitat.food[0]!;
+		let memory = createEmptyMemory(8);
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 1,
+			emissionId: 'em-1',
+			symbolId: 'glyph-0',
+			origin: { x: 9, y: 9 }
+		});
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 2,
+			emissionId: 'em-2',
+			symbolId: 'glyph-2',
+			origin: { x: food.position.x, y: food.position.y }
+		});
+		const creature = testCreature({
+			position: { x: food.position.x, y: food.position.y },
+			action: 'investigate',
+			intention: 'investigate_signal',
+			memory,
+			activeInvestigation: beginInvestigation(
+				{
+					emissionId: 'em-2',
+					symbolId: 'glyph-2',
+					origin: { x: food.position.x, y: food.position.y }
+				},
+				2
+			)
+		});
+		const next = resolveInvestigationAtSite(creature, habitat, 3, learningConfig);
+		expect(hasHeardSignalMemory(next.memory, 'em-2')).toBe(false);
+		expect(hasHeardSignalMemory(next.memory, 'em-1')).toBe(true);
+
+		const record = arbitrate({
+			timeSeconds: 3,
+			trigger: 'action_complete',
+			position: next.position,
+			hunger: 0.1,
+			thirst: 0.1,
+			energy: 0.95,
+			availableFood: [],
+			availableWater: [],
+			memory: next.memory,
+			currentIntention: null,
+			currentTarget: null,
+			homeFeatureId: habitat.home.id,
+			config: DEFAULT_COGNITION_CONFIG
+		});
+		expect(record.selectedIntention).toBe('investigate_signal');
+		const inv = record.candidates.find((c) => c.intention === 'investigate_signal');
+		expect(inv?.reference).toMatchObject({ emissionId: 'em-1' });
+	});
+
+	it('consumes heard_signal on no_evidence successful inspection', () => {
+		let memory = createEmptyMemory(4);
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 1,
+			emissionId: 'em-4',
+			symbolId: 'glyph-0',
+			origin: { x: 0, y: 0 }
+		});
+		const habitat = generateHabitat({
+			...DEFAULT_SIMULATION_CONFIG.habitat,
+			seed: 'resolve-empty-consume',
+			foodCount: 1,
+			waterCount: 0
+		});
+		const creature = testCreature({
+			position: { x: 0, y: 0 },
+			action: 'investigate',
+			intention: 'investigate_signal',
+			memory,
+			activeInvestigation: beginInvestigation(
+				{
+					emissionId: 'em-4',
+					symbolId: 'glyph-0',
+					origin: { x: 0, y: 0 }
+				},
+				1
+			),
+			perception: emptyPerception()
+		});
+		const next = resolveInvestigationAtSite(creature, habitat, 2, {
+			...learningConfig,
+			learningEvidenceRadius: 0.1
+		});
+		expect(next.recentLearning.at(-1)?.outcome).toBe('no_evidence');
+		expect(hasHeardSignalMemory(next.memory, 'em-4')).toBe(false);
 	});
 
 	it('creates independent zeroed associations per creature', () => {

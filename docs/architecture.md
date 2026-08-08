@@ -347,7 +347,7 @@ Fixed-step order (authoritative):
 
 **Eligibility:** a signal heard in step _N_ is remembered at the end of step _N_ and is investigable from step _N+1_ via ordinary arbitration. No Svelte/renderer timing.
 
-**Investigation lifecycle:** hear → `heard_signal` memory → request arbitration → (if selected) investigate intention → travel to origin → stop (`investigate`) → sense → update evidence → resolve exclusive lexicon → clear execution context → re-arbitrate.
+**Investigation lifecycle:** hear → `heard_signal` memory → request arbitration → (if selected) investigate intention → travel to origin → stop (`investigate`) → sense → update evidence → resolve exclusive lexicon → **consume that emission’s `heard_signal` memory** → clear execution context → re-arbitrate. Successful arrival inspection consumes the actionable chirp (including `no_evidence`); interruption before inspection retains the memory so it may be selected again.
 
 **Announcement lifecycle:** cognition selects `announce_resource` → executor evaluates clarity / speaking position / emit → no behaviour lock; stronger needs interrupt via ordinary continuity scoring.
 

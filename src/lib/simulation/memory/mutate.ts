@@ -125,6 +125,15 @@ export function forgetEntries(
 }
 
 /**
+ * Consume a heard_signal after successful investigation of that emission.
+ * No-op if the emission is not retained. Does not reset nextSequence.
+ * Interrupted investigations must not call this — the chirp stays actionable.
+ */
+export function forgetHeardSignal(memory: CreatureMemory, emissionId: string): CreatureMemory {
+	return forgetEntries(memory, (e) => e.kind === 'heard_signal' && e.emissionId === emissionId);
+}
+
+/**
  * Drop oldest entries until length ≤ capacity.
  * Deterministic: lowest `sequence` first.
  */

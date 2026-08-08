@@ -45,6 +45,7 @@ export {
 export {
 	evictToCapacity,
 	forgetEntries,
+	forgetHeardSignal,
 	rememberHeardSignal,
 	rememberResourceAnnouncement,
 	rememberResourceObservation

@@ -19,6 +19,7 @@ import {
 } from './query';
 import {
 	evictToCapacity,
+	forgetHeardSignal,
 	rememberHeardSignal,
 	rememberResourceAnnouncement,
 	rememberResourceObservation
@@ -349,6 +350,54 @@ describe('rememberHeardSignal', () => {
 			origin: { x: 1, y: 1 }
 		});
 		expect(countMemoryEntries(memory, 'heard_signal')).toBe(2);
+	});
+});
+
+describe('forgetHeardSignal', () => {
+	it('removes only the matching emission and leaves other kinds intact', () => {
+		let memory = createEmptyMemory(8);
+		memory = rememberResourceAnnouncement(memory, draft('food-ann'));
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 2,
+			featureId: 'food-obs',
+			resourceKind: 'food',
+			position: { x: 1, y: 1 },
+			empty: false
+		});
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 3,
+			emissionId: 'em-1',
+			symbolId: 'glyph-0',
+			origin: { x: 0, y: 0 }
+		});
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 4,
+			emissionId: 'em-2',
+			symbolId: 'glyph-1',
+			origin: { x: 2, y: 2 }
+		});
+		const nextSequence = memory.nextSequence;
+		const next = forgetHeardSignal(memory, 'em-1');
+		expect(hasHeardSignalMemory(next, 'em-1')).toBe(false);
+		expect(hasHeardSignalMemory(next, 'em-2')).toBe(true);
+		expect(hasResourceAnnouncementMemory(next, 'food-ann')).toBe(true);
+		expect(hasResourceObservationMemory(next, 'food-obs')).toBe(true);
+		expect(next.nextSequence).toBe(nextSequence);
+		expect(next.entries.map((e) => e.sequence)).toEqual(
+			next.entries.map((e) => e.sequence).sort((a, b) => a - b)
+		);
+	});
+
+	it('is a no-op for an unknown emission id', () => {
+		const memory = rememberHeardSignal(createEmptyMemory(4), {
+			rememberedAt: 1,
+			emissionId: 'em-1',
+			symbolId: 'glyph-0',
+			origin: { x: 0, y: 0 }
+		});
+		const next = forgetHeardSignal(memory, 'em-missing');
+		expect(next).toBe(memory);
+		expect(hasHeardSignalMemory(next, 'em-1')).toBe(true);
 	});
 });
 

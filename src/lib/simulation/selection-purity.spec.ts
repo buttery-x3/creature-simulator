@@ -15,6 +15,7 @@ describe('selection purity', () => {
 		expect(text).toContain(creature.id);
 		expect(text).toContain('hunger:');
 		expect(text).toContain('verbosity:');
+		expect(text).toContain('curiosity:');
 		expect(simulationSnapshot(state)).toBe(before);
 	});
 });

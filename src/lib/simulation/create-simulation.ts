@@ -396,6 +396,19 @@ export function sampleVerbosity(simulationSeed: string, creatureId: string): num
 	return rng.next();
 }
 
+/** Seed channel for independent per-creature novelty / optional-information sampling. */
+export const CURIOSITY_CHANNEL = 'curiosity';
+
+/**
+ * Sample lifetime-stable curiosity in [0, 1) from an independent seeded stream.
+ * Identical (seed, creatureId) always yields the same value; independent of
+ * verbosity and the creatures placement/speed stream.
+ */
+export function sampleCuriosity(simulationSeed: string, creatureId: string): number {
+	const rng = createSeededRng(deriveSeed(simulationSeed, CURIOSITY_CHANNEL, creatureId));
+	return rng.next();
+}
+
 function createCreatures(
 	config: SimulationConfig,
 	habitat: SimulationState['habitat']
@@ -430,6 +443,7 @@ function createCreatures(
 		const preferredSymbolId = selectPreferredSymbol(config.seed, id, config.symbolInventory);
 		const memoryCapacity = sampleMemoryCapacity(config.seed, id, config.memoryCapacityRange);
 		const verbosity = sampleVerbosity(config.seed, id);
+		const curiosity = sampleCuriosity(config.seed, id);
 
 		const draft: Creature = {
 			id,
@@ -437,6 +451,7 @@ function createCreatures(
 			facing,
 			movementSpeed,
 			verbosity,
+			curiosity,
 			wanderTarget,
 			wanderDecisionIndex,
 			searchTarget,

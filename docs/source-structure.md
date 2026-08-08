@@ -89,6 +89,8 @@ src/
                 index.ts
                 types.ts
                 score-constants.ts
+                speech-weight.ts
+                curiosity-weight.ts
                 target-selection.ts
                 build-candidates.ts
                 select-intention.ts

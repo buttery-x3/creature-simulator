@@ -234,6 +234,7 @@ describe('step signal learning', () => {
 			thirst: 0.1,
 			energy: 0.95,
 			verbosity: next.verbosity,
+			curiosity: next.curiosity,
 			availableFood: [],
 			availableWater: [],
 			memory: next.memory,

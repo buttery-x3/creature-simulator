@@ -143,6 +143,14 @@ export type Creature = {
 	 * Not derived from needs, memory, lexicon, or current action; not mutated over time.
 	 */
 	verbosity: number;
+	/**
+	 * Lifetime-stable preference for optional information / novelty (domain [0, 1]).
+	 * Sampled deterministically at creation from an independent seed channel.
+	 * Generic trait — first consumer is optional investigate_signal cognition scoring only.
+	 * Not derived from needs, memory, lexicon, or current action; not mutated over time.
+	 * Does not gate validity or need-driven signal information value.
+	 */
+	curiosity: number;
 	/** Wander stream destination (also mirrored in target when intention is wander). */
 	wanderTarget: Vec2;
 	/** Increments each time a new wander target is chosen. */

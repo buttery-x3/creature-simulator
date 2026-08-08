@@ -203,11 +203,16 @@ intention arbitration — **runtime-authoritative**:
 
 - `types.ts` — intention kinds, candidates, ArbitrationRecord, triggers, config shape;
 - `score-constants.ts` — default baselines, continuity, need thresholds, target-quality multipliers;
+- `speech-weight.ts` — bounded verbosity → speech preference multiplier (announce first consumer);
+- `curiosity-weight.ts` — bounded curiosity → optional investigation multiplier (investigate first consumer);
 - `target-selection.ts` — perception-then-memory resource targets; signal/announce picks;
-- `build-candidates.ts` — baseline candidate set; need scores = pressure × target quality;
+- `build-candidates.ts` — baseline candidate set; need scores = pressure × target quality; dual signal motivation;
 - `select-intention.ts` — soft continuity, best-score + explicit tie-break;
 - `arbitrate.ts` — single pure entry `arbitrate(input) → ArbitrationRecord`;
 - `index.ts` — exports for simulation siblings.
+
+At implementation-file capacity (8 excluding tests/`index.ts`). Further growth
+requires ownership restatement rather than thin extra helpers.
 
 Does not own movement, emission, sensing, or memory writes. Continuity is a score
 bonus on the current intention, not locks. Live stepping builds input via behaviour

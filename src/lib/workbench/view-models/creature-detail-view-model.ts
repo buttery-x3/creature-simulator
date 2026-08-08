@@ -127,6 +127,14 @@ function factorLabel(code: string): string {
 			return 'Verbosity';
 		case 'speech_weight':
 			return 'Speech weight';
+		case 'curiosity':
+			return 'Curiosity';
+		case 'curiosity_weight':
+			return 'Curiosity weight';
+		case 'optional_signal_score':
+			return 'Optional signal score';
+		case 'need_information_value':
+			return 'Need information value';
 		case 'wander_baseline':
 			return 'Wander baseline';
 		case 'continuity_bonus':

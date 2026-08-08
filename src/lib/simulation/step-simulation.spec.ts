@@ -19,6 +19,8 @@ import {
 	type SimulationState
 } from './index';
 import { cognitionConfigFromSimulation } from './behaviour/build-arbitration-input';
+import { emptyPerception } from './behaviour/perception';
+import { createEmptyMemory } from './memory/create-memory';
 import { testCreature } from './test-creature';
 
 function longRunConfig(seed: string): SimulationConfig {
@@ -47,6 +49,17 @@ describe('stepSimulation', () => {
 			state = stepSimulation(state, config);
 		}
 		expect(state.creatures.map((c) => ({ id: c.id, verbosity: c.verbosity }))).toEqual(before);
+	});
+
+	it('does not mutate lifetime curiosity under ordinary stepping', () => {
+		const config = defaultSimulationConfig('curiosity-stable');
+		const initial = createSimulation(config);
+		const before = initial.creatures.map((c) => ({ id: c.id, curiosity: c.curiosity }));
+		let state = initial;
+		for (let i = 0; i < 120; i += 1) {
+			state = stepSimulation(state, config);
+		}
+		expect(state.creatures.map((c) => ({ id: c.id, curiosity: c.curiosity }))).toEqual(before);
 	});
 
 	it('keeps creatures inside world bounds over a long run', () => {
@@ -386,6 +399,7 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			thirst: announcedCreature.thirst,
 			energy: announcedCreature.energy,
 			verbosity: announcedCreature.verbosity,
+			curiosity: announcedCreature.curiosity,
 			availableFood: [
 				{
 					featureId: food.id,
@@ -477,6 +491,9 @@ describe('mixed verbosity population (FLAME-84)', () => {
 			});
 			return {
 				...c,
+				// Hold curiosity mid so optional investigation does not dominate the
+				// announce-vs-signal split this test attributes to verbosity.
+				curiosity: 0.5,
 				position: { x: food.position.x, y: food.position.y },
 				hunger: 0.1,
 				thirst: 0.1,
@@ -525,5 +542,153 @@ describe('mixed verbosity population (FLAME-84)', () => {
 		const maxNonAnnounce = Math.max(...nonAnnouncers.map((c) => c.verbosity));
 		const minAnnounce = Math.min(...announcers.map((c) => c.verbosity));
 		expect(minAnnounce).toBeGreaterThanOrEqual(maxNonAnnounce);
+	});
+});
+
+describe('mixed curiosity population (FLAME-85)', () => {
+	it('mixes investigate and wander under a shared low-need signal', () => {
+		const config: SimulationConfig = {
+			...defaultSimulationConfig('mixed-curiosity-pop'),
+			creatureCount: 14,
+			sensingRadius: 6,
+			perceptionIntervalSeconds: 0.01,
+			initialHunger: 0.1,
+			initialThirst: 0.1,
+			initialEnergy: 1,
+			hungerRisePerSecond: 0,
+			thirstRisePerSecond: 0,
+			energyDrainPerSecond: 0,
+			wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+			signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
+			signalRecencyBoostMax: DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax,
+			continuityBonus: DEFAULT_COGNITION_CONFIG.continuityBonus
+		};
+		const base = createSimulation(config);
+		const origin = { x: base.habitat.home.position.x + 4, y: base.habitat.home.position.y + 2 };
+		const creatures = base.creatures.map((c, i) => {
+			const memory = rememberHeardSignal(c.memory, {
+				rememberedAt: 0,
+				emissionId: 'em-shared-ping',
+				symbolId: 'glyph-0',
+				origin
+			});
+			return {
+				...c,
+				// Spread curiosity so optional investigation splits the population.
+				curiosity: i / Math.max(1, base.creatures.length - 1),
+				position: { x: origin.x - 1, y: origin.y },
+				hunger: 0.1,
+				thirst: 0.1,
+				energy: 1,
+				intention: 'wander' as const,
+				action: 'wander' as const,
+				movementSpeed: 0,
+				nextReconsiderAt: 0,
+				pendingArbitrationTrigger: 'new_heard_signal_memory' as const,
+				memory
+			};
+		});
+		const curiosityValues = new Set(creatures.map((c) => c.curiosity));
+		expect(curiosityValues.size).toBeGreaterThan(1);
+
+		let state: SimulationState = {
+			...base,
+			creatures,
+			activeEmissions: [],
+			recentEmissions: []
+		};
+		state = stepSimulation(state, config);
+
+		const investigators = state.creatures.filter((c) => c.intention === 'investigate_signal');
+		const wanderers = state.creatures.filter((c) => c.intention === 'wander');
+		expect(investigators.length).toBeGreaterThan(0);
+		expect(wanderers.length).toBeGreaterThan(0);
+
+		// Preference-only: every creature retained a valid investigate candidate with curiosity factors.
+		for (const c of state.creatures) {
+			const inv = c.lastArbitration?.candidates.find(
+				(cand) => cand.intention === 'investigate_signal'
+			);
+			expect(inv?.valid).toBe(true);
+			expect(inv?.factors.some((f) => f.code === 'curiosity')).toBe(true);
+			expect(inv?.factors.some((f) => f.code === 'curiosity_weight')).toBe(true);
+			expect(inv?.factors.some((f) => f.code === 'optional_signal_score')).toBe(true);
+		}
+
+		// More-curious investigators are at least as curious as non-investigators.
+		const maxWanderCuriosity = Math.max(...wanderers.map((c) => c.curiosity));
+		const minInvestigateCuriosity = Math.min(...investigators.map((c) => c.curiosity));
+		expect(minInvestigateCuriosity).toBeGreaterThanOrEqual(maxWanderCuriosity);
+	});
+
+	it('keeps low-curiosity hungry creatures investigating when only search_fallback knowledge exists', () => {
+		const config: SimulationConfig = {
+			...defaultSimulationConfig('need-driven-curiosity-pop'),
+			creatureCount: 8,
+			sensingRadius: 0.25,
+			perceptionIntervalSeconds: 100,
+			initialHunger: 0.9,
+			initialThirst: 0.1,
+			initialEnergy: 1,
+			hungerRisePerSecond: 0,
+			thirstRisePerSecond: 0,
+			energyDrainPerSecond: 0,
+			wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+			signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
+			signalRecencyBoostMax: DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax,
+			continuityBonus: DEFAULT_COGNITION_CONFIG.continuityBonus
+		};
+		const base = createSimulation(config);
+		const origin = { x: 2, y: 2 };
+		const creatures = base.creatures.map((c) => {
+			const memory = rememberHeardSignal(createEmptyMemory(c.memory.capacity), {
+				rememberedAt: 0,
+				emissionId: 'em-need-ping',
+				symbolId: 'glyph-0',
+				origin
+			});
+			return {
+				...c,
+				curiosity: 0.05,
+				position: { x: 0, y: 0 },
+				hunger: 0.9,
+				thirst: 0.1,
+				energy: 1,
+				intention: 'wander' as const,
+				action: 'wander' as const,
+				movementSpeed: 0,
+				nextReconsiderAt: 0,
+				pendingArbitrationTrigger: 'new_heard_signal_memory' as const,
+				memory,
+				// Empty recent sense so food knowledge is search_fallback only.
+				perception: emptyPerception(0)
+			};
+		});
+
+		// Remove resources so sensing cannot invent visible targets if it runs.
+		const habitat = {
+			...base.habitat,
+			food: [],
+			water: []
+		};
+
+		let state: SimulationState = {
+			...base,
+			habitat,
+			creatures,
+			activeEmissions: [],
+			recentEmissions: []
+		};
+		state = stepSimulation(state, config);
+
+		const investigators = state.creatures.filter((c) => c.intention === 'investigate_signal');
+		// Rational need-driven use: low curiosity must not dump everyone into blind search/wander.
+		expect(investigators.length).toBe(state.creatures.length);
+		for (const c of state.creatures) {
+			const inv = c.lastArbitration?.candidates.find(
+				(cand) => cand.intention === 'investigate_signal'
+			);
+			expect(inv?.factors.some((f) => f.code === 'need_information_value')).toBe(true);
+		}
 	});
 });

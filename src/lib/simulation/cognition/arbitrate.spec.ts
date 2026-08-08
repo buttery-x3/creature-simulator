@@ -14,6 +14,7 @@ import {
 	selectBestCandidate,
 	selectResourceNeedTarget,
 	selectSignalInvestigationTarget,
+	curiosityToInvestigationWeight,
 	verbosityToSpeechWeight
 } from './index';
 import type { ArbitrationInput, IntentionKind, PerceivedResource } from './types';
@@ -32,6 +33,8 @@ function baseInput(overrides: Partial<ArbitrationInput> = {}): ArbitrationInput 
 		energy: 0.95,
 		// Fully talkative default so existing announce-vs-baseline margins stay true.
 		verbosity: 1,
+		// Fully curious default so existing optional investigation margins stay true.
+		curiosity: 1,
 		availableFood: [],
 		availableWater: [],
 		memory: emptyMemory(),
@@ -948,10 +951,13 @@ describe('verbosity speech-weight mapping (FLAME-84)', () => {
 			symbolId: 'glyph-0',
 			origin: { x: 4, y: 4 }
 		});
+		// Mid curiosity: optional investigation is quieter than the old uniform baseline
+		// so talkative announce can still beat generic signal traffic.
 		const record = arbitrate(
 			baseInput({
 				...idleWithFood,
 				verbosity: 0.9,
+				curiosity: 0.5,
 				memory,
 				currentIntention: 'wander'
 			})
@@ -969,10 +975,13 @@ describe('verbosity speech-weight mapping (FLAME-84)', () => {
 			symbolId: 'glyph-0',
 			origin: { x: 4, y: 4 }
 		});
+		// Pin mid curiosity so soft continuity on optional investigation does not
+		// outrank max-verbosity announce (high curiosity may keep investigating).
 		const record = arbitrate(
 			baseInput({
 				...idleWithFood,
 				verbosity: 1,
+				curiosity: 0.5,
 				memory,
 				currentIntention: 'investigate_signal',
 				currentTarget: { kind: 'point', position: { x: 4, y: 4 } }
@@ -1019,5 +1028,276 @@ describe('verbosity speech-weight mapping (FLAME-84)', () => {
 		).announce_resource!;
 		expect(announce.valid).toBe(false);
 		expect(announce.rejectionReason).toBe('no_unannounced_resource');
+	});
+});
+
+describe('curiosity investigation weighting (FLAME-85)', () => {
+	function withHeardSignal(rememberedAt = 9) {
+		let memory = emptyMemory();
+		memory = rememberHeardSignal(memory, {
+			rememberedAt,
+			emissionId: 'em-1',
+			symbolId: 'glyph-0',
+			origin: { x: 3, y: 4 }
+		});
+		return memory;
+	}
+
+	function factorValue(
+		candidate: ReturnType<typeof byIntention>[string] | undefined,
+		code: string
+	): number | undefined {
+		return candidate?.factors.find((f) => f.code === code)?.value;
+	}
+
+	function optionalInvestigateScore(curiosity: number, recencyBoost: number): number {
+		const unweighted = DEFAULT_COGNITION_CONFIG.signalBaseline + recencyBoost;
+		return unweighted * curiosityToInvestigationWeight(curiosity);
+	}
+
+	it('maps curiosity through a bounded investigation weight (not raw identity)', () => {
+		expect(curiosityToInvestigationWeight(0)).toBeCloseTo(0.1, 10);
+		expect(curiosityToInvestigationWeight(0.5)).toBeCloseTo(0.65, 10);
+		expect(curiosityToInvestigationWeight(1)).toBeCloseTo(1.2, 10);
+		// Mid curiosity optional signal stays quieter than the old uniform baseline.
+		const midOptional = optionalInvestigateScore(
+			0.5,
+			DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax
+		);
+		const unweightedMax =
+			DEFAULT_COGNITION_CONFIG.signalBaseline + DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax;
+		expect(midOptional).toBeLessThan(unweightedMax);
+		// Upper range restores/exceeds the old optional competitiveness.
+		const highOptional = optionalInvestigateScore(
+			0.85,
+			DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax
+		);
+		expect(highOptional).toBeGreaterThan(unweightedMax * 0.95);
+	});
+
+	it('monotonically increases optional investigate baseScore with higher curiosity', () => {
+		const memory = withHeardSignal();
+		const lowNeeds = { hunger: 0.1, thirst: 0.1, energy: 0.95, memory };
+		const low = byIntention(
+			arbitrate(baseInput({ ...lowNeeds, curiosity: 0.2 }))
+		).investigate_signal!;
+		const mid = byIntention(
+			arbitrate(baseInput({ ...lowNeeds, curiosity: 0.5 }))
+		).investigate_signal!;
+		const high = byIntention(
+			arbitrate(baseInput({ ...lowNeeds, curiosity: 1 }))
+		).investigate_signal!;
+		expect(mid.baseScore).toBeGreaterThanOrEqual(low.baseScore);
+		expect(high.baseScore).toBeGreaterThanOrEqual(mid.baseScore);
+		expect(high.baseScore).toBeGreaterThan(low.baseScore);
+	});
+
+	it('does not change other intention base scores when only curiosity changes', () => {
+		const memory = withHeardSignal(5);
+		const shared = {
+			hunger: 0.5,
+			thirst: 0.55,
+			energy: 0.5,
+			memory,
+			availableFood: [foodPerceived('food-1')],
+			availableWater: [waterPerceived('water-1')],
+			verbosity: 0.7
+		};
+		const incurious = byIntention(arbitrate(baseInput({ ...shared, curiosity: 0.1 })));
+		const curious = byIntention(arbitrate(baseInput({ ...shared, curiosity: 0.9 })));
+		for (const intention of [
+			'satisfy_hunger',
+			'satisfy_thirst',
+			'rest',
+			'announce_resource',
+			'wander'
+		] as const) {
+			expect(incurious[intention]!.baseScore).toBeCloseTo(curious[intention]!.baseScore, 10);
+			expect(incurious[intention]!.score).toBeCloseTo(curious[intention]!.score, 10);
+		}
+		expect(curious.investigate_signal!.baseScore).toBeGreaterThan(
+			incurious.investigate_signal!.baseScore
+		);
+	});
+
+	it('keeps investigate_signal valid at curiosity 0', () => {
+		const memory = withHeardSignal();
+		const record = arbitrate(baseInput({ memory, curiosity: 0, hunger: 0.1, thirst: 0.1 }));
+		const inv = byIntention(record).investigate_signal!;
+		expect(inv.valid).toBe(true);
+		expect(inv.score).toBeGreaterThan(0);
+		expect(inv.factors).toEqual(
+			expect.arrayContaining([
+				{ code: 'curiosity', value: 0 },
+				{ code: 'curiosity_weight', value: curiosityToInvestigationWeight(0) },
+				{ code: 'optional_signal_score', value: expect.any(Number) }
+			])
+		);
+		expect(inv.factors.some((f) => f.code === 'need_information_value')).toBe(false);
+	});
+
+	it('lets low-curiosity optional investigation lose to wander under low needs', () => {
+		const memory = withHeardSignal();
+		const record = arbitrate(
+			baseInput({
+				memory,
+				curiosity: 0.1,
+				hunger: 0.1,
+				thirst: 0.1,
+				energy: 0.95
+			})
+		);
+		const map = byIntention(record);
+		expect(map.investigate_signal!.valid).toBe(true);
+		expect(map.wander!.score).toBeGreaterThan(map.investigate_signal!.score);
+		expect(record.selectedIntention).toBe('wander');
+	});
+
+	it('lets high-curiosity optional investigation beat wander under low needs', () => {
+		const memory = withHeardSignal();
+		const record = arbitrate(
+			baseInput({
+				memory,
+				curiosity: 1,
+				hunger: 0.1,
+				thirst: 0.1,
+				energy: 0.95
+			})
+		);
+		const map = byIntention(record);
+		expect(map.investigate_signal!.score).toBeGreaterThan(map.wander!.score);
+		expect(record.selectedIntention).toBe('investigate_signal');
+	});
+
+	it('preserves need-driven investigation for hungry low-curiosity search_fallback', () => {
+		const memory = withHeardSignal();
+		const record = arbitrate(
+			baseInput({
+				memory,
+				curiosity: 0.05,
+				hunger: 0.9,
+				thirst: 0.1,
+				energy: 0.95,
+				availableFood: []
+			})
+		);
+		const map = byIntention(record);
+		expect(map.satisfy_hunger?.reasonCodes).toContain('search_fallback');
+		expect(map.investigate_signal!.score).toBeGreaterThan(map.satisfy_hunger!.score);
+		expect(map.investigate_signal!.score).toBeGreaterThan(map.wander!.score);
+		expect(record.selectedIntention).toBe('investigate_signal');
+		expect(factorValue(map.investigate_signal, 'need_information_value')).toBeGreaterThan(0);
+		// Floor equals unweighted signal, not the suppressed optional score.
+		const optional = factorValue(map.investigate_signal, 'optional_signal_score')!;
+		const floor = factorValue(map.investigate_signal, 'need_information_value')!;
+		expect(floor).toBeGreaterThan(optional);
+		expect(map.investigate_signal!.baseScore).toBeCloseTo(floor, 10);
+	});
+
+	it('preserves need-driven investigation for thirsty low-curiosity search_fallback', () => {
+		const memory = withHeardSignal();
+		const record = arbitrate(
+			baseInput({
+				memory,
+				curiosity: 0.05,
+				hunger: 0.1,
+				thirst: 0.9,
+				energy: 0.95,
+				availableWater: []
+			})
+		);
+		const map = byIntention(record);
+		expect(map.satisfy_thirst?.reasonCodes).toContain('search_fallback');
+		expect(map.investigate_signal!.score).toBeGreaterThan(map.satisfy_thirst!.score);
+		expect(map.investigate_signal!.score).toBeGreaterThan(map.wander!.score);
+		expect(record.selectedIntention).toBe('investigate_signal');
+		expect(factorValue(map.investigate_signal, 'need_information_value')).toBeGreaterThan(0);
+	});
+
+	it('does not add need-information floor when actionable resource knowledge exists', () => {
+		const memory = withHeardSignal();
+		const visibleRecord = arbitrate(
+			baseInput({
+				memory,
+				curiosity: 0.05,
+				hunger: 0.9,
+				availableFood: [foodPerceived('food-1')]
+			})
+		);
+		const visibleInv = byIntention(visibleRecord).investigate_signal!;
+		expect(visibleInv.factors.some((f) => f.code === 'need_information_value')).toBe(false);
+		expect(visibleRecord.selectedIntention).toBe('satisfy_hunger');
+
+		let rememberedMem = withHeardSignal();
+		rememberedMem = rememberResourceObservation(rememberedMem, {
+			rememberedAt: 1,
+			featureId: 'food-mem',
+			resourceKind: 'food',
+			position: { x: 5, y: 5 },
+			empty: false
+		});
+		const rememberedInv = byIntention(
+			arbitrate(
+				baseInput({
+					memory: rememberedMem,
+					curiosity: 0.05,
+					hunger: 0.9
+				})
+			)
+		).investigate_signal!;
+		expect(rememberedInv.factors.some((f) => f.code === 'need_information_value')).toBe(false);
+	});
+
+	it('does not force investigation over strong visible need even at high curiosity', () => {
+		const memory = withHeardSignal();
+		const record = arbitrate(
+			baseInput({
+				memory,
+				curiosity: 1,
+				hunger: 0.9,
+				availableFood: [foodPerceived('food-1')]
+			})
+		);
+		expect(record.selectedIntention).toBe('satisfy_hunger');
+		const map = byIntention(record);
+		expect(map.satisfy_hunger!.score).toBeGreaterThan(map.investigate_signal!.score);
+	});
+
+	it('keeps continuity soft under curiosity-weighted investigation', () => {
+		const memory = withHeardSignal();
+		// Close call: mid curiosity investigation + continuity vs slightly higher wander-like need.
+		// Stronger visible hunger must still interrupt.
+		const interrupted = arbitrate(
+			baseInput({
+				memory,
+				curiosity: 0.5,
+				hunger: 0.9,
+				availableFood: [foodPerceived('food-1')],
+				currentIntention: 'investigate_signal',
+				currentTarget: { kind: 'point', position: { x: 3, y: 4 } }
+			})
+		);
+		expect(interrupted.selectedIntention).toBe('satisfy_hunger');
+		const inv = byIntention(interrupted).investigate_signal!;
+		expect(inv.continuityAdjustment).toBe(DEFAULT_COGNITION_CONFIG.continuityBonus);
+
+		// Soft continuity can still settle a close optional case vs wander.
+		const sticky = arbitrate(
+			baseInput({
+				memory,
+				curiosity: 0.55,
+				hunger: 0.1,
+				thirst: 0.1,
+				energy: 0.95,
+				currentIntention: 'investigate_signal',
+				currentTarget: { kind: 'point', position: { x: 3, y: 4 } }
+			})
+		);
+		const stickyMap = byIntention(sticky);
+		expect(stickyMap.investigate_signal!.continuityAdjustment).toBe(
+			DEFAULT_COGNITION_CONFIG.continuityBonus
+		);
+		// With continuity, mid-curiosity may stay investigating when optional score is near wander.
+		expect(stickyMap.investigate_signal!.score).toBeGreaterThanOrEqual(stickyMap.wander!.score);
 	});
 });

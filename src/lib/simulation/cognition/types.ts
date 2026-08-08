@@ -68,6 +68,10 @@ export type CandidateReasonCode =
 	| 'announce_baseline'
 	| 'verbosity'
 	| 'speech_weight'
+	| 'curiosity'
+	| 'curiosity_weight'
+	| 'optional_signal_score'
+	| 'need_information_value'
 	| 'continuity_bonus'
 	| 'target_quality'
 	| 'search_fallback'
@@ -147,6 +151,12 @@ export type ArbitrationInput = {
 	 * Weights announce_resource (and future speech intentions) only — never eligibility.
 	 */
 	verbosity: number;
+	/**
+	 * Creature optional-information / novelty preference scalar in [0, 1].
+	 * Weights optional investigate_signal motivation only — never eligibility or
+	 * need-driven information floors.
+	 */
+	curiosity: number;
 	/** Available food currently in perception (already filtered usable). */
 	availableFood: readonly PerceivedResource[];
 	/** Available water currently in perception (already filtered usable). */

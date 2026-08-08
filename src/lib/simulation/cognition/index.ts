@@ -27,6 +27,12 @@ export { DEFAULT_COGNITION_CONFIG, mergeCognitionConfig } from './score-constant
 export { SPEECH_WEIGHT_FLOOR, SPEECH_WEIGHT_SPAN, verbosityToSpeechWeight } from './speech-weight';
 
 export {
+	CURIOSITY_WEIGHT_FLOOR,
+	CURIOSITY_WEIGHT_SPAN,
+	curiosityToInvestigationWeight
+} from './curiosity-weight';
+
+export {
 	homeTarget,
 	selectAnnounceTarget,
 	selectNearestPerceivedResource,

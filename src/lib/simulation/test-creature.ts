@@ -20,6 +20,8 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		movementSpeed: 1,
 		// Talkative default so pure fixtures keep full announce_baseline competitiveness.
 		verbosity: 1,
+		// Fully curious default so pure fixtures keep full optional investigation competitiveness.
+		curiosity: 1,
 		wanderTarget,
 		wanderDecisionIndex: 0,
 		searchTarget,

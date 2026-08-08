@@ -57,11 +57,13 @@ export type {
 export { DEFAULT_SYMBOL_INVENTORY, LEXICON_MEANINGS } from './types';
 
 export {
+	CURIOSITY_CHANNEL,
 	DEFAULT_SIMULATION_CONFIG,
 	SimulationCreationError,
 	VERBOSITY_CHANNEL,
 	createSimulation,
 	defaultSimulationConfig,
+	sampleCuriosity,
 	sampleVerbosity,
 	simulationSnapshot
 } from './create-simulation';

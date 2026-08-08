@@ -92,6 +92,10 @@
 					<dd data-testid="inspector-verbosity">{selectedCreature.verbosity.toFixed(2)}</dd>
 				</div>
 				<div>
+					<dt>Curiosity</dt>
+					<dd data-testid="inspector-curiosity">{selectedCreature.curiosity.toFixed(2)}</dd>
+				</div>
+				<div>
 					<dt>Intention</dt>
 					<dd data-testid="inspector-intention">{selectedCreature.intention}</dd>
 				</div>

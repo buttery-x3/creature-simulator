@@ -99,6 +99,35 @@ describe('createSimulation', () => {
 		}
 	});
 
+	it('samples deterministic stable curiosity in [0, 1) with population variation', () => {
+		const config = defaultSimulationConfig('curiosity-trait');
+		const a = createSimulation(config);
+		const b = createSimulation(config);
+		expect(a.creatures.map((c) => c.curiosity)).toEqual(b.creatures.map((c) => c.curiosity));
+		const values = new Set<number>();
+		for (const creature of a.creatures) {
+			expect(creature.curiosity).toBeGreaterThanOrEqual(0);
+			expect(creature.curiosity).toBeLessThan(1);
+			expect(Number.isFinite(creature.curiosity)).toBe(true);
+			values.add(creature.curiosity);
+		}
+		expect(values.size).toBeGreaterThan(1);
+	});
+
+	it('samples curiosity independently of verbosity', () => {
+		const config = defaultSimulationConfig('curiosity-vs-verbosity');
+		const state = createSimulation(config);
+		// Both traits present and in range; channels are independent (not identity-coupled).
+		const paired = state.creatures.map((c) => `${c.verbosity}:${c.curiosity}`);
+		expect(new Set(paired).size).toBeGreaterThan(1);
+		for (const creature of state.creatures) {
+			expect(creature.curiosity).toBeGreaterThanOrEqual(0);
+			expect(creature.curiosity).toBeLessThan(1);
+			expect(creature.verbosity).toBeGreaterThanOrEqual(0);
+			expect(creature.verbosity).toBeLessThan(1);
+		}
+	});
+
 	it('places initial wander targets inside world bounds with margin', () => {
 		const config = defaultSimulationConfig('targets');
 		const state = createSimulation(config);

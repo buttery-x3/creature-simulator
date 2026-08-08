@@ -28,7 +28,7 @@ function baseArbitration(overrides: Partial<ArbitrationInput> = {}): Arbitration
 		availableFood: [],
 		availableWater: [],
 		memory: createEmptyMemory(4),
-		currentIntention: 'wander',
+		currentIntention: 'explore',
 		currentTarget: null,
 		homeFeatureId: 'home-0',
 		config: DEFAULT_COGNITION_CONFIG,

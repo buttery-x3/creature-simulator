@@ -27,6 +27,7 @@ import type {
 	LexiconChangeEntry,
 	SymbolAssociation
 } from './learning/types';
+import type { ExplorationState } from './exploration/types';
 import type { CreatureMemory } from './memory/types';
 import type { EnvironmentState } from './resources/types';
 
@@ -75,10 +76,18 @@ export type {
 	IntentionKind,
 	PerceivedResource
 } from './cognition/types';
+export type {
+	ExplorationMap,
+	ExplorationScoreBreakdown,
+	ExplorationScoreConfig,
+	ExplorationState,
+	ExplorationTargetSelection
+} from './exploration/types';
+export type { ExplorationDiagnosticsView } from './exploration/diagnostics';
 
 /** Current step used to pursue the intention. Distinct from intention. */
 export type CreatureAction =
-	'move' | 'investigate' | 'eat' | 'drink' | 'sleep' | 'wander' | 'search';
+	'move' | 'investigate' | 'eat' | 'drink' | 'sleep' | 'explore' | 'search';
 
 /**
  * A single food/water observation in the current perception snapshot.
@@ -151,13 +160,14 @@ export type Creature = {
 	 * Does not gate validity or need-driven signal information value.
 	 */
 	curiosity: number;
-	/** Wander stream destination (also mirrored in target when intention is wander). */
-	wanderTarget: Vec2;
-	/** Increments each time a new wander target is chosen. */
-	wanderDecisionIndex: number;
+	/**
+	 * Per-creature spatial exploration map + active cell (not CreatureMemory).
+	 * Cognition selects explore; this state owns where to explore.
+	 */
+	exploration: ExplorationState;
 	/**
 	 * Active search destination while action is search (mirrors point target).
-	 * Separate from wanderTarget so search diagnostics stay distinct.
+	 * Separate from exploration so need-driven search stays distinct.
 	 */
 	searchTarget: Vec2;
 	/** Increments each time a new search point is chosen. */
@@ -292,7 +302,7 @@ export type SimulationConfig = {
 	fixedDt: number;
 	/** Cap on fixed steps processed per wall-clock catch-up. */
 	maxCatchUpSteps: number;
-	/** Distance at which a wander/move target is considered reached. */
+	/** Distance at which a move/search point target is considered reached. */
 	arrivalDistance: number;
 
 	/** Hunger pressure rise per simulated second while not eating. */
@@ -315,8 +325,16 @@ export type SimulationConfig = {
 	/** Minimum energy deficit (1 - energy) before rest is valid. */
 	restThreshold: number;
 
-	/** Fixed wander baseline score in unified arbitration. */
-	wanderBaseline: number;
+	/** Fixed explore baseline score in unified arbitration (fallback intention). */
+	exploreBaseline: number;
+	/** Exploration grid cell size in simulation units (default 2). */
+	explorationCellSize: number;
+	/** Weight on distance desirability when scoring exploration cells. */
+	explorationDistanceWeight: number;
+	/** Weight on staleness desirability when scoring exploration cells. */
+	explorationStalenessWeight: number;
+	/** Age scale (seconds) for exploration stalenessFactor curve. */
+	explorationStalenessScaleSeconds: number;
 	/** Fixed investigate_signal baseline when heard_signal memory exists. */
 	signalBaseline: number;
 	/** Max recency boost added to signal baseline for newest memories. */

@@ -13,12 +13,12 @@ import type { Habitat } from '$lib/habitat';
 import { stepAnnouncement, type AnnouncementStepConfig } from '../announcement/step-announcement';
 import type { ArbitrationTrigger } from '../cognition/types';
 import type { EmissionRequest } from '../communication/types';
+import { distanceSquared, moveToward, sampleSearchTarget } from '../creature-movement';
 import {
-	distanceSquared,
-	moveToward,
-	sampleSearchTarget,
-	sampleWanderTarget
-} from '../creature-movement';
+	selectExplorationTarget,
+	updateExplorationFromSensing,
+	type ExplorationScoreConfig
+} from '../exploration';
 import { resolveInvestigationAtSite } from '../learning/step-signal-learning';
 import type { Creature, SimulationConfig } from '../types';
 import { appendTransition, transitionToConsumptive } from './actions';
@@ -53,7 +53,7 @@ export type BehaviourStepConfig = Pick<
 	| 'seekFoodThreshold'
 	| 'seekWaterThreshold'
 	| 'restThreshold'
-	| 'wanderBaseline'
+	| 'exploreBaseline'
 	| 'signalBaseline'
 	| 'signalRecencyBoostMax'
 	| 'announceBaseline'
@@ -61,6 +61,9 @@ export type BehaviourStepConfig = Pick<
 	| 'targetQualityVisible'
 	| 'targetQualityRemembered'
 	| 'targetQualitySearch'
+	| 'explorationDistanceWeight'
+	| 'explorationStalenessWeight'
+	| 'explorationStalenessScaleSeconds'
 	| 'reconsiderIntervalSeconds'
 	| 'eatUntilHunger'
 	| 'drinkUntilThirst'
@@ -169,6 +172,48 @@ export function stepCreatureBehaviour(
 		const waterChanged =
 			waterNow.length !== previousWater.size || waterNow.some((id) => !previousWater.has(id));
 		perceptionChanged = foodChanged || waterChanged;
+
+		// Exploration knowledge updates on every real sensing pass (any intention).
+		const previousActive = next.exploration.activeCellIndex;
+		const previousActiveTime =
+			previousActive !== null ? next.exploration.map.lastFullySensedAt[previousActive] : null;
+		const map = updateExplorationFromSensing(
+			next.exploration.map,
+			habitat.bounds,
+			next.position,
+			config.sensingRadius,
+			timeSeconds
+		);
+		let exploration = { ...next.exploration, map };
+
+		// Completing the active exploration cell immediately retargets (no need to reach centre).
+		if (
+			next.intention === 'explore' &&
+			previousActive !== null &&
+			map.lastFullySensedAt[previousActive] !== previousActiveTime &&
+			map.lastFullySensedAt[previousActive] === timeSeconds
+		) {
+			const scoreConfig: ExplorationScoreConfig = {
+				explorationDistanceWeight: config.explorationDistanceWeight,
+				explorationStalenessWeight: config.explorationStalenessWeight,
+				explorationStalenessScaleSeconds: config.explorationStalenessScaleSeconds
+			};
+			const selection = selectExplorationTarget(
+				map,
+				habitat.bounds,
+				next.position,
+				timeSeconds,
+				scoreConfig
+			);
+			exploration = { map, activeCellIndex: selection.cellIndex };
+			next = {
+				...next,
+				exploration,
+				target: pointTarget(selection.centre)
+			};
+		} else {
+			next = { ...next, exploration };
+		}
 	}
 
 	// 2. Announcement executor (only advances when intention is announce_resource).
@@ -272,28 +317,7 @@ export function stepCreatureBehaviour(
 		return { creature: next, emissionRequest };
 	}
 
-	// Wander retarget if at wander point before moving.
-	if (next.intention === 'wander' || next.action === 'wander') {
-		const arrivalSq = config.arrivalDistance * config.arrivalDistance;
-		if (distanceSquared(next.position, next.wanderTarget) <= arrivalSq) {
-			const wanderDecisionIndex = next.wanderDecisionIndex + 1;
-			const wanderTarget = sampleWanderTarget(
-				simulationSeed,
-				next.id,
-				wanderDecisionIndex,
-				habitat.bounds,
-				config.creatureRadius
-			);
-			next = {
-				...next,
-				wanderDecisionIndex,
-				wanderTarget,
-				target: pointTarget(wanderTarget)
-			};
-		}
-	}
-
-	// Search retarget if at search point.
+	// Search retarget if at search point (need-driven; independent of exploration).
 	if (next.action === 'search') {
 		const arrivalSq = config.arrivalDistance * config.arrivalDistance;
 		if (distanceSquared(next.position, next.searchTarget) <= arrivalSq) {
@@ -314,12 +338,7 @@ export function stepCreatureBehaviour(
 		}
 	}
 
-	const fallback =
-		next.action === 'search'
-			? next.searchTarget
-			: next.intention === 'wander'
-				? next.wanderTarget
-				: next.position;
+	const fallback = next.action === 'search' ? next.searchTarget : next.position;
 	const destination = movementPoint(habitat, next.target, fallback);
 	const moved = moveToward(next, destination, dt, habitat.bounds, config);
 	next = { ...next, ...moved };
@@ -367,27 +386,6 @@ export function stepCreatureBehaviour(
 				next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
 				return { creature: next, emissionRequest };
 			}
-		}
-	}
-
-	// Stuck on boundary with exterior wander target
-	if (next.intention === 'wander') {
-		const arrivalSq = config.arrivalDistance * config.arrivalDistance;
-		if (distanceSquared(next.position, next.wanderTarget) <= arrivalSq) {
-			const wanderDecisionIndex = next.wanderDecisionIndex + 1;
-			const wanderTarget = sampleWanderTarget(
-				simulationSeed,
-				next.id,
-				wanderDecisionIndex,
-				habitat.bounds,
-				config.creatureRadius
-			);
-			next = {
-				...next,
-				wanderDecisionIndex,
-				wanderTarget,
-				target: pointTarget(wanderTarget)
-			};
 		}
 	}
 

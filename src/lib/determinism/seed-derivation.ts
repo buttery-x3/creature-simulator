@@ -1,7 +1,7 @@
 /**
  * Pure seed derivation for independent deterministic streams.
  *
- * Streams for habitat generation, creature creation, and wander decisions must
+ * Streams for habitat generation, creature creation, and search decisions must
  * not share mutable RNG state. Derive independent seed strings from a base seed
  * plus stable channel tags so call-count changes in one stream cannot affect
  * another.

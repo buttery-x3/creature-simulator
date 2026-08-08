@@ -27,7 +27,7 @@ export type IntentionKind =
 	| 'rest'
 	| 'investigate_signal'
 	| 'announce_resource'
-	| 'wander';
+	| 'explore';
 
 /**
  * Why arbitration was requested. Triggers request reconsideration only;
@@ -62,7 +62,7 @@ export type CandidateReasonCode =
 	| 'hunger_pressure'
 	| 'thirst_pressure'
 	| 'energy_deficit'
-	| 'wander_baseline'
+	| 'explore_baseline'
 	| 'signal_baseline'
 	| 'signal_recency'
 	| 'announce_baseline'
@@ -119,7 +119,7 @@ export type CognitionConfig = {
 	seekFoodThreshold: number;
 	seekWaterThreshold: number;
 	restThreshold: number;
-	wanderBaseline: number;
+	exploreBaseline: number;
 	signalBaseline: number;
 	/** Added proportionally for newer heard_signal memories (0…this value). */
 	signalRecencyBoostMax: number;
@@ -171,7 +171,7 @@ export type ArbitrationInput = {
 
 /**
  * Tie-break when scores are equal (earlier wins).
- * Survival before optional behaviours before wander.
+ * Survival before optional behaviours before explore.
  */
 export const INTENTION_TIE_BREAK_ORDER: readonly IntentionKind[] = [
 	'satisfy_hunger',
@@ -179,7 +179,7 @@ export const INTENTION_TIE_BREAK_ORDER: readonly IntentionKind[] = [
 	'rest',
 	'investigate_signal',
 	'announce_resource',
-	'wander'
+	'explore'
 ] as const;
 
 export const INTENTION_RANK: Record<IntentionKind, number> = Object.fromEntries(

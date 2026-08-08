@@ -11,11 +11,11 @@ describe('buildOverviewViewModel', () => {
 		expect(vm.wellbeing.averageHunger).toBeGreaterThanOrEqual(0);
 		expect(vm.wellbeing.highestHunger?.creatureId).toMatch(/^creature-/);
 		expect(
-			vm.behaviour.byIntention.wander + vm.behaviour.byIntention.satisfy_hunger
+			vm.behaviour.byIntention.explore + vm.behaviour.byIntention.satisfy_hunger
 		).toBeGreaterThanOrEqual(0);
 		expect(Object.keys(vm.behaviour.byIntention)).toEqual(
 			expect.arrayContaining([
-				'wander',
+				'explore',
 				'satisfy_hunger',
 				'satisfy_thirst',
 				'rest',

@@ -15,7 +15,12 @@ import { pointTarget } from './behaviour/resource-awareness';
 import { DEFAULT_COGNITION_CONFIG } from './cognition/score-constants';
 import { selectPreferredSymbol } from './communication/emission';
 import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
-import { sampleSearchTarget, sampleWanderTarget } from './creature-movement';
+import { sampleSearchTarget } from './creature-movement';
+import {
+	createExplorationState,
+	DEFAULT_EXPLORATION_CELL_SIZE,
+	selectExplorationTarget
+} from './exploration';
 import { emptyLexicon } from './learning/lexicon-resolution';
 import { createEmptyAssociations } from './learning/signal-associations';
 import { createEmptyMemory, sampleMemoryCapacity } from './memory/create-memory';
@@ -56,7 +61,7 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	seekWaterThreshold: DEFAULT_COGNITION_CONFIG.seekWaterThreshold,
 	restThreshold: DEFAULT_COGNITION_CONFIG.restThreshold,
 
-	wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+	exploreBaseline: DEFAULT_COGNITION_CONFIG.exploreBaseline,
 	signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
 	signalRecencyBoostMax: DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax,
 	announceBaseline: DEFAULT_COGNITION_CONFIG.announceBaseline,
@@ -64,6 +69,11 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	targetQualityVisible: DEFAULT_COGNITION_CONFIG.targetQualityVisible,
 	targetQualityRemembered: DEFAULT_COGNITION_CONFIG.targetQualityRemembered,
 	targetQualitySearch: DEFAULT_COGNITION_CONFIG.targetQualitySearch,
+
+	explorationCellSize: DEFAULT_EXPLORATION_CELL_SIZE,
+	explorationDistanceWeight: 1,
+	explorationStalenessWeight: 1,
+	explorationStalenessScaleSeconds: 30,
 
 	reconsiderIntervalSeconds: 1.5,
 
@@ -200,7 +210,7 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'seekFoodThreshold',
 		'seekWaterThreshold',
 		'restThreshold',
-		'wanderBaseline',
+		'exploreBaseline',
 		'signalBaseline',
 		'signalRecencyBoostMax',
 		'announceBaseline',
@@ -208,6 +218,9 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'targetQualityVisible',
 		'targetQualityRemembered',
 		'targetQualitySearch',
+		'explorationDistanceWeight',
+		'explorationStalenessWeight',
+		'explorationStalenessScaleSeconds',
 		'reconsiderIntervalSeconds',
 		'eatUntilHunger',
 		'drinkUntilThirst',
@@ -223,6 +236,11 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		if (typeof value !== 'number' || !(value >= 0) || !Number.isFinite(value)) {
 			throw new SimulationCreationError(`${key} must be a finite number >= 0, received ${value}`);
 		}
+	}
+	if (!(config.explorationCellSize > 0) || !Number.isFinite(config.explorationCellSize)) {
+		throw new SimulationCreationError(
+			`explorationCellSize must be > 0, received ${config.explorationCellSize}`
+		);
 	}
 	if (!(config.sensingRadius > 0)) {
 		throw new SimulationCreationError(
@@ -423,14 +441,6 @@ function createCreatures(
 		);
 		const facing = rng.nextRange(-Math.PI, Math.PI);
 		const movementSpeed = rng.nextRange(config.movementSpeed.min, config.movementSpeed.max);
-		const wanderDecisionIndex = 0;
-		const wanderTarget = sampleWanderTarget(
-			config.seed,
-			id,
-			wanderDecisionIndex,
-			habitat.bounds,
-			config.creatureRadius
-		);
 		const searchDecisionIndex = 0;
 		const searchTarget = sampleSearchTarget(
 			config.seed,
@@ -439,6 +449,24 @@ function createCreatures(
 			habitat.bounds,
 			config.creatureRadius
 		);
+
+		// Independent exploration map per creature — never share lastFullySensedAt arrays.
+		const explorationBase = createExplorationState(habitat.bounds, config.explorationCellSize);
+		const initialExplore = selectExplorationTarget(
+			explorationBase.map,
+			habitat.bounds,
+			position,
+			0,
+			{
+				explorationDistanceWeight: config.explorationDistanceWeight,
+				explorationStalenessWeight: config.explorationStalenessWeight,
+				explorationStalenessScaleSeconds: config.explorationStalenessScaleSeconds
+			}
+		);
+		const exploration = {
+			map: explorationBase.map,
+			activeCellIndex: initialExplore.cellIndex
+		};
 
 		const preferredSymbolId = selectPreferredSymbol(config.seed, id, config.symbolInventory);
 		const memoryCapacity = sampleMemoryCapacity(config.seed, id, config.memoryCapacityRange);
@@ -452,8 +480,7 @@ function createCreatures(
 			movementSpeed,
 			verbosity,
 			curiosity,
-			wanderTarget,
-			wanderDecisionIndex,
+			exploration,
 			searchTarget,
 			searchDecisionIndex,
 			perception: emptyPerception(),
@@ -462,9 +489,9 @@ function createCreatures(
 			energy: config.initialEnergy,
 			// Independent memory object per creature — never share references.
 			memory: createEmptyMemory(memoryCapacity),
-			intention: 'wander',
-			action: 'wander',
-			target: pointTarget(wanderTarget),
+			intention: 'explore',
+			action: 'explore',
+			target: pointTarget(initialExplore.centre),
 			intentionStartedAt: 0,
 			actionStartedAt: 0,
 			nextReconsiderAt: 0,
@@ -491,12 +518,12 @@ function createCreatures(
 
 		creatures.push({
 			...initial,
+			// replanFromArbitration already sets explore target/active cell when explore wins.
+			exploration: initial.exploration,
 			target:
-				initial.intention === 'wander'
-					? pointTarget(wanderTarget)
-					: (initial.target ?? pointTarget(wanderTarget)),
-			wanderTarget,
-			wanderDecisionIndex
+				initial.intention === 'explore'
+					? (initial.target ?? pointTarget(initialExplore.centre))
+					: (initial.target ?? pointTarget(initialExplore.centre))
 		});
 	}
 

@@ -10,7 +10,6 @@ import {
 	hasResourceAnnouncementMemory,
 	normalizeAngle,
 	rememberHeardSignal,
-	sampleWanderTarget,
 	shortestAngleDelta,
 	simulationSnapshot,
 	stepCreature,
@@ -88,7 +87,7 @@ describe('stepSimulation', () => {
 			position: { x: 0, y: 0 },
 			facing: 0,
 			movementSpeed: 1,
-			wanderTarget: { x: 0, y: 5 }
+			target: { kind: 'point', position: { x: 0, y: 5 } }
 		});
 		const next = stepCreature(
 			creature,
@@ -110,7 +109,7 @@ describe('stepSimulation', () => {
 			position: { x: 0, y: 0 },
 			facing: 0,
 			movementSpeed: 0.01,
-			wanderTarget: { x: 0, y: 4 }
+			target: { kind: 'point', position: { x: 0, y: 4 } }
 		});
 		const next = stepCreature(
 			creature,
@@ -124,32 +123,22 @@ describe('stepSimulation', () => {
 		expect(next.facing).not.toBeCloseTo(desired, 3);
 	});
 
-	it('chooses the expected next deterministic target after arrival', () => {
-		const config = {
-			...defaultSimulationConfig('retarget'),
-			arrivalDistance: 0.5,
-			creatureRadius: 0.25
-		};
+	it('moves toward the point target without inventing wander RNG retargets', () => {
+		const config = defaultSimulationConfig('move-point');
 		const bounds = { width: 20, height: 14 };
-		const startTarget = sampleWanderTarget(
-			'retarget',
-			'creature-0',
-			0,
-			bounds,
-			config.creatureRadius
-		);
+		const destination = { x: 3, y: 0 };
 		const creature = testCreature({
-			position: { ...startTarget },
+			position: { x: 0, y: 0 },
 			facing: 0,
-			movementSpeed: 0.01,
-			wanderTarget: { ...startTarget },
-			wanderDecisionIndex: 0
+			movementSpeed: 1,
+			intention: 'explore',
+			action: 'explore',
+			target: { kind: 'point', position: { ...destination } }
 		});
-
-		const next = stepCreature(creature, config.fixedDt, 'retarget', bounds, config);
-		expect(next.wanderDecisionIndex).toBe(1);
-		const expected = sampleWanderTarget('retarget', 'creature-0', 1, bounds, config.creatureRadius);
-		expect(next.wanderTarget).toEqual(expected);
+		const next = stepCreature(creature, config.fixedDt, 'move-point', bounds, config);
+		expect(next.position.x).toBeGreaterThan(creature.position.x);
+		expect(next.target).toEqual(creature.target);
+		expect(next.exploration.activeCellIndex).toBe(creature.exploration.activeCellIndex);
 	});
 
 	it('advances time by fixedDt each step', () => {
@@ -339,14 +328,14 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			thirstRisePerSecond: 0,
 			energyDrainPerSecond: 0,
 			// Align simulation config with cognition defaults under test.
-			wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+			exploreBaseline: DEFAULT_COGNITION_CONFIG.exploreBaseline,
 			announceBaseline: DEFAULT_COGNITION_CONFIG.announceBaseline,
 			signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
 			continuityBonus: DEFAULT_COGNITION_CONFIG.continuityBonus
 		};
 	}
 
-	it('wander → perceive unannounced resource → announce → emit → memory suppresses re-announce', () => {
+	it('explore → perceive unannounced resource → announce → emit → memory suppresses re-announce', () => {
 		const config = idleAnnounceConfig('e2e-announce-once');
 		const base = createSimulation(config);
 		const food = base.habitat.food[0]!;
@@ -356,8 +345,8 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			hunger: 0.1,
 			thirst: 0.1,
 			energy: 1,
-			intention: 'wander',
-			action: 'wander',
+			intention: 'explore',
+			action: 'explore',
 			target: { kind: 'point', position: { x: food.position.x + 0.5, y: food.position.y } },
 			movementSpeed: 0,
 			nextReconsiderAt: 0,
@@ -373,7 +362,7 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			recentEmissions: []
 		};
 
-		// After perception, idle arbitration must prefer announce over wander.
+		// After perception, idle arbitration must prefer announce over explore.
 		let selectedAnnounce = false;
 		for (let i = 0; i < 5; i += 1) {
 			state = stepSimulation(state, config);
@@ -433,8 +422,8 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			hunger: 0.9,
 			thirst: 0.1,
 			energy: 1,
-			intention: 'wander',
-			action: 'wander',
+			intention: 'explore',
+			action: 'explore',
 			movementSpeed: 0,
 			nextReconsiderAt: 0,
 			pendingArbitrationTrigger: 'relevant_resource_perception_change'
@@ -455,7 +444,7 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 });
 
 describe('mixed verbosity population (FLAME-84)', () => {
-	it('mixes announce with investigate/wander under signal traffic', () => {
+	it('mixes announce with investigate/explore under signal traffic', () => {
 		const config: SimulationConfig = {
 			...defaultSimulationConfig('mixed-verbosity-pop'),
 			creatureCount: 12,
@@ -469,7 +458,7 @@ describe('mixed verbosity population (FLAME-84)', () => {
 			hungerRisePerSecond: 0,
 			thirstRisePerSecond: 0,
 			energyDrainPerSecond: 0,
-			wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+			exploreBaseline: DEFAULT_COGNITION_CONFIG.exploreBaseline,
 			announceBaseline: DEFAULT_COGNITION_CONFIG.announceBaseline,
 			signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
 			signalRecencyBoostMax: DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax,
@@ -498,8 +487,8 @@ describe('mixed verbosity population (FLAME-84)', () => {
 				hunger: 0.1,
 				thirst: 0.1,
 				energy: 1,
-				intention: 'wander' as const,
-				action: 'wander' as const,
+				intention: 'explore' as const,
+				action: 'explore' as const,
 				movementSpeed: 0,
 				nextReconsiderAt: 0,
 				pendingArbitrationTrigger: 'relevant_resource_perception_change' as const,
@@ -520,10 +509,10 @@ describe('mixed verbosity population (FLAME-84)', () => {
 
 		const announcers = state.creatures.filter((c) => c.intention === 'announce_resource');
 		const investigators = state.creatures.filter((c) => c.intention === 'investigate_signal');
-		const wanderers = state.creatures.filter((c) => c.intention === 'wander');
+		const wanderers = state.creatures.filter((c) => c.intention === 'explore');
 		const nonAnnouncers = state.creatures.filter((c) => c.intention !== 'announce_resource');
 
-		// Not everyone announces; some still speak; others investigate or wander.
+		// Not everyone announces; some still speak; others investigate or explore.
 		expect(announcers.length).toBeGreaterThan(0);
 		expect(nonAnnouncers.length).toBeGreaterThan(0);
 		expect(investigators.length + wanderers.length).toBeGreaterThan(0);
@@ -546,7 +535,7 @@ describe('mixed verbosity population (FLAME-84)', () => {
 });
 
 describe('mixed curiosity population (FLAME-85)', () => {
-	it('mixes investigate and wander under a shared low-need signal', () => {
+	it('mixes investigate and explore under a shared low-need signal', () => {
 		const config: SimulationConfig = {
 			...defaultSimulationConfig('mixed-curiosity-pop'),
 			creatureCount: 14,
@@ -558,7 +547,7 @@ describe('mixed curiosity population (FLAME-85)', () => {
 			hungerRisePerSecond: 0,
 			thirstRisePerSecond: 0,
 			energyDrainPerSecond: 0,
-			wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+			exploreBaseline: DEFAULT_COGNITION_CONFIG.exploreBaseline,
 			signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
 			signalRecencyBoostMax: DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax,
 			continuityBonus: DEFAULT_COGNITION_CONFIG.continuityBonus
@@ -580,8 +569,8 @@ describe('mixed curiosity population (FLAME-85)', () => {
 				hunger: 0.1,
 				thirst: 0.1,
 				energy: 1,
-				intention: 'wander' as const,
-				action: 'wander' as const,
+				intention: 'explore' as const,
+				action: 'explore' as const,
 				movementSpeed: 0,
 				nextReconsiderAt: 0,
 				pendingArbitrationTrigger: 'new_heard_signal_memory' as const,
@@ -600,7 +589,7 @@ describe('mixed curiosity population (FLAME-85)', () => {
 		state = stepSimulation(state, config);
 
 		const investigators = state.creatures.filter((c) => c.intention === 'investigate_signal');
-		const wanderers = state.creatures.filter((c) => c.intention === 'wander');
+		const wanderers = state.creatures.filter((c) => c.intention === 'explore');
 		expect(investigators.length).toBeGreaterThan(0);
 		expect(wanderers.length).toBeGreaterThan(0);
 
@@ -633,7 +622,7 @@ describe('mixed curiosity population (FLAME-85)', () => {
 			hungerRisePerSecond: 0,
 			thirstRisePerSecond: 0,
 			energyDrainPerSecond: 0,
-			wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+			exploreBaseline: DEFAULT_COGNITION_CONFIG.exploreBaseline,
 			signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
 			signalRecencyBoostMax: DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax,
 			continuityBonus: DEFAULT_COGNITION_CONFIG.continuityBonus
@@ -654,8 +643,8 @@ describe('mixed curiosity population (FLAME-85)', () => {
 				hunger: 0.9,
 				thirst: 0.1,
 				energy: 1,
-				intention: 'wander' as const,
-				action: 'wander' as const,
+				intention: 'explore' as const,
+				action: 'explore' as const,
 				movementSpeed: 0,
 				nextReconsiderAt: 0,
 				pendingArbitrationTrigger: 'new_heard_signal_memory' as const,
@@ -682,7 +671,7 @@ describe('mixed curiosity population (FLAME-85)', () => {
 		state = stepSimulation(state, config);
 
 		const investigators = state.creatures.filter((c) => c.intention === 'investigate_signal');
-		// Rational need-driven use: low curiosity must not dump everyone into blind search/wander.
+		// Rational need-driven use: low curiosity must not dump everyone into blind search/explore.
 		expect(investigators.length).toBe(state.creatures.length);
 		for (const c of state.creatures) {
 			const inv = c.lastArbitration?.candidates.find(

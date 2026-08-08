@@ -170,14 +170,14 @@ describe('stepCommunication', () => {
 		const near = testCreature({
 			id: 'creature-1',
 			position: { x: 1, y: 0 },
-			intention: 'wander',
-			action: 'wander'
+			intention: 'explore',
+			action: 'explore'
 		});
 		const far = testCreature({
 			id: 'creature-2',
 			position: { x: 20, y: 0 },
-			intention: 'wander',
-			action: 'wander'
+			intention: 'explore',
+			action: 'explore'
 		});
 		const state = bareState({
 			creatures: [sender, near, far],
@@ -458,8 +458,8 @@ describe('discovery integration via stepSimulation', () => {
 		const listener = testCreature({
 			id: 'creature-1',
 			position: { x: food.position.x + 1.2, y: food.position.y },
-			intention: 'wander',
-			action: 'wander',
+			intention: 'explore',
+			action: 'explore',
 			nextReconsiderAt: 999,
 			movementSpeed: 0
 		});

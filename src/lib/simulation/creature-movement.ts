@@ -1,5 +1,5 @@
 /**
- * Deterministic creature facing, translation, bounds clamping and retargeting.
+ * Deterministic creature facing, translation, bounds clamping and search sampling.
  */
 
 import { createSeededRng, deriveSeed } from '$lib/determinism';
@@ -71,23 +71,8 @@ export function sampleInteriorPoint(
 }
 
 /**
- * Sample a wander target for a creature decision index using a derived seed stream.
- * Does not mutate shared RNG state on the creature or simulation.
- */
-export function sampleWanderTarget(
-	simulationSeed: string,
-	creatureId: string,
-	decisionIndex: number,
-	bounds: WorldBounds,
-	margin: number
-): Vec2 {
-	const rng = createSeededRng(deriveSeed(simulationSeed, 'wander', creatureId, decisionIndex));
-	return sampleInteriorPoint(bounds, margin, (min, max) => rng.nextRange(min, max));
-}
-
-/**
- * Sample a search destination using a stream independent of wander.
- * Same bounds/margin rules as wander; semantic ownership remains distinct.
+ * Sample a search destination using the dedicated need-driven search stream.
+ * Exploration targets are selected by simulation/exploration (no RNG).
  */
 export function sampleSearchTarget(
 	simulationSeed: string,
@@ -147,68 +132,33 @@ export function moveToward(
 }
 
 /**
- * Pure movement helper: turn toward a wander target, move, clamp, retarget.
- * Behavioural goals/actions are owned by `behaviour/step-creature-behaviour.ts`;
- * this remains available for focused movement tests.
+ * Pure movement helper for focused tests: turn toward a destination, move, clamp.
+ * Behavioural goals/actions and exploration retargeting are owned by behaviour.
  */
 export function stepCreature(
 	creature: Creature,
 	dt: number,
-	simulationSeed: string,
+	_simulationSeed: string,
 	bounds: WorldBounds,
 	config: Pick<SimulationConfig, 'maxTurnRate' | 'creatureRadius' | 'arrivalDistance'>
 ): Creature {
-	let { position, facing, wanderTarget, wanderDecisionIndex } = creature;
-	const margin = config.creatureRadius;
-
-	// If already at (or inside) arrival of target, pick the next one first so
-	// the step still turns/moves productively.
-	const arrivalSq = config.arrivalDistance * config.arrivalDistance;
-	if (distanceSquared(position, wanderTarget) <= arrivalSq) {
-		wanderDecisionIndex += 1;
-		wanderTarget = sampleWanderTarget(
-			simulationSeed,
-			creature.id,
-			wanderDecisionIndex,
-			bounds,
-			margin
-		);
-	}
-
-	// Same alignment-scaled controller as moveToward (shared liveness policy).
+	void _simulationSeed;
+	const destination =
+		creature.target?.kind === 'point' ? creature.target.position : creature.position;
 	const moved = moveToward(
-		{ position, facing, movementSpeed: creature.movementSpeed },
-		wanderTarget,
+		{
+			position: creature.position,
+			facing: creature.facing,
+			movementSpeed: creature.movementSpeed
+		},
+		destination,
 		dt,
 		bounds,
 		{ maxTurnRate: config.maxTurnRate, creatureRadius: config.creatureRadius }
 	);
-	position = moved.position;
-	facing = moved.facing;
-
-	// If clamping left us effectively stuck on the boundary with an exterior
-	// target, force a fresh interior target so we do not oscillate forever.
-	if (distanceSquared(position, wanderTarget) <= arrivalSq) {
-		wanderDecisionIndex += 1;
-		wanderTarget = sampleWanderTarget(
-			simulationSeed,
-			creature.id,
-			wanderDecisionIndex,
-			bounds,
-			margin
-		);
-	}
-
 	return {
 		...creature,
-		position,
-		facing,
-		wanderTarget,
-		wanderDecisionIndex,
-		// Keep behaviour target aligned when only the wander stream moves.
-		target:
-			creature.intention === 'wander'
-				? { kind: 'point', position: { x: wanderTarget.x, y: wanderTarget.y } }
-				: creature.target
+		position: moved.position,
+		facing: moved.facing
 	};
 }

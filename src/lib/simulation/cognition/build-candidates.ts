@@ -275,13 +275,13 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 			rejectionReason: announceValid ? undefined : 'no_unannounced_resource'
 		}),
 		candidate({
-			intention: 'wander',
+			intention: 'explore',
 			valid: true,
-			baseScore: config.wanderBaseline,
+			baseScore: config.exploreBaseline,
 			target: null,
 			reference: null,
-			factors: [{ code: 'wander_baseline', value: config.wanderBaseline }],
-			reasonCodes: ['wander_baseline', 'always_valid']
+			factors: [{ code: 'explore_baseline', value: config.exploreBaseline }],
+			reasonCodes: ['explore_baseline', 'always_valid']
 		})
 	];
 }

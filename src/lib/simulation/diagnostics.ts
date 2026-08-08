@@ -8,6 +8,10 @@
 import type { Creature, CreatureTarget, SimulationConfig, SimulationState } from './types';
 import type { HeardSignal, SignalEmission } from './communication/types';
 import {
+	buildExplorationDiagnostics,
+	formatExplorationDiagnostics
+} from './exploration/diagnostics';
+import {
 	buildPopulationSymbolDiagnostics,
 	formatPopulationSymbolDiagnostics
 } from './population-symbol-diagnostics';
@@ -112,8 +116,16 @@ export function formatSimulationDiagnostics(
 
 export type InspectionConfig = Pick<
 	SimulationConfig,
-	'sensingRadius' | 'hearingRadius' | 'symbolInventory'
->;
+	| 'sensingRadius'
+	| 'hearingRadius'
+	| 'symbolInventory'
+	| 'explorationDistanceWeight'
+	| 'explorationStalenessWeight'
+	| 'explorationStalenessScaleSeconds'
+> & {
+	/** Habitat bounds for exploration score recomputation (optional). */
+	worldBounds?: { width: number; height: number };
+};
 
 /**
  * Pure inspection view for the workbench. Does not mutate the creature.
@@ -153,6 +165,24 @@ export function formatCreatureInspection(
 			''
 		);
 	}
+
+	// Exploration map diagnostics (observational only).
+	const bounds = config?.worldBounds ?? {
+		width: creature.exploration.map.columns * creature.exploration.map.cellSize,
+		height: creature.exploration.map.rows * creature.exploration.map.cellSize
+	};
+	const exploreView = buildExplorationDiagnostics(
+		creature.exploration,
+		bounds,
+		creature.position,
+		timeSeconds,
+		{
+			explorationDistanceWeight: config?.explorationDistanceWeight ?? 1,
+			explorationStalenessWeight: config?.explorationStalenessWeight ?? 1,
+			explorationStalenessScaleSeconds: config?.explorationStalenessScaleSeconds ?? 30
+		}
+	);
+	lines.push('exploration:', ...formatExplorationDiagnostics(exploreView).map((l) => `  ${l}`), '');
 
 	lines.push('perception:');
 	if (sensingRadius !== undefined) {

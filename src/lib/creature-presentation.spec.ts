@@ -16,15 +16,14 @@ function creature(
 	x: number,
 	y: number,
 	facing = 0,
-	action: CreatureAction = 'wander'
+	action: CreatureAction = 'explore'
 ): Creature {
 	return testCreature({
 		id,
 		position: { x, y },
 		facing,
-		wanderTarget: { x: x + 1, y },
 		searchTarget: { x: x - 1, y },
-		intention: action === 'wander' ? 'wander' : 'satisfy_hunger',
+		intention: action === 'explore' ? 'explore' : 'satisfy_hunger',
 		action,
 		target: { kind: 'point', position: { x: x + 1, y } }
 	});

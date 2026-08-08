@@ -6,6 +6,7 @@ import type { Habitat } from '$lib/habitat';
 import { arbitrate } from '../cognition/arbitrate';
 import type { ArbitrationTrigger } from '../cognition/types';
 import type { SymbolId } from '../communication/types';
+import { cellCentre, selectExplorationTarget, type ExplorationScoreConfig } from '../exploration';
 import { beginInvestigation } from '../learning/signal-investigation';
 import { interruptInvestigation } from '../learning/step-signal-learning';
 import type { Creature, SimulationConfig } from '../types';
@@ -16,7 +17,13 @@ import { ensureSearchTarget, isAtTarget, pointTarget } from './resource-awarenes
 export type ReplanConfig = ArbitrationConfig &
 	Pick<
 		SimulationConfig,
-		'reconsiderIntervalSeconds' | 'decisionHistoryLimit' | 'arrivalDistance' | 'creatureRadius'
+		| 'reconsiderIntervalSeconds'
+		| 'decisionHistoryLimit'
+		| 'arrivalDistance'
+		| 'creatureRadius'
+		| 'explorationDistanceWeight'
+		| 'explorationStalenessWeight'
+		| 'explorationStalenessScaleSeconds'
 	> &
 	Pick<
 		SimulationConfig,
@@ -25,6 +32,14 @@ export type ReplanConfig = ArbitrationConfig &
 		| 'associationStrengthMin'
 		| 'associationStrengthMax'
 	>;
+
+function explorationScoreConfig(config: ReplanConfig): ExplorationScoreConfig {
+	return {
+		explorationDistanceWeight: config.explorationDistanceWeight,
+		explorationStalenessWeight: config.explorationStalenessWeight,
+		explorationStalenessScaleSeconds: config.explorationStalenessScaleSeconds
+	};
+}
 
 /**
  * Run authoritative arbitration and map the result onto execution fields.
@@ -47,8 +62,7 @@ export function replanFromArbitration(
 	);
 	const applied = applyArbitration(creature, record, arrived, config);
 
-	let wanderTarget = creature.wanderTarget;
-	const wanderDecisionIndex = creature.wanderDecisionIndex;
+	let exploration = creature.exploration;
 	let target = applied.target;
 	let searchTarget = creature.searchTarget;
 	let searchDecisionIndex = creature.searchDecisionIndex;
@@ -100,13 +114,34 @@ export function replanFromArbitration(
 		}
 	}
 
-	if (applied.intention === 'wander') {
-		if (target?.kind !== 'point') {
-			target = pointTarget(wanderTarget);
+	// Explore lifecycle: enter selects a cell; continue preserves; leave clears.
+	if (applied.intention === 'explore') {
+		const continuing = creature.intention === 'explore' && exploration.activeCellIndex !== null;
+		if (continuing && exploration.activeCellIndex !== null) {
+			// Preserve active cell; restore point target from that cell centre.
+			target = pointTarget(
+				cellCentre(habitat.bounds, exploration.map, exploration.activeCellIndex)
+			);
 		} else {
-			wanderTarget = target.position;
+			const selection = selectExplorationTarget(
+				exploration.map,
+				habitat.bounds,
+				creature.position,
+				timeSeconds,
+				explorationScoreConfig(config)
+			);
+			exploration = {
+				map: exploration.map,
+				activeCellIndex: selection.cellIndex
+			};
+			target = pointTarget(selection.centre);
 		}
-	} else if (applied.intention === 'investigate_signal') {
+	} else if (exploration.activeCellIndex !== null) {
+		// Leaving explore: clear active cell commitment.
+		exploration = { map: exploration.map, activeCellIndex: null };
+	}
+
+	if (applied.intention === 'investigate_signal') {
 		const selected = record.candidates.find((c) => c.intention === 'investigate_signal' && c.valid);
 		const ref = selected?.reference;
 		const continuing = activeInvestigation !== null && creature.intention === 'investigate_signal';
@@ -166,8 +201,7 @@ export function replanFromArbitration(
 		...creature,
 		...applied,
 		target,
-		wanderTarget,
-		wanderDecisionIndex,
+		exploration,
 		searchTarget,
 		searchDecisionIndex,
 		activeInvestigation,

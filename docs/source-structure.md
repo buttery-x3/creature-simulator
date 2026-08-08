@@ -111,6 +111,14 @@ src/
                 signal-investigation.ts
                 step-signal-learning.ts
                 *.spec.ts
+            exploration/
+                index.ts
+                types.ts
+                create-exploration.ts
+                update-exploration.ts
+                select-exploration-target.ts
+                diagnostics.ts
+                *.spec.ts
             population-symbol-diagnostics.ts
             population-symbol-diagnostics.spec.ts
 

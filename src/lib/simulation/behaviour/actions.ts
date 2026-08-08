@@ -29,8 +29,8 @@ export function actionForIntention(
 	hasUsableFeatureTarget: boolean,
 	hasConcreteDestination = hasUsableFeatureTarget
 ): CreatureAction {
-	if (intention === 'wander') {
-		return 'wander';
+	if (intention === 'explore') {
+		return 'explore';
 	}
 	if (intention === 'investigate_signal') {
 		return arrived ? 'investigate' : 'move';
@@ -88,7 +88,7 @@ function intentionHasFeatureTarget(
 	intention: IntentionKind
 ): boolean {
 	if (
-		intention === 'wander' ||
+		intention === 'explore' ||
 		intention === 'investigate_signal' ||
 		intention === 'announce_resource'
 	) {
@@ -210,7 +210,7 @@ export function transitionToConsumptive(
 	const hasFeature = intentionHasFeatureTarget(creature.target, creature.intention);
 	const hasDestination = intentionHasConcreteDestination(creature.target, creature.intention);
 	const nextAction = actionForIntention(creature.intention, true, hasFeature, hasDestination);
-	if (nextAction === 'move' || nextAction === 'wander' || nextAction === 'search') {
+	if (nextAction === 'move' || nextAction === 'explore' || nextAction === 'search') {
 		return null;
 	}
 

@@ -128,17 +128,28 @@ describe('createSimulation', () => {
 		}
 	});
 
-	it('places initial wander targets inside world bounds with margin', () => {
+	it('places initial explore targets inside world bounds with independent maps', () => {
 		const config = defaultSimulationConfig('targets');
 		const state = createSimulation(config);
+		const maps = state.creatures.map((c) => c.exploration.map.lastFullySensedAt);
+		for (let i = 0; i < maps.length; i += 1) {
+			for (let j = i + 1; j < maps.length; j += 1) {
+				expect(maps[i]).not.toBe(maps[j]);
+			}
+		}
 		for (const creature of state.creatures) {
-			const pointRect = {
-				minX: creature.wanderTarget.x - config.creatureRadius,
-				maxX: creature.wanderTarget.x + config.creatureRadius,
-				minY: creature.wanderTarget.y - config.creatureRadius,
-				maxY: creature.wanderTarget.y + config.creatureRadius
-			};
-			expect(rectInsideBounds(pointRect, state.habitat.bounds)).toBe(true);
+			expect(creature.exploration.activeCellIndex).not.toBeNull();
+			expect(creature.intention === 'explore' || creature.target !== null).toBe(true);
+			if (creature.target?.kind === 'point') {
+				const pointRect = {
+					minX: creature.target.position.x - config.creatureRadius,
+					maxX: creature.target.position.x + config.creatureRadius,
+					minY: creature.target.position.y - config.creatureRadius,
+					maxY: creature.target.position.y + config.creatureRadius
+				};
+				expect(rectInsideBounds(pointRect, state.habitat.bounds)).toBe(true);
+			}
+			expect(creature.exploration.map.columns * creature.exploration.map.rows).toBe(70);
 		}
 	});
 

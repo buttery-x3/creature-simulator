@@ -13,7 +13,7 @@ export type ArbitrationConfig = Pick<
 	| 'seekFoodThreshold'
 	| 'seekWaterThreshold'
 	| 'restThreshold'
-	| 'wanderBaseline'
+	| 'exploreBaseline'
 	| 'signalBaseline'
 	| 'signalRecencyBoostMax'
 	| 'announceBaseline'
@@ -28,7 +28,7 @@ export function cognitionConfigFromSimulation(config: ArbitrationConfig): Cognit
 		seekFoodThreshold: config.seekFoodThreshold,
 		seekWaterThreshold: config.seekWaterThreshold,
 		restThreshold: config.restThreshold,
-		wanderBaseline: config.wanderBaseline,
+		exploreBaseline: config.exploreBaseline,
 		signalBaseline: config.signalBaseline,
 		signalRecencyBoostMax: config.signalRecencyBoostMax,
 		announceBaseline: config.announceBaseline,

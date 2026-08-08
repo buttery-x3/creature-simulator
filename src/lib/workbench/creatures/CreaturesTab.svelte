@@ -3,9 +3,11 @@
 	import type { Creature, SimulationConfig, SimulationState } from '$lib/simulation';
 	import {
 		buildCandidateViews,
+		buildExplorationSectionView,
 		buildInvestigationSummary,
 		buildMemorySectionView,
 		buildRosterRows,
+		formatOptionalNumber,
 		formatTargetLabel,
 		lastEmittedSymbolId,
 		lastHeardSymbolId,
@@ -36,6 +38,16 @@
 	);
 	const memorySection = $derived(
 		selectedCreature ? buildMemorySectionView(selectedCreature) : null
+	);
+	const explorationSection = $derived(
+		selectedCreature
+			? buildExplorationSectionView(
+					selectedCreature,
+					simulation.timeSeconds,
+					config,
+					simulation.habitat.bounds
+				)
+			: null
 	);
 </script>
 
@@ -107,6 +119,64 @@
 					<dt>Target</dt>
 					<dd data-testid="inspector-target">{formatTargetLabel(selectedCreature.target)}</dd>
 				</div>
+				{#if explorationSection}
+					<div>
+						<dt>Explored cells</dt>
+						<dd data-testid="inspector-explored-cells">
+							{explorationSection.exploredCount} / {explorationSection.totalCells}
+						</dd>
+					</div>
+					<div>
+						<dt>Exploration target</dt>
+						<dd data-testid="inspector-exploration-target">
+							{explorationSection.activeCellIndex !== null
+								? explorationSection.activeCellIndex
+								: '(none)'}
+						</dd>
+					</div>
+					<div>
+						<dt>Target centre</dt>
+						<dd data-testid="inspector-exploration-centre">
+							{#if explorationSection.targetCentre}
+								({explorationSection.targetCentre.x.toFixed(2)}, {explorationSection.targetCentre.y.toFixed(
+									2
+								)})
+							{:else}
+								(none)
+							{/if}
+						</dd>
+					</div>
+					<div>
+						<dt>Distance factor</dt>
+						<dd data-testid="inspector-exploration-distance-factor">
+							{formatOptionalNumber(explorationSection.distanceFactor)}
+						</dd>
+					</div>
+					<div>
+						<dt>Staleness factor</dt>
+						<dd data-testid="inspector-exploration-staleness-factor">
+							{formatOptionalNumber(explorationSection.stalenessFactor)}
+						</dd>
+					</div>
+					<div>
+						<dt>Distance contribution</dt>
+						<dd data-testid="inspector-exploration-distance-contrib">
+							{formatOptionalNumber(explorationSection.distanceContribution)}
+						</dd>
+					</div>
+					<div>
+						<dt>Staleness contribution</dt>
+						<dd data-testid="inspector-exploration-staleness-contrib">
+							{formatOptionalNumber(explorationSection.stalenessContribution)}
+						</dd>
+					</div>
+					<div>
+						<dt>Final exploration score</dt>
+						<dd data-testid="inspector-exploration-score">
+							{formatOptionalNumber(explorationSection.finalScore)}
+						</dd>
+					</div>
+				{/if}
 				<div>
 					<dt>Intention start</dt>
 					<dd data-testid="inspector-intention-started">

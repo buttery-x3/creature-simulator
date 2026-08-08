@@ -7,12 +7,19 @@ import type {
 	Creature,
 	CreatureMemory,
 	CreatureTarget,
+	ExplorationDiagnosticsView,
 	IntentionCandidate,
 	IntentionKind,
 	SignalEmission,
+	SimulationConfig,
 	SymbolId
 } from '$lib/simulation';
-import { createEmptyMemory, ensureCreatureMemory, listHeardSignalMemories } from '$lib/simulation';
+import {
+	buildExplorationDiagnostics,
+	createEmptyMemory,
+	ensureCreatureMemory,
+	listHeardSignalMemories
+} from '$lib/simulation';
 
 export type RosterRow = {
 	id: string;
@@ -72,6 +79,39 @@ export function formatTargetLabel(target: CreatureTarget | null): string {
 		return `point (${target.position.x.toFixed(2)}, ${target.position.y.toFixed(2)})`;
 	}
 	return `${target.featureKind}:${target.featureId}`;
+}
+
+/** Format optional numeric diagnostic field; null → N/A. */
+export function formatOptionalNumber(value: number | null, digits = 3): string {
+	if (value === null || !Number.isFinite(value)) {
+		return 'N/A';
+	}
+	return value.toFixed(digits);
+}
+
+/**
+ * Selected-creature exploration diagnostics (observational only).
+ */
+export function buildExplorationSectionView(
+	creature: Creature,
+	timeSeconds: number,
+	config: Pick<
+		SimulationConfig,
+		'explorationDistanceWeight' | 'explorationStalenessWeight' | 'explorationStalenessScaleSeconds'
+	>,
+	worldBounds: { width: number; height: number }
+): ExplorationDiagnosticsView {
+	return buildExplorationDiagnostics(
+		creature.exploration,
+		worldBounds,
+		creature.position,
+		timeSeconds,
+		{
+			explorationDistanceWeight: config.explorationDistanceWeight,
+			explorationStalenessWeight: config.explorationStalenessWeight,
+			explorationStalenessScaleSeconds: config.explorationStalenessScaleSeconds
+		}
+	);
 }
 
 /**
@@ -135,8 +175,8 @@ function factorLabel(code: string): string {
 			return 'Optional signal score';
 		case 'need_information_value':
 			return 'Need information value';
-		case 'wander_baseline':
-			return 'Wander baseline';
+		case 'explore_baseline':
+			return 'Explore baseline';
 		case 'continuity_bonus':
 			return 'Continuity';
 		default:

@@ -9,19 +9,11 @@ describe('updateExplorationFromSensing', () => {
 	it('does not accumulate partial corner coverage', () => {
 		const map = createExplorationMap(BOUNDS, 2);
 		const corners = cellCorners(BOUNDS, map, 0);
-		// Sense from a position that covers only three corners (outside cell, near one side).
-		// Place far enough that not all four corners fit in a small radius.
-		const nearThree = {
-			x: (corners[0]!.x + corners[1]!.x + corners[2]!.x) / 3,
-			y: (corners[0]!.y + corners[1]!.y + corners[2]!.y) / 3
-		};
-		// Radius that reaches three corners of a 2×2 cell but not all four from an offset point.
-		// Safer approach: use radius that covers exactly three by construction.
 		const c0 = corners[0]!;
 		const c1 = corners[1]!;
 		const c2 = corners[2]!;
 		const c3 = corners[3]!;
-		// Midpoint of three corners — fourth is farther.
+		// Midpoint of three corners — fourth is farther for a tight radius.
 		const pos = {
 			x: (c0.x + c1.x + c2.x) / 3,
 			y: (c0.y + c1.y + c2.y) / 3

@@ -4,15 +4,18 @@
  */
 
 import { emptyPerception } from './behaviour/perception';
+import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
+import { createExplorationState } from './exploration';
 import { emptyLexicon } from './learning/lexicon-resolution';
 import { createEmptyAssociations } from './learning/signal-associations';
 import { createEmptyMemory } from './memory/create-memory';
-import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 import type { Creature } from './types';
 
+const DEFAULT_TEST_BOUNDS = { width: 20, height: 14 };
+
 export function testCreature(overrides: Partial<Creature> = {}): Creature {
-	const wanderTarget = overrides.wanderTarget ?? { x: 1, y: 0 };
 	const searchTarget = overrides.searchTarget ?? { x: -1, y: 0 };
+	const exploration = overrides.exploration ?? createExplorationState(DEFAULT_TEST_BOUNDS, 2);
 	return {
 		id: 'creature-0',
 		position: { x: 0, y: 0 },
@@ -22,8 +25,7 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		verbosity: 1,
 		// Fully curious default so pure fixtures keep full optional investigation competitiveness.
 		curiosity: 1,
-		wanderTarget,
-		wanderDecisionIndex: 0,
+		exploration,
 		searchTarget,
 		searchDecisionIndex: 0,
 		perception: emptyPerception(),
@@ -31,9 +33,9 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		thirst: 0.2,
 		energy: 0.85,
 		memory: createEmptyMemory(10),
-		intention: 'wander',
-		action: 'wander',
-		target: { kind: 'point', position: { ...wanderTarget } },
+		intention: 'explore',
+		action: 'explore',
+		target: { kind: 'point', position: { x: 1, y: 0 } },
 		intentionStartedAt: 0,
 		actionStartedAt: 0,
 		nextReconsiderAt: 1.5,

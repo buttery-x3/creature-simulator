@@ -20,8 +20,8 @@ import { INTENTION_RANK } from './types';
  * Preferred open decision: bonus on the matching candidate, not a separate
  * “continue” intention kind.
  *
- * Wander is excluded: aimless roaming must not stick via continuity and block
- * optional behaviours (announce, investigate) that beat the bare wander baseline.
+ * Explore is excluded: spatial exploration must not stick via continuity and block
+ * optional behaviours (announce, investigate) that beat the bare explore baseline.
  */
 export function applyContinuity(
 	candidates: readonly IntentionCandidate[],
@@ -36,8 +36,8 @@ export function applyContinuity(
 		if (c.intention !== currentIntention || !c.valid) {
 			return { ...c, score: c.baseScore, continuityAdjustment: 0 };
 		}
-		// Negligible / zero continuity for wander — do not sticky-roam past announce.
-		const continuityAdjustment = currentIntention === 'wander' ? 0 : config.continuityBonus;
+		// Zero continuity for explore — do not sticky-roam past announce.
+		const continuityAdjustment = currentIntention === 'explore' ? 0 : config.continuityBonus;
 		if (continuityAdjustment === 0) {
 			return { ...c, score: c.baseScore, continuityAdjustment: 0 };
 		}
@@ -53,11 +53,11 @@ export function applyContinuity(
 
 /**
  * Highest score among valid candidates; explicit intention rank on ties.
- * Wander is always valid and acts as the safe fallback pool.
+ * Explore is always valid and acts as the safe fallback pool.
  */
 export function selectBestCandidate(candidates: readonly IntentionCandidate[]): IntentionCandidate {
 	const valid = candidates.filter((c) => c.valid);
-	const pool = valid.length > 0 ? valid : candidates.filter((c) => c.intention === 'wander');
+	const pool = valid.length > 0 ? valid : candidates.filter((c) => c.intention === 'explore');
 	let best = pool[0]!;
 	for (let i = 1; i < pool.length; i += 1) {
 		const candidate = pool[i]!;

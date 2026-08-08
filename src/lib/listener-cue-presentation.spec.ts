@@ -25,7 +25,6 @@ function creature(id: string, recentHeard: HeardSignal[] = []): Creature {
 	return testCreature({
 		id,
 		position: { x: 1, y: 2 },
-		wanderTarget: { x: 2, y: 2 },
 		searchTarget: { x: 0, y: 2 },
 		recentHeard
 	});

@@ -127,7 +127,7 @@ Top-level modules:
 - `types.ts` — `SimulationState`, `Creature`, needs/intentions/actions and configuration;
 - `create-simulation.ts` — deterministic habitat + creature population creation;
 - `step-simulation.ts` — fixed-step advance and bounded catch-up (resources phase first);
-- `creature-movement.ts` — pure turn, translate, clamp and wander retarget helpers;
+- `creature-movement.ts` — pure turn, translate, clamp and need-driven search sample helpers;
 - `diagnostics.ts` — simulation and creature inspection text from structured evidence;
 - `population-symbol-diagnostics.ts` — pure population association/emission summaries (observational only);
 - `index.ts` — explicit public exports only.
@@ -145,6 +145,20 @@ renewable resources and minimal rain (FLAME-77):
 
 Do not fold world lifecycle into `behaviour/`. Do not invent a general weather
 framework or ecosystem solver here.
+
+Internal exploration subdomain (`simulation/exploration/`), per-creature spatial
+exploration map and deterministic target selection (FLAME-86):
+
+- `types.ts` — `ExplorationMap`, `ExplorationState`, score breakdown types;
+- `create-exploration.ts` — grid dimensions, empty map/state, cell centre/corners;
+- `update-exploration.ts` — four-corner full-sense refresh from a sensing pass;
+- `select-exploration-target.ts` — distance + staleness scoring, argmax + index tie-break;
+- `diagnostics.ts` — observational explored-count / score-factor formatting;
+- `index.ts` — exports for simulation siblings.
+
+Cognition decides whether to explore (baseline only). Exploration decides where.
+Not `CreatureMemory`. No RNG. Do not embed this policy in capacity-full
+`behaviour/` or `cognition/`. Need-driven `search` stays in movement/behaviour.
 
 Internal behaviour subdomain (`simulation/behaviour/`), needs/action execution
 and thin step orchestration (intention selection lives in cognition):

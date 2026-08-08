@@ -49,7 +49,7 @@ export type OverviewViewModel = {
 };
 
 const INTENTIONS: readonly IntentionKind[] = [
-	'wander',
+	'explore',
 	'satisfy_hunger',
 	'satisfy_thirst',
 	'rest',
@@ -59,7 +59,7 @@ const INTENTIONS: readonly IntentionKind[] = [
 
 function emptyIntentionCounts(): Record<IntentionKind, number> {
 	return {
-		wander: 0,
+		explore: 0,
 		satisfy_hunger: 0,
 		satisfy_thirst: 0,
 		rest: 0,

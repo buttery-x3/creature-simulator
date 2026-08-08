@@ -50,9 +50,7 @@ export function stalenessFactor(
 		return 1;
 	}
 	const scale =
-		stalenessScaleSeconds > 0 && Number.isFinite(stalenessScaleSeconds)
-			? stalenessScaleSeconds
-			: 1;
+		stalenessScaleSeconds > 0 && Number.isFinite(stalenessScaleSeconds) ? stalenessScaleSeconds : 1;
 	const age = Math.max(0, currentTime - lastFullySensedAt);
 	return age / (age + scale);
 }

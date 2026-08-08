@@ -250,8 +250,8 @@ describe('stepCreatureBehaviour integration', () => {
 			hunger: 0.9,
 			thirst: 0.1,
 			energy: 0.95,
-			intention: 'wander',
-			action: 'wander',
+			intention: 'explore',
+			action: 'explore',
 			memory,
 			nextReconsiderAt: 0,
 			movementSpeed: 1
@@ -334,26 +334,26 @@ describe('stepCreatureBehaviour integration', () => {
 			[
 				{
 					timeSeconds: 1,
-					fromIntention: 'wander',
+					fromIntention: 'explore',
 					toIntention: 'satisfy_hunger',
-					fromAction: 'wander',
+					fromAction: 'explore',
 					toAction: 'move',
 					reason: 'a'
 				},
 				{
 					timeSeconds: 2,
 					fromIntention: 'satisfy_hunger',
-					toIntention: 'wander',
+					toIntention: 'explore',
 					fromAction: 'eat',
-					toAction: 'wander',
+					toAction: 'explore',
 					reason: 'b'
 				}
 			],
 			{
 				timeSeconds: 3,
-				fromIntention: 'wander',
+				fromIntention: 'explore',
 				toIntention: 'rest',
-				fromAction: 'wander',
+				fromAction: 'explore',
 				toAction: 'move',
 				reason: 'c'
 			},
@@ -393,7 +393,7 @@ describe('stepCreatureBehaviour integration', () => {
 		);
 		// May replan on perception or stay searching; hunger still drives food need.
 		expect(
-			result.creature.intention === 'satisfy_hunger' || result.creature.intention === 'wander'
+			result.creature.intention === 'satisfy_hunger' || result.creature.intention === 'explore'
 		).toBe(true);
 		if (result.creature.intention === 'satisfy_hunger' && !result.creature.target) {
 			expect(result.creature.action).toBe('search');
@@ -632,8 +632,8 @@ describe('announce_resource executor (no behaviour lock)', () => {
 		const creature = testCreature({
 			id: 'creature-0',
 			position: { ...food.position },
-			intention: 'wander',
-			action: 'wander',
+			intention: 'explore',
+			action: 'explore',
 			target: { kind: 'point', position: { x: 1, y: 0 } },
 			// Already sensed this tick so perception does not force replan → announce.
 			perception: {
@@ -660,7 +660,7 @@ describe('announce_resource executor (no behaviour lock)', () => {
 			base.habitat,
 			config
 		);
-		expect(result.creature.intention).toBe('wander');
+		expect(result.creature.intention).toBe('explore');
 		expect(result.emissionRequest).toBeNull();
 		expect(result.creature.activeAnnouncementExecution).toBeNull();
 	});

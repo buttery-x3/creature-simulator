@@ -38,3 +38,9 @@ export {
 	selectExplorationTarget,
 	stalenessFactor
 } from './select-exploration-target';
+
+export {
+	buildExplorationDiagnostics,
+	formatExplorationDiagnostics,
+	type ExplorationDiagnosticsView
+} from './diagnostics';

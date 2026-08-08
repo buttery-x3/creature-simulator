@@ -5,20 +5,20 @@ import { deriveSeed } from './seed-derivation';
 describe('deriveSeed', () => {
 	it('is deterministic for the same inputs', () => {
 		expect(deriveSeed('demo', 'creatures')).toBe(deriveSeed('demo', 'creatures'));
-		expect(deriveSeed('demo', 'wander', 'creature-0', 3)).toBe(
-			deriveSeed('demo', 'wander', 'creature-0', 3)
+		expect(deriveSeed('demo', 'search', 'creature-0', 3)).toBe(
+			deriveSeed('demo', 'search', 'creature-0', 3)
 		);
 	});
 
 	it('diverges across channels for the same base seed', () => {
 		const creatures = deriveSeed('demo', 'creatures');
-		const wander = deriveSeed('demo', 'wander', 'creature-0', 0);
-		expect(creatures).not.toBe(wander);
+		const search = deriveSeed('demo', 'search', 'creature-0', 0);
+		expect(creatures).not.toBe(search);
 	});
 
 	it('diverges for different decision indices', () => {
-		expect(deriveSeed('demo', 'wander', 'creature-0', 0)).not.toBe(
-			deriveSeed('demo', 'wander', 'creature-0', 1)
+		expect(deriveSeed('demo', 'search', 'creature-0', 0)).not.toBe(
+			deriveSeed('demo', 'search', 'creature-0', 1)
 		);
 	});
 

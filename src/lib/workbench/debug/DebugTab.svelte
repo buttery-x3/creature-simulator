@@ -38,7 +38,11 @@
 			? formatCreatureInspection(selectedCreature, simulation.timeSeconds, {
 					sensingRadius: config.sensingRadius,
 					hearingRadius: config.hearingRadius,
-					symbolInventory: config.symbolInventory
+					symbolInventory: config.symbolInventory,
+					explorationDistanceWeight: config.explorationDistanceWeight,
+					explorationStalenessWeight: config.explorationStalenessWeight,
+					explorationStalenessScaleSeconds: config.explorationStalenessScaleSeconds,
+					worldBounds: simulation.habitat.bounds
 				})
 			: null
 	);

@@ -17,7 +17,7 @@ describe('clampNeed', () => {
 describe('advanceNeeds', () => {
 	it('raises hunger and thirst and drains energy while wandering', () => {
 		const next = advanceNeeds(
-			{ hunger: 0.2, thirst: 0.2, energy: 0.85, action: 'wander' },
+			{ hunger: 0.2, thirst: 0.2, energy: 0.85, action: 'explore' },
 			1,
 			rates
 		);
@@ -95,7 +95,7 @@ describe('recoveryComplete', () => {
 			recoveryComplete({ hunger: 0.5, thirst: 0.5, energy: 0.95, action: 'sleep' }, rates)
 		).toBe(true);
 		expect(
-			recoveryComplete({ hunger: 0.5, thirst: 0.5, energy: 0.5, action: 'wander' }, rates)
+			recoveryComplete({ hunger: 0.5, thirst: 0.5, energy: 0.5, action: 'explore' }, rates)
 		).toBe(false);
 	});
 });

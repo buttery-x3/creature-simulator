@@ -77,8 +77,8 @@ describe('stepAnnouncement integration', () => {
 		const creature = testCreature({
 			id: 'creature-0',
 			position: { ...food.position },
-			intention: 'wander',
-			action: 'wander',
+			intention: 'explore',
+			action: 'explore',
 			target: { kind: 'point', position: { x: 1, y: 0 } }
 		});
 		const result = stepAnnouncement({

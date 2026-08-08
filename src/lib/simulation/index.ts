@@ -29,6 +29,12 @@ export type {
 	CreaturePerception,
 	CreatureTarget,
 	EnvironmentState,
+	ExplorationDiagnosticsView,
+	ExplorationMap,
+	ExplorationScoreBreakdown,
+	ExplorationScoreConfig,
+	ExplorationState,
+	ExplorationTargetSelection,
 	FoodSpawnOutcome,
 	HeardSignal,
 	HeardSignalMemory,
@@ -78,10 +84,21 @@ export {
 	normalizeAngle,
 	sampleInteriorPoint,
 	sampleSearchTarget,
-	sampleWanderTarget,
 	shortestAngleDelta,
 	stepCreature
 } from './creature-movement';
+
+export {
+	buildExplorationDiagnostics,
+	cellCentre,
+	countExploredCells,
+	createExplorationState,
+	DEFAULT_EXPLORATION_CELL_SIZE,
+	formatExplorationDiagnostics,
+	scoreExplorationCell,
+	selectExplorationTarget,
+	updateExplorationFromSensing
+} from './exploration';
 
 export { formatCreatureInspection, formatSimulationDiagnostics } from './diagnostics';
 

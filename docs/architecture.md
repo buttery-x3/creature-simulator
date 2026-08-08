@@ -96,7 +96,9 @@ Stream isolation:
 - Habitat generation uses the **raw** simulation seed with `createSeededRng` so
   existing habitat layouts for current seeds remain stable.
 - Creature creation uses `deriveSeed(seed, 'creatures')`.
-- Each wander retarget uses `deriveSeed(seed, 'wander', creatureId, decisionIndex)`.
+- Need-driven search retarget uses `deriveSeed(seed, 'search', creatureId, decisionIndex)`.
+- Exploration cell selection is **fully deterministic** (distance + staleness
+  argmax) and does **not** use an RNG stream.
 - Memory capacity uses `deriveSeed(seed, 'memory-capacity', creatureId)`.
 - Verbosity uses `deriveSeed(seed, 'verbosity', creatureId)` (independent of placement).
 - Curiosity uses `deriveSeed(seed, 'curiosity', creatureId)` (independent of placement and verbosity).
@@ -128,7 +130,8 @@ quantity fields. Runtime food spawn reuses pure placement (`tryPlaceFeature`).
 | Create habitat + creatures              | `src/lib/simulation/create-simulation.ts`                         |
 | Runtime resources + rain                | `src/lib/simulation/resources/`                                   |
 | Fixed-step / catch-up advance           | `src/lib/simulation/step-simulation.ts`                           |
-| Turn, move, bound, retarget             | `src/lib/simulation/creature-movement.ts`                         |
+| Turn, move, bound, search sample        | `src/lib/simulation/creature-movement.ts`                         |
+| Spatial exploration map / target select | `src/lib/simulation/exploration/`                                 |
 | Need progression                        | `src/lib/simulation/behaviour/needs.ts`                           |
 | Apply arbitration + action transitions  | `src/lib/simulation/behaviour/apply-arbitration.ts`, `actions.ts` |
 | Habitat feature spatial query           | `src/lib/simulation/behaviour/habitat-feature-query.ts`           |
@@ -184,8 +187,8 @@ These concepts are distinct on each creature:
 | Concept       | Role                                                                                                                                                                                              |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Need**      | Internal condition: `hunger` and `thirst` are **pressure** (0 = sated/quenched, 1 = maximum); `energy` is **satisfaction** (0 = exhausted, 1 = full). Values stay finite and clamped to `[0, 1]`. |
-| **Intention** | What the creature is trying to accomplish: `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `wander`. Selected only by cognition.                           |
-| **Action**    | Current step: `move`, `investigate` (stop at signal origin), `eat`, `drink`, `sleep`, `wander`, or `search`.                                                                                      |
+| **Intention** | What the creature is trying to accomplish: `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `explore`. Selected only by cognition.                          |
+| **Action**    | Current step: `move`, `investigate` (stop at signal origin), `eat`, `drink`, `sleep`, `explore`, or `search`.                                                                                     |
 | **Target**    | Habitat feature id/kind or a free-space point.                                                                                                                                                    |
 
 Need rates, thresholds, reconsideration interval, continuity/baselines and recovery
@@ -223,7 +226,7 @@ Sensing:
 Search:
 
 - When `satisfy_hunger` / `satisfy_thirst` is selected with **no** destination
-  (search fallback), the action is **`search`** (not `wander`), with a deterministic
+  (search fallback), the action is **`search`** (not `explore`), with a deterministic
   point from the `search` seed stream (`sampleSearchTarget`).
 - Remembered resource beliefs use a **point** at the stored observation position and
   **`move`** toward it; sensing/memory updates correct stale beliefs only when near.
@@ -335,14 +338,14 @@ subsystem selects intentions.
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Placement**      | `simulation/cognition/` — not more helpers under capacity-full `behaviour/`.                                                                                                                                                                                                                                                                                            |
 | **Runtime status** | **Authoritative.** Single decision system; legacy goal/lock/opportunity machinery removed.                                                                                                                                                                                                                                                                              |
-| **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `wander`. No predator/social/mating types.                                                                                                                                                                                                                                       |
+| **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `explore`. No predator/social/mating types.                                                                                                                                                                                                                                      |
 | **Need targets**   | Perception first (feature target), then newest usable resource memory as a **point** at the stored position (water skips `empty: true`), else `target: null` + `search_fallback`. Remote habitat changes do not invalidate remembered points.                                                                                                                           |
 | **Need scores**    | `pressure × targetQuality` where quality is config-driven: **visible > remembered > search**. Factors expose raw pressure and `target_quality` multiplier. Blind search is materially discounted so actionable alternatives can win.                                                                                                                                    |
 | **Signal**         | From `heard_signal` memory only (newest sequence). Point target at origin. No lexicon or confidence. Score = `max(optional, needFloor)` where optional = `(baseline + recency) × curiosityWeight` and needFloor restores unweighted baseline+recency when a valid hunger/thirst need has only `search_fallback` knowledge. Validity is trait-independent.               |
 | **Announce**       | Perceived available resource not suppressed by `resource_announcement` memory. Score = `announceBaseline × speechWeight` via `verbosityToSpeechWeight` (preference only; validity unchanged). Mid-range quieter than the old raw baseline; high verbosity can still beat generic signal traffic. Deterministic feature-id pick. Clarity/speaking-position are executor. |
 | **Verbosity**      | Lifetime-stable per-creature scalar in `[0, 1)`, sampled at creation from an independent seed channel. Generic speech preference mapped to a bounded speech-weight multiplier — first consumer is `announce_resource` scoring only. Not a personality framework; not mutated over time; does not gate eligibility, hearing, or investigation.                           |
 | **Curiosity**      | Lifetime-stable per-creature scalar in `[0, 1)`, sampled at creation from an independent seed channel (independent of verbosity). Generic optional-information / novelty preference mapped to a bounded investigation-weight multiplier — first consumer is **optional** `investigate_signal` scoring only. Does not gate validity or need-driven information floors.   |
-| **Continuity**     | Soft score bonus on the current non-wander intention (modest anti-thrash only). Wander gets no continuity stickiness. No min-commitment, switch-margin, investigation/announcement locks.                                                                                                                                                                               |
+| **Continuity**     | Soft score bonus on the current non-explore intention (modest anti-thrash only). Explore gets no continuity stickiness. No min-commitment, switch-margin, investigation/announcement locks.                                                                                                                                                                             |
 | **Triggers**       | `ArbitrationTrigger` values request reconsideration only; they never force an intention.                                                                                                                                                                                                                                                                                |
 | **Evidence**       | Structured `ArbitrationRecord` / factors / reason codes (incl. target quality) — workbench formats factors; UI strings are not authority.                                                                                                                                                                                                                               |
 
@@ -404,11 +407,24 @@ Signal and communication visuals are presentation-only:
   position is never modified.
 - Selected-creature investigation line/marker remains presentation-only.
 
-### Wandering and reconsideration
+### Exploration and reconsideration
 
-Wandering remains the fallback when no other valid intention scores higher.
+`explore` is the low-priority fallback when no other valid intention scores
+higher. Cognition decides **whether** to explore; `simulation/exploration/`
+decides **where** using a per-creature spatial map (not `CreatureMemory`):
+
+- Fixed 2×2 cells (default 20×14 world → 70 cells); edge cells may be clipped.
+- A cell is fully sensed only when all four corners lie inside the sensing
+  circle in the **same** real sensing pass (no partial accumulation).
+- Target selection is deterministic: distance + staleness score, lowest-index
+  tie-break — no exploration RNG.
+- Enter explore → select highest-scoring cell; continue explore preserves the
+  active cell across re-arbitration; full sense of the active cell retargets
+  immediately; leaving explore clears `activeCellIndex`.
+- Need-driven `search` remains a separate stream and does not consume the map.
+
 Ordinary reconsideration is periodic (not every step). Continuity is a **soft
-score bonus** on the current non-wander intention only — no min-commitment gate
+score bonus** on the current non-explore intention only — no min-commitment gate
 or goal-switch margin. Event triggers (`pendingArbitrationTrigger`) request
 reconsideration without prescribing the winner. Invalid targets and finished
 eat/drink/sleep/investigation actions force immediate replan. Consumptive

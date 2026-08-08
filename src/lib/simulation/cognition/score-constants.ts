@@ -6,13 +6,15 @@
 import type { CognitionConfig } from './types';
 
 /**
- * Defaults mirror legacy need thresholds for behavioural familiarity.
+ * Defaults mirror need thresholds for behavioural familiarity.
  * Continuity is a modest soft bonus — not min-commitment or switch-margin gates.
+ * Wander does not receive continuity (see applyContinuity).
  *
  * Approximate relationships:
- * - wander ≈ 0.35 (aimless default)
- * - signal modestly above wander so investigation beats roaming
- * - announce below wander so optional sharing does not dominate survival
+ * - wander ≈ 0.35 (aimless default; no continuity stickiness)
+ * - announce above wander so idle discovery yields announce_resource
+ * - announce below need thresholds (~0.45) so meaningful needs outrank sharing
+ * - signal modestly above announce so investigation beats optional announce
  * - continuity ≈ 0.10 resists thrashing without making activity uninterruptible
  */
 export const DEFAULT_COGNITION_CONFIG: CognitionConfig = {
@@ -22,7 +24,7 @@ export const DEFAULT_COGNITION_CONFIG: CognitionConfig = {
 	wanderBaseline: 0.35,
 	signalBaseline: 0.4,
 	signalRecencyBoostMax: 0.05,
-	announceBaseline: 0.3,
+	announceBaseline: 0.38,
 	continuityBonus: 0.1
 };
 

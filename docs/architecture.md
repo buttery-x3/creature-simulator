@@ -323,17 +323,17 @@ snapshot it builds a small candidate set, scores simply, applies soft continuity
 and returns an `ArbitrationRecord`. Behaviour applies that record; no other
 subsystem selects intentions.
 
-| Concern            | Rule                                                                                                                                                                                           |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Placement**      | `simulation/cognition/` — not more helpers under capacity-full `behaviour/`.                                                                                                                   |
-| **Runtime status** | **Authoritative.** Single decision system; legacy goal/lock/opportunity machinery removed.                                                                                                     |
-| **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `wander`. No predator/social/mating types.                                                              |
-| **Need targets**   | Perception first, then newest usable resource memory (water skips `empty: true`), else `target: null` + `search_fallback` (executor samples search). Feature targets when feature id is known. |
-| **Signal**         | From `heard_signal` memory only (newest sequence). Point target at origin. No lexicon or confidence. Modest baseline + simple sequence recency.                                                |
-| **Announce**       | Perceived available resource not suppressed by `resource_announcement` memory. Deterministic feature-id pick. Clarity/speaking-position are executor concerns under the intention.             |
-| **Continuity**     | Soft score bonus on the current intention’s matching candidate. No min-commitment, switch-margin gates, investigation/announcement locks, or explore exemptions.                               |
-| **Triggers**       | `ArbitrationTrigger` values request reconsideration only; they never force an intention.                                                                                                       |
-| **Evidence**       | Structured `ArbitrationRecord` / factors / reason codes — workbench formats; UI strings are not authority.                                                                                     |
+| Concern            | Rule                                                                                                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Placement**      | `simulation/cognition/` — not more helpers under capacity-full `behaviour/`.                                                                                                                        |
+| **Runtime status** | **Authoritative.** Single decision system; legacy goal/lock/opportunity machinery removed.                                                                                                          |
+| **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `wander`. No predator/social/mating types.                                                                   |
+| **Need targets**   | Perception first, then newest usable resource memory (water skips `empty: true`), else `target: null` + `search_fallback` (executor samples search). Feature targets when feature id is known.      |
+| **Signal**         | From `heard_signal` memory only (newest sequence). Point target at origin. No lexicon or confidence. Modest baseline + simple sequence recency.                                                     |
+| **Announce**       | Perceived available resource not suppressed by `resource_announcement` memory. Baseline above wander, below need thresholds. Deterministic feature-id pick. Clarity/speaking-position are executor. |
+| **Continuity**     | Soft score bonus on the current non-wander intention. Wander gets no continuity stickiness. No min-commitment, switch-margin, investigation/announcement locks.                                     |
+| **Triggers**       | `ArbitrationTrigger` values request reconsideration only; they never force an intention.                                                                                                            |
+| **Evidence**       | Structured `ArbitrationRecord` / factors / reason codes — workbench formats; UI strings are not authority.                                                                                          |
 
 Fixed-step order (authoritative):
 

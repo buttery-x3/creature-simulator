@@ -19,6 +19,9 @@ import { INTENTION_RANK } from './types';
  * Apply continuity bonus to the current intention when it is still valid.
  * Preferred open decision: bonus on the matching candidate, not a separate
  * “continue” intention kind.
+ *
+ * Wander is excluded: aimless roaming must not stick via continuity and block
+ * optional behaviours (announce, investigate) that beat the bare wander baseline.
  */
 export function applyContinuity(
 	candidates: readonly IntentionCandidate[],
@@ -33,7 +36,11 @@ export function applyContinuity(
 		if (c.intention !== currentIntention || !c.valid) {
 			return { ...c, score: c.baseScore, continuityAdjustment: 0 };
 		}
-		const continuityAdjustment = config.continuityBonus;
+		// Negligible / zero continuity for wander — do not sticky-roam past announce.
+		const continuityAdjustment = currentIntention === 'wander' ? 0 : config.continuityBonus;
+		if (continuityAdjustment === 0) {
+			return { ...c, score: c.baseScore, continuityAdjustment: 0 };
+		}
 		return {
 			...c,
 			continuityAdjustment,

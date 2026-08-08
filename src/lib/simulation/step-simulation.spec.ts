@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
 	advanceSimulation,
+	arbitrate,
 	clampToInterior,
 	createSimulation,
+	DEFAULT_COGNITION_CONFIG,
 	defaultSimulationConfig,
 	distanceSquared,
+	hasResourceAnnouncementMemory,
 	normalizeAngle,
 	sampleWanderTarget,
 	shortestAngleDelta,
@@ -13,6 +16,7 @@ import {
 	stepSimulation,
 	type SimulationConfig
 } from './index';
+import { cognitionConfigFromSimulation } from './behaviour/build-arbitration-input';
 import { testCreature } from './test-creature';
 
 function longRunConfig(seed: string): SimulationConfig {
@@ -215,5 +219,134 @@ describe('angle helpers', () => {
 describe('distanceSquared', () => {
 	it('matches Euclidean distance squared', () => {
 		expect(distanceSquared({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(25);
+	});
+});
+
+describe('announce_resource end-to-end (unified intentions)', () => {
+	function idleAnnounceConfig(seed: string): SimulationConfig {
+		return {
+			...defaultSimulationConfig(seed),
+			creatureCount: 1,
+			sensingRadius: 4,
+			perceptionIntervalSeconds: 0.01,
+			emissionCooldownSeconds: 0,
+			resourceAnnouncementClarityMargin: 0,
+			initialHunger: 0.1,
+			initialThirst: 0.1,
+			initialEnergy: 1,
+			hungerRisePerSecond: 0,
+			thirstRisePerSecond: 0,
+			energyDrainPerSecond: 0,
+			// Align simulation config with cognition defaults under test.
+			wanderBaseline: DEFAULT_COGNITION_CONFIG.wanderBaseline,
+			announceBaseline: DEFAULT_COGNITION_CONFIG.announceBaseline,
+			signalBaseline: DEFAULT_COGNITION_CONFIG.signalBaseline,
+			continuityBonus: DEFAULT_COGNITION_CONFIG.continuityBonus
+		};
+	}
+
+	it('wander → perceive unannounced resource → announce → emit → memory suppresses re-announce', () => {
+		const config = idleAnnounceConfig('e2e-announce-once');
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		const creature = testCreature({
+			id: 'creature-0',
+			position: { x: food.position.x, y: food.position.y },
+			hunger: 0.1,
+			thirst: 0.1,
+			energy: 1,
+			intention: 'wander',
+			action: 'wander',
+			target: { kind: 'point', position: { x: food.position.x + 0.5, y: food.position.y } },
+			movementSpeed: 0,
+			nextReconsiderAt: 0,
+			pendingArbitrationTrigger: 'relevant_resource_perception_change',
+			preferredSymbolId: 'glyph-0',
+			lexicon: { food: 'glyph-0', water: null }
+		});
+
+		let state = {
+			...base,
+			creatures: [creature],
+			activeEmissions: [],
+			recentEmissions: []
+		};
+
+		// After perception, idle arbitration must prefer announce over wander.
+		let selectedAnnounce = false;
+		for (let i = 0; i < 5; i += 1) {
+			state = stepSimulation(state, config);
+			const c = state.creatures[0]!;
+			if (c.intention === 'announce_resource') {
+				selectedAnnounce = true;
+			}
+			if (c.emissionCount > 0) {
+				break;
+			}
+		}
+		expect(selectedAnnounce).toBe(true);
+		expect(state.creatures[0]!.emissionCount).toBeGreaterThanOrEqual(1);
+		const announcedCreature = state.creatures[0]!;
+		expect(hasResourceAnnouncementMemory(announcedCreature.memory, food.id)).toBe(true);
+
+		// Same resource no longer produces a valid announce candidate (other features ignored).
+		const post = arbitrate({
+			timeSeconds: state.timeSeconds,
+			trigger: 'periodic',
+			position: announcedCreature.position,
+			hunger: announcedCreature.hunger,
+			thirst: announcedCreature.thirst,
+			energy: announcedCreature.energy,
+			availableFood: [
+				{
+					featureId: food.id,
+					resourceKind: 'food',
+					position: { x: food.position.x, y: food.position.y }
+				}
+			],
+			availableWater: [],
+			memory: announcedCreature.memory,
+			currentIntention: announcedCreature.intention,
+			currentTarget: announcedCreature.target,
+			homeFeatureId: state.habitat.home.id,
+			config: cognitionConfigFromSimulation(config)
+		});
+		const announce = post.candidates.find((c) => c.intention === 'announce_resource');
+		expect(announce?.valid).toBe(false);
+		expect(announce?.rejectionReason).toBe('no_unannounced_resource');
+		expect(post.selectedIntention).not.toBe('announce_resource');
+	});
+
+	it('strong hunger beats announcement when both compete for a newly seen resource', () => {
+		const config = {
+			...idleAnnounceConfig('e2e-hunger-beats-announce'),
+			seekFoodThreshold: DEFAULT_COGNITION_CONFIG.seekFoodThreshold
+		};
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		const creature = testCreature({
+			id: 'creature-0',
+			position: { x: food.position.x, y: food.position.y },
+			hunger: 0.9,
+			thirst: 0.1,
+			energy: 1,
+			intention: 'wander',
+			action: 'wander',
+			movementSpeed: 0,
+			nextReconsiderAt: 0,
+			pendingArbitrationTrigger: 'relevant_resource_perception_change'
+		});
+		let state = {
+			...base,
+			creatures: [creature],
+			activeEmissions: [],
+			recentEmissions: []
+		};
+		state = stepSimulation(state, config);
+		const c = state.creatures[0]!;
+		// Need path wins; may be satisfy_hunger eating/moving, not announce.
+		expect(c.intention).toBe('satisfy_hunger');
+		expect(c.emissionCount).toBe(0);
+		expect(hasResourceAnnouncementMemory(c.memory, food.id)).toBe(false);
 	});
 });

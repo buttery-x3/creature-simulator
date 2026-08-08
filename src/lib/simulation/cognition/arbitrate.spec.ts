@@ -250,24 +250,39 @@ describe('resource memory targeting', () => {
 });
 
 describe('continuity', () => {
-	it('keeps current intention against a tiny challenger via continuity bonus', () => {
-		// wander baseline 0.35 + continuity 0.1 = 0.45
-		// announce baseline 0.30 cannot beat it
+	it('does not give wander a continuity bonus', () => {
 		const record = arbitrate(
 			baseInput({
 				currentIntention: 'wander',
-				availableFood: [foodPerceived('food-1')],
-				// announce valid at 0.30; wander+continuity = 0.45
 				hunger: 0.1
 			})
 		);
-		expect(record.selectedIntention).toBe('wander');
 		const wander = byIntention(record).wander!;
-		expect(wander.continuityAdjustment).toBe(DEFAULT_COGNITION_CONFIG.continuityBonus);
-		expect(wander.score).toBeCloseTo(
-			DEFAULT_COGNITION_CONFIG.wanderBaseline + DEFAULT_COGNITION_CONFIG.continuityBonus,
-			10
+		expect(wander.continuityAdjustment).toBe(0);
+		expect(wander.score).toBeCloseTo(DEFAULT_COGNITION_CONFIG.wanderBaseline, 10);
+		expect(record.selectionReasonCodes).not.toContain('continuity_bonus');
+	});
+
+	it('keeps a non-wander current intention against a tiny challenger via continuity', () => {
+		// investigate ≈ 0.40 + 0.10 continuity = 0.50
+		// mild hunger at threshold 0.45 cannot interrupt with continuity on investigate
+		let memory = emptyMemory();
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 5,
+			emissionId: 'em-1',
+			symbolId: 'glyph-0',
+			origin: { x: 3, y: 4 }
+		});
+		const record = arbitrate(
+			baseInput({
+				memory,
+				currentIntention: 'investigate_signal',
+				hunger: 0.45
+			})
 		);
+		expect(record.selectedIntention).toBe('investigate_signal');
+		const inv = byIntention(record).investigate_signal!;
+		expect(inv.continuityAdjustment).toBe(DEFAULT_COGNITION_CONFIG.continuityBonus);
 		expect(record.selectionReasonCodes).toContain('continuity_bonus');
 	});
 
@@ -387,6 +402,44 @@ describe('announcement candidate', () => {
 			featureKind: 'food'
 		});
 		expect(announce.score).toBe(DEFAULT_COGNITION_CONFIG.announceBaseline);
+		expect(DEFAULT_COGNITION_CONFIG.announceBaseline).toBeGreaterThan(
+			DEFAULT_COGNITION_CONFIG.wanderBaseline
+		);
+		expect(DEFAULT_COGNITION_CONFIG.announceBaseline).toBeLessThan(
+			DEFAULT_COGNITION_CONFIG.seekFoodThreshold
+		);
+	});
+
+	it('selects announce_resource when idle with a visible unannounced resource', () => {
+		const record = arbitrate(
+			baseInput({
+				currentIntention: 'wander',
+				hunger: 0.1,
+				thirst: 0.1,
+				energy: 0.95,
+				availableFood: [foodPerceived('food-1')]
+			})
+		);
+		expect(record.selectedIntention).toBe('announce_resource');
+		expect(record.selectedTarget).toEqual({
+			kind: 'feature',
+			featureId: 'food-1',
+			featureKind: 'food'
+		});
+	});
+
+	it('lets strong hunger beat announcement for a newly discovered resource', () => {
+		const record = arbitrate(
+			baseInput({
+				currentIntention: 'wander',
+				hunger: 0.9,
+				availableFood: [foodPerceived('food-1')]
+			})
+		);
+		expect(record.selectedIntention).toBe('satisfy_hunger');
+		const map = byIntention(record);
+		expect(map.announce_resource?.valid).toBe(true);
+		expect(map.satisfy_hunger!.score).toBeGreaterThan(map.announce_resource!.score);
 	});
 
 	it('is invalid when announcement memory already covers the feature', () => {

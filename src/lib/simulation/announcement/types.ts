@@ -93,13 +93,3 @@ export type AnnouncementOpportunityOutcome = {
 	completedAt: number;
 	reason: AnnouncementOutcomeReason;
 };
-
-/** Presentation-only active cue snapshot derived from authoritative state. */
-export type AnnouncementCueState = {
-	creatureId: string;
-	opportunityId: string;
-	triggerFeatureId: string;
-	triggerFeaturePosition: Vec2;
-	/** Simulation time when the cue should start fading (emit time), or null while preparing. */
-	fadeStartedAt: number | null;
-};

@@ -403,12 +403,6 @@ describe('announce_resource executor (no behaviour lock)', () => {
 				}
 			},
 			announcementOpportunityCounter: 1,
-			activeAnnouncementCue: {
-				opportunityId: 'ann-creature-0-0',
-				triggerFeatureId: 'food-0',
-				triggerFeaturePosition: { x: 2, y: 0 },
-				fadeStartedAt: null
-			},
 			...overrides
 		});
 	}
@@ -432,12 +426,6 @@ describe('announce_resource executor (no behaviour lock)', () => {
 				triggerFeaturePosition: { ...food.position },
 				state: 'ready',
 				speakingTarget: { ...food.position }
-			},
-			activeAnnouncementCue: {
-				opportunityId: 'ann-creature-0-0',
-				triggerFeatureId: food.id,
-				triggerFeaturePosition: { ...food.position },
-				fadeStartedAt: null
 			}
 		});
 		const timeSeconds = 10;
@@ -487,9 +475,9 @@ describe('announce_resource executor (no behaviour lock)', () => {
 			next.recentAnnouncementOutcomes.some((o) => o.reason === 'invalid_trigger_feature')
 		).toBe(true);
 		expect(next.activeAnnouncementOpportunity).toBeNull();
-		// Ended preparation triggers action_complete arbitration.
+		// Invalid end triggers ordinary arbitration (no lock); winner is unconstrained.
 		expect(next.lastArbitration).not.toBeNull();
-		expect(next.lastArbitration?.trigger).toBe('action_complete');
+		expect(next.lastArbitration?.candidates.length).toBeGreaterThan(0);
 	});
 
 	it('runs arbitration after announcement ends without asserting a winner', () => {
@@ -527,7 +515,10 @@ describe('announce_resource executor (no behaviour lock)', () => {
 	});
 
 	it('does not advance announcement executor when intention is not announce_resource', () => {
-		const config = defaultSimulationConfig('ann-not-intent');
+		const config = {
+			...defaultSimulationConfig('ann-not-intent'),
+			perceptionIntervalSeconds: 1
+		};
 		const base = createSimulation(config);
 		const food = base.habitat.food[0]!;
 		const creature = testCreature({
@@ -536,6 +527,20 @@ describe('announce_resource executor (no behaviour lock)', () => {
 			intention: 'wander',
 			action: 'wander',
 			target: { kind: 'point', position: { x: 1, y: 0 } },
+			// Already sensed this tick so perception does not force replan → announce.
+			perception: {
+				lastUpdatedAt: 1,
+				perceivedFoodIds: [food.id],
+				perceivedWaterIds: [],
+				observations: [
+					{
+						featureId: food.id,
+						featureKind: 'food',
+						position: { ...food.position },
+						observedAt: 1
+					}
+				]
+			},
 			nextReconsiderAt: 999,
 			movementSpeed: 0
 		});
@@ -547,6 +552,7 @@ describe('announce_resource executor (no behaviour lock)', () => {
 			base.habitat,
 			config
 		);
+		expect(result.creature.intention).toBe('wander');
 		expect(result.emissionRequest).toBeNull();
 		expect(result.creature.activeAnnouncementOpportunity).toBeNull();
 	});

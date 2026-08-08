@@ -50,7 +50,6 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		activeAnnouncementOpportunity: null,
 		announcementOpportunityCounter: 0,
 		recentAnnouncementOutcomes: [],
-		activeAnnouncementCue: null,
 		...overrides
 	};
 }

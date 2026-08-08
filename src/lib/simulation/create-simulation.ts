@@ -79,7 +79,6 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	speakingPositionSearchRadius: 2.5,
 	speakingPositionSearchResolution: 3,
 	recentAnnouncementOutcomeHistoryLimit: 8,
-	triggerFeatureCueFadeSeconds: 1.25,
 
 	// Communication: arbitrary symbols, short-lived local emissions.
 	// hearingRadius 12 is a practical finite default for the 20×20 habitat so
@@ -271,8 +270,7 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'recentEmissionDiagnosticsWindowSeconds',
 		'lexiconAssignmentMinStrength',
 		'resourceAnnouncementClarityMargin',
-		'speakingPositionSearchRadius',
-		'triggerFeatureCueFadeSeconds'
+		'speakingPositionSearchRadius'
 	] as const) {
 		const value = config[key];
 		if (typeof value !== 'number' || !(value >= 0) || !Number.isFinite(value)) {
@@ -287,11 +285,6 @@ function validateSimulationConfig(config: SimulationConfig): void {
 	if (!(config.speakingPositionSearchRadius > 0)) {
 		throw new SimulationCreationError(
 			`speakingPositionSearchRadius must be > 0, received ${config.speakingPositionSearchRadius}`
-		);
-	}
-	if (!(config.triggerFeatureCueFadeSeconds > 0)) {
-		throw new SimulationCreationError(
-			`triggerFeatureCueFadeSeconds must be > 0, received ${config.triggerFeatureCueFadeSeconds}`
 		);
 	}
 	if (!(config.investigationDistanceScale > 0)) {
@@ -465,8 +458,7 @@ function createCreatures(
 			recentLearning: [],
 			activeAnnouncementOpportunity: null,
 			announcementOpportunityCounter: 0,
-			recentAnnouncementOutcomes: [],
-			activeAnnouncementCue: null
+			recentAnnouncementOutcomes: []
 		};
 
 		const initial = replanFromArbitration(draft, habitat, 0, 'initial', config, config.seed);

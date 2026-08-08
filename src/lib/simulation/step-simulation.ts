@@ -75,7 +75,6 @@ export type StepSimulationConfig = Pick<
 	| 'speakingPositionSearchResolution'
 	| 'recentAnnouncementOutcomeHistoryLimit'
 	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
-	| 'triggerFeatureCueFadeSeconds'
 	| 'maxActiveFoodSources'
 	| 'foodSpawnIntervalSeconds'
 	| 'rainIntervalMinSeconds'

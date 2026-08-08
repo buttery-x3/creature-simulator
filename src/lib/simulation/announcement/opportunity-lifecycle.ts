@@ -239,17 +239,10 @@ export function emptyAnnouncementState(): {
 	activeAnnouncementOpportunity: AnnouncementOpportunity | null;
 	announcementOpportunityCounter: number;
 	recentAnnouncementOutcomes: AnnouncementOpportunityOutcome[];
-	activeAnnouncementCue: {
-		opportunityId: string;
-		triggerFeatureId: string;
-		triggerFeaturePosition: Vec2;
-		fadeStartedAt: number | null;
-	} | null;
 } {
 	return {
 		activeAnnouncementOpportunity: null,
 		announcementOpportunityCounter: 0,
-		recentAnnouncementOutcomes: [],
-		activeAnnouncementCue: null
+		recentAnnouncementOutcomes: []
 	};
 }

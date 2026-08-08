@@ -14,7 +14,8 @@ import {
 	simulationSnapshot,
 	stepCreature,
 	stepSimulation,
-	type SimulationConfig
+	type SimulationConfig,
+	type SimulationState
 } from './index';
 import { cognitionConfigFromSimulation } from './behaviour/build-arbitration-input';
 import { testCreature } from './test-creature';
@@ -222,6 +223,81 @@ describe('distanceSquared', () => {
 	});
 });
 
+describe('announce_resource same-step race (successful emit)', () => {
+	it('produces one emission and does not re-execute announce for the same feature in one step', () => {
+		const config: SimulationConfig = {
+			...defaultSimulationConfig('announce-race-once'),
+			creatureCount: 1,
+			sensingRadius: 4,
+			perceptionIntervalSeconds: 0.01,
+			emissionCooldownSeconds: 0,
+			resourceAnnouncementClarityMargin: 0,
+			initialHunger: 0.1,
+			initialThirst: 0.1,
+			initialEnergy: 1,
+			hungerRisePerSecond: 0,
+			thirstRisePerSecond: 0,
+			energyDrainPerSecond: 0,
+			habitat: {
+				...defaultSimulationConfig('announce-race-once').habitat,
+				foodCount: 1,
+				waterCount: 0
+			}
+		};
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		const creature = testCreature({
+			id: 'creature-0',
+			position: { x: food.position.x, y: food.position.y },
+			hunger: 0.1,
+			thirst: 0.1,
+			energy: 1,
+			intention: 'announce_resource',
+			action: 'move',
+			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
+			movementSpeed: 0,
+			nextReconsiderAt: 999,
+			preferredSymbolId: 'glyph-0',
+			lexicon: { food: 'glyph-0', water: null }
+		});
+		let state: SimulationState = {
+			...base,
+			creatures: [creature],
+			activeEmissions: [],
+			recentEmissions: []
+		};
+
+		const beforeCounter = state.creatures[0]!.announcementOpportunityCounter;
+		state = stepSimulation(state, config);
+		const c = state.creatures[0]!;
+
+		expect(c.emissionCount).toBe(1);
+		const emittedOutcomes = c.recentAnnouncementOutcomes.filter(
+			(o) => o.reason === 'emitted' && o.triggerFeatureId === food.id
+		);
+		expect(emittedOutcomes).toHaveLength(1);
+		expect(hasResourceAnnouncementMemory(c.memory, food.id)).toBe(true);
+		// No second executor creation for the same feature mid/post emit same step.
+		expect(c.announcementOpportunityCounter).toBeLessThanOrEqual(beforeCounter + 1);
+		expect(c.activeAnnouncementOpportunity).toBeNull();
+		// Deferred replan pending so next step sees committed memory.
+		expect(c.pendingArbitrationTrigger).toBe('action_complete');
+
+		// Next step: memory suppresses re-announce of food-X.
+		const emissionsBefore = c.emissionCount;
+		state = stepSimulation(state, config);
+		const after = state.creatures[0]!;
+		expect(after.emissionCount).toBe(emissionsBefore);
+		expect(
+			after.recentAnnouncementOutcomes.filter(
+				(o) => o.reason === 'emitted' && o.triggerFeatureId === food.id
+			)
+		).toHaveLength(1);
+		expect(hasResourceAnnouncementMemory(after.memory, food.id)).toBe(true);
+		expect(after.intention).not.toBe('announce_resource');
+	});
+});
+
 describe('announce_resource end-to-end (unified intentions)', () => {
 	function idleAnnounceConfig(seed: string): SimulationConfig {
 		return {
@@ -265,7 +341,7 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			lexicon: { food: 'glyph-0', water: null }
 		});
 
-		let state = {
+		let state: SimulationState = {
 			...base,
 			creatures: [creature],
 			activeEmissions: [],
@@ -336,7 +412,7 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			nextReconsiderAt: 0,
 			pendingArbitrationTrigger: 'relevant_resource_perception_change'
 		});
-		let state = {
+		let state: SimulationState = {
 			...base,
 			creatures: [creature],
 			activeEmissions: [],

@@ -6,7 +6,6 @@
  */
 
 export type {
-	AnnouncementCueState,
 	AnnouncementOpportunity,
 	AnnouncementOpportunityOutcome,
 	AnnouncementOpportunityState,

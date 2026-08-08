@@ -56,7 +56,6 @@ export function replanFromArbitration(
 	let symbolAssociations = creature.symbolAssociations;
 	let recentLearning = creature.recentLearning;
 	let activeAnnouncementOpportunity = creature.activeAnnouncementOpportunity;
-	const activeAnnouncementCue = creature.activeAnnouncementCue;
 
 	// Leaving investigate → interrupt learning context (not a lock).
 	if (activeInvestigation && applied.intention !== 'investigate_signal') {
@@ -158,7 +157,6 @@ export function replanFromArbitration(
 		activeInvestigation,
 		symbolAssociations,
 		recentLearning,
-		activeAnnouncementOpportunity,
-		activeAnnouncementCue
+		activeAnnouncementOpportunity
 	};
 }

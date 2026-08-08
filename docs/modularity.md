@@ -255,7 +255,6 @@ Three.js presentation is split:
 - `symbol-presentation.ts` — pure shared symbol presentation registry (shape/label/color);
 - `signal-presentation.ts` — emission speech bubbles, thin hearing-radius rings, selected investigation overlay;
 - `listener-cue-presentation.ts` — coalesced neutral `?` cues (brief on hear, held while investigating);
-- `announcement-cue-presentation.ts` — dashed creature→trigger-feature lines for active announcements;
 - `SymbolGlyph.svelte` — Svelte consumer of the symbol registry for diagnostics;
 - `ThreeViewport.svelte` — scene lifecycle, camera framing, pick ray, prop wiring;
 - `habitat-camera.ts` — pure framing and visibility calculations.

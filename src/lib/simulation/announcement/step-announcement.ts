@@ -4,14 +4,18 @@
  * Cognition selects announce_resource + feature target. This module advances
  * clarity evaluation, speaking-position search, and emission request construction.
  * It never locks behaviour or forces intention ownership.
+ *
+ * Successful emission requests do not write resource_announcement memory here —
+ * that happens after communication accepts the emission.
  */
 
 import type { Habitat } from '$lib/habitat';
-import type { EmissionRequest } from '../communication/types';
 import { queryFeaturesNear } from '../behaviour/habitat-feature-query';
+import type { EmissionRequest } from '../communication/types';
+import { ensureCreatureMemory } from '../memory/create-memory';
+import { hasResourceAnnouncementMemory } from '../memory/query';
 import type { Creature, SimulationConfig } from '../types';
 import { evaluateKindClarity, type ClarityResourceCandidate } from './clarity';
-import { ensureCreatureMemory } from '../memory/create-memory';
 import { appendOutcome, buildOutcome, getActiveOpportunity } from './opportunity-lifecycle';
 import { findSpeakingPosition } from './speaking-position';
 import type { AnnouncementOpportunity } from './types';
@@ -23,7 +27,6 @@ export type AnnouncementStepConfig = Pick<
 	| 'speakingPositionSearchResolution'
 	| 'recentAnnouncementOutcomeHistoryLimit'
 	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
-	| 'triggerFeatureCueFadeSeconds'
 	| 'emissionCooldownSeconds'
 	| 'creatureRadius'
 	| 'sensingRadius'
@@ -35,7 +38,8 @@ export type AnnouncementStepResult = {
 	emissionRequest: EmissionRequest | null;
 	/**
 	 * True when this step completed or invalidated announcement execution
-	 * (emit, invalidate). Orchestrator should request action_complete arbitration.
+	 * (emit, invalidate, or cannot start). Orchestrator defers re-arbitration
+	 * after a successful emissionRequest until post-communication memory exists.
 	 */
 	endedPreparation: boolean;
 };
@@ -114,6 +118,17 @@ function ensureExecutorOpportunity(
 		};
 	}
 
+	// Already committed announcement memory — do not recreate executor state.
+	if (hasResourceAnnouncementMemory(creature.memory, target.featureId)) {
+		return {
+			creature: {
+				...creature,
+				activeAnnouncementOpportunity: null
+			},
+			active: null
+		};
+	}
+
 	const existing = getActiveOpportunity(creature.activeAnnouncementOpportunity);
 	if (existing && existing.triggerFeatureId === target.featureId) {
 		return { creature, active: existing };
@@ -147,13 +162,7 @@ function ensureExecutorOpportunity(
 		creature: {
 			...creature,
 			activeAnnouncementOpportunity: active,
-			announcementOpportunityCounter: counter,
-			activeAnnouncementCue: {
-				opportunityId: active.id,
-				triggerFeatureId: active.triggerFeatureId,
-				triggerFeaturePosition: { ...active.triggerFeaturePosition },
-				fadeStartedAt: null
-			}
+			announcementOpportunityCounter: counter
 		},
 		active
 	};
@@ -172,17 +181,7 @@ export function stepAnnouncement(input: {
 	const { habitat, timeSeconds, config } = input;
 	let creature = ensureCreatureMemory(input.creature);
 
-	// Expire faded presentation cue.
-	if (
-		creature.activeAnnouncementCue?.fadeStartedAt !== null &&
-		creature.activeAnnouncementCue?.fadeStartedAt !== undefined &&
-		timeSeconds - creature.activeAnnouncementCue.fadeStartedAt >=
-			config.triggerFeatureCueFadeSeconds
-	) {
-		creature = { ...creature, activeAnnouncementCue: null };
-	}
-
-	// Not announcing: drop executor opportunity (cue may still fade).
+	// Not announcing: drop executor opportunity.
 	if (creature.intention !== 'announce_resource') {
 		if (creature.activeAnnouncementOpportunity !== null) {
 			creature = { ...creature, activeAnnouncementOpportunity: null };
@@ -269,13 +268,7 @@ export function stepAnnouncement(input: {
 				creature.recentAnnouncementOutcomes,
 				outcome,
 				config.recentAnnouncementOutcomeHistoryLimit
-			),
-			activeAnnouncementCue: {
-				opportunityId: active.id,
-				triggerFeatureId: active.triggerFeatureId,
-				triggerFeaturePosition: { ...active.triggerFeaturePosition },
-				fadeStartedAt: timeSeconds
-			}
+			)
 		};
 
 		return { creature, emissionRequest, endedPreparation: true };
@@ -321,13 +314,7 @@ export function stepAnnouncement(input: {
 		...creature,
 		activeAnnouncementOpportunity: active,
 		action: 'move',
-		target: { kind: 'point', position: { ...speaking.position } },
-		activeAnnouncementCue: {
-			opportunityId: active.id,
-			triggerFeatureId: active.triggerFeatureId,
-			triggerFeaturePosition: { ...active.triggerFeaturePosition },
-			fadeStartedAt: null
-		}
+		target: { kind: 'point', position: { ...speaking.position } }
 	};
 
 	return { creature, emissionRequest: null, endedPreparation: false };
@@ -359,11 +346,7 @@ function finalizeInvalid(
 				creature.recentAnnouncementOutcomes,
 				outcome,
 				config.recentAnnouncementOutcomeHistoryLimit
-			),
-			activeAnnouncementCue:
-				creature.activeAnnouncementCue?.opportunityId === active.id
-					? null
-					: creature.activeAnnouncementCue
+			)
 		},
 		emissionRequest: null,
 		endedPreparation: true

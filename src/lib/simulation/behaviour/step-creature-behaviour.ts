@@ -4,6 +4,9 @@
  *
  * Intention selection is exclusive to cognition (`arbitrate`). This module only
  * requests reconsideration and executes the current intention.
+ *
+ * Successful announcement emission requests defer action_complete arbitration until
+ * the next step so resource_announcement memory (written post-communication) is visible.
  */
 
 import type { Habitat } from '$lib/habitat';
@@ -78,7 +81,6 @@ export type BehaviourStepConfig = Pick<
 	| 'speakingPositionSearchResolution'
 	| 'recentAnnouncementOutcomeHistoryLimit'
 	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
-	| 'triggerFeatureCueFadeSeconds'
 	| 'emissionCooldownSeconds'
 >;
 
@@ -101,6 +103,36 @@ function replan(
 }
 
 /**
+ * Handle announcement executor completion.
+ * Successful emission: defer action_complete to next step (memory not yet written).
+ * Invalid/end without emit: replan immediately.
+ */
+function applyAnnouncementEnd(
+	creature: Creature,
+	habitat: Habitat,
+	timeSeconds: number,
+	config: BehaviourStepConfig,
+	simulationSeed: string,
+	result: { creature: Creature; emissionRequest: EmissionRequest | null; endedPreparation: boolean }
+): { creature: Creature; emissionRequest: EmissionRequest | null } {
+	let next = result.creature;
+	const emissionRequest = result.emissionRequest;
+	if (!result.endedPreparation) {
+		return { creature: next, emissionRequest };
+	}
+	if (emissionRequest) {
+		// Defer until after communication + applySuccessfulAnnouncementMemories.
+		next = {
+			...next,
+			pendingArbitrationTrigger: 'action_complete'
+		};
+		return { creature: next, emissionRequest };
+	}
+	next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
+	return { creature: next, emissionRequest: null };
+}
+
+/**
  * Advance one creature through needs, perception, arbitration and actions for a fixed dt.
  * `grants` are world-resource consumption amounts for this step (eat/drink recovery).
  */
@@ -113,6 +145,9 @@ export function stepCreatureBehaviour(
 	config: BehaviourStepConfig,
 	grants: ConsumptionGrants = { food: 0, water: 0 }
 ): CreatureBehaviourStepResult {
+	// Snapshot so a deferred post-emit trigger set later this step cannot fire now.
+	const incomingPendingTrigger = creature.pendingArbitrationTrigger;
+
 	const needs = advanceNeeds(creature, dt, config, grants);
 	let next: Creature = { ...creature, ...needs };
 	let emissionRequest: EmissionRequest | null = null;
@@ -142,40 +177,48 @@ export function stepCreatureBehaviour(
 		timeSeconds,
 		config: announcementConfig
 	});
-	next = announced.creature;
-	if (announced.emissionRequest) {
-		emissionRequest = announced.emissionRequest;
-	}
-	if (announced.endedPreparation) {
-		next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
+	const afterAnnounce = applyAnnouncementEnd(
+		next,
+		habitat,
+		timeSeconds,
+		config,
+		simulationSeed,
+		announced
+	);
+	next = afterAnnounce.creature;
+	if (afterAnnounce.emissionRequest) {
+		emissionRequest = afterAnnounce.emissionRequest;
 	}
 
-	// 3. Invalid target → immediate arbitration.
-	const investigationStale =
-		next.intention === 'investigate_signal' && next.activeInvestigation === null;
-	const targetOk = isTargetValid(habitat, next.target);
-	if (!targetOk || investigationStale) {
-		if (next.action === 'search' && next.target?.kind !== 'point' && !investigationStale) {
-			const search = ensureSearchTarget(next, simulationSeed, habitat, config);
-			next = {
-				...next,
-				...search,
-				action: 'search'
-			};
-		} else {
-			next = replan(
-				next,
-				habitat,
-				timeSeconds,
-				investigationStale ? 'action_complete' : 'current_target_invalid',
-				config,
-				simulationSeed
-			);
+	// 3. Invalid target → immediate arbitration (skip if we already emitted this step).
+	if (!emissionRequest) {
+		const investigationStale =
+			next.intention === 'investigate_signal' && next.activeInvestigation === null;
+		const targetOk = isTargetValid(habitat, next.target);
+		if (!targetOk || investigationStale) {
+			if (next.action === 'search' && next.target?.kind !== 'point' && !investigationStale) {
+				const search = ensureSearchTarget(next, simulationSeed, habitat, config);
+				next = {
+					...next,
+					...search,
+					action: 'search'
+				};
+			} else {
+				next = replan(
+					next,
+					habitat,
+					timeSeconds,
+					investigationStale ? 'action_complete' : 'current_target_invalid',
+					config,
+					simulationSeed
+				);
+			}
 		}
 	}
 
 	// 4. Recovery complete → replan
 	if (
+		!emissionRequest &&
 		(next.action === 'eat' || next.action === 'drink' || next.action === 'sleep') &&
 		recoveryComplete(next, config)
 	) {
@@ -184,6 +227,7 @@ export function stepCreatureBehaviour(
 
 	// 5. At investigation site
 	if (
+		!emissionRequest &&
 		next.intention === 'investigate_signal' &&
 		next.action === 'investigate' &&
 		next.activeInvestigation
@@ -193,10 +237,13 @@ export function stepCreatureBehaviour(
 		return { creature: next, emissionRequest };
 	}
 
-	// 6. Event / periodic reconsideration (never blocked by locks).
+	// 6. Event / periodic reconsideration — not after a successful same-step emit.
 	const isConsumptive = next.action === 'eat' || next.action === 'drink' || next.action === 'sleep';
-	if (!isConsumptive) {
-		if (next.pendingArbitrationTrigger) {
+	if (!emissionRequest && !isConsumptive) {
+		if (incomingPendingTrigger) {
+			next = replan(next, habitat, timeSeconds, incomingPendingTrigger, config, simulationSeed);
+		} else if (next.pendingArbitrationTrigger) {
+			// e.g. set mid-step by other paths without emit (should be rare).
 			const trigger = next.pendingArbitrationTrigger;
 			next = replan(next, habitat, timeSeconds, trigger, config, simulationSeed);
 		} else if (perceptionChanged) {
@@ -275,25 +322,34 @@ export function stepCreatureBehaviour(
 	const moved = moveToward(next, destination, dt, habitat.bounds, config);
 	next = { ...next, ...moved };
 
-	// After movement, re-check announcement clarity (emit mid-reposition when clear).
-	if (next.intention === 'announce_resource' || next.activeAnnouncementOpportunity !== null) {
+	// After movement, re-check announcement clarity — never a second executor pass after emit.
+	if (
+		!emissionRequest &&
+		(next.intention === 'announce_resource' || next.activeAnnouncementOpportunity !== null)
+	) {
 		const afterMove = stepAnnouncement({
 			creature: next,
 			habitat,
 			timeSeconds,
 			config: announcementConfig
 		});
-		next = afterMove.creature;
-		if (afterMove.emissionRequest && !emissionRequest) {
-			emissionRequest = afterMove.emissionRequest;
-		}
-		if (afterMove.endedPreparation) {
-			next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
+		const applied = applyAnnouncementEnd(
+			next,
+			habitat,
+			timeSeconds,
+			config,
+			simulationSeed,
+			afterMove
+		);
+		next = applied.creature;
+		if (applied.emissionRequest) {
+			emissionRequest = applied.emissionRequest;
 		}
 	}
 
 	// Arrive at feature → consumptive action, or arrive at signal origin → investigate
 	if (
+		!emissionRequest &&
 		next.action === 'move' &&
 		isAtTarget(next.position, habitat, next.target, config.arrivalDistance)
 	) {

@@ -32,7 +32,6 @@ for inspection; selection is presentation state only.
 | Symbol presentation       | `src/lib/symbol-presentation.ts`                      | Shared glyph shape/label/color registry (presentation only)                           |
 | Signal presentation       | `src/lib/signal-presentation.ts`                      | Speech bubbles + thin hearing-radius rings + investigation overlay                    |
 | Listener cue presentation | `src/lib/listener-cue-presentation.ts`                | Neutral `?` on recent hear (brief) or while investigating (held)                      |
-| Announcement cue          | `src/lib/announcement-cue-presentation.ts`            | Dashed creature→trigger-feature lines (presentation only)                             |
 | Habitat camera            | `src/lib/habitat-camera.ts`                           | Near-top-down perspective framing and visibility checks                               |
 | Reserved ports            | `src/lib/ports.ts`                                    | Shared by Vite, Playwright and docs                                                   |
 
@@ -273,7 +272,7 @@ discovery emission.
 | **Investigation**       | While `investigate_signal` travel/inspect is locked, ordinary resource-discovery perception does not run. Arrival inspection is **learning-only** (ephemeral local evidence; no announcement episodes/opportunities). After investigation, ordinary perception may rediscover features still in range. |
 | **Signal origin**       | `SignalEmission.origin = creature.position` at emission time (never the resource).                                                                                                                                                                                                                     |
 | **Hidden provenance**   | Opportunity id, episode id, trigger feature, clarity evidence on emission/request; not on `HeardSignal`.                                                                                                                                                                                               |
-| **Presentation cue**    | Thin dashed creature→trigger-feature line (`announcement-cue-presentation.ts`); active opportunity only; fades after emit; presentation-only.                                                                                                                                                          |
+| **Memory boundary**     | `resource_announcement` is written only after communication accepts the emission (`applySuccessfulAnnouncementMemories`). Successful same-step emit defers `action_complete` arbitration until the next behaviour step so cognition sees that memory.                                                  |
 
 Do not confuse resource-announcement (no deferred task list) with any future design for queued **signal investigations**. Investigation queueing is out of scope here.
 
@@ -388,9 +387,6 @@ Signal and communication visuals are presentation-only:
   creature when it has a recent `HeardSignal` (brief pulse) **or** while
   `activeInvestigation` is set (held for the full investigation). Coalesced per
   listener; not a symbol-identity cue.
-- **Announcement trigger cues** (`announcement-cue-presentation.ts`) draw a thin
-  dashed line from the announcing creature to the opportunity’s trigger feature
-  while preparing and briefly after emission. Omniscient diagnostics only.
 - **Investigation hop** (`creature-presentation.ts`) is a one-shot vertical
   presentation offset when `activeInvestigation` commitment changes. Authoritative
   position is never modified.
@@ -413,15 +409,14 @@ experiment history are future concerns.
 
 ## Static and dynamic presentation
 
-| Concern                      | Module                                     |
-| ---------------------------- | ------------------------------------------ |
-| Static habitat meshes        | `src/lib/habitat-presentation.ts`          |
-| Dynamic creature reconcile   | `src/lib/creature-presentation.ts`         |
-| Symbol presentation registry | `src/lib/symbol-presentation.ts`           |
-| Dynamic signal reconcile     | `src/lib/signal-presentation.ts`           |
-| Heard-listener cue reconcile | `src/lib/listener-cue-presentation.ts`     |
-| Announcement trigger cues    | `src/lib/announcement-cue-presentation.ts` |
-| Scene / camera / pick        | `src/lib/ThreeViewport.svelte`             |
+| Concern                      | Module                                 |
+| ---------------------------- | -------------------------------------- |
+| Static habitat meshes        | `src/lib/habitat-presentation.ts`      |
+| Dynamic creature reconcile   | `src/lib/creature-presentation.ts`     |
+| Symbol presentation registry | `src/lib/symbol-presentation.ts`       |
+| Dynamic signal reconcile     | `src/lib/signal-presentation.ts`       |
+| Heard-listener cue reconcile | `src/lib/listener-cue-presentation.ts` |
+| Scene / camera / pick        | `src/lib/ThreeViewport.svelte`         |
 
 The static habitat group rebuilds only when habitat data changes. Creature
 presentation maintains meshes keyed by creature id, updates transforms in place,

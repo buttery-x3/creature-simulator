@@ -138,7 +138,6 @@ src/
         symbol-presentation.ts
         signal-presentation.ts
         listener-cue-presentation.ts
-        announcement-cue-presentation.ts
         habitat-camera.ts
         habitat-camera.spec.ts
         creature-presentation.spec.ts
@@ -177,8 +176,7 @@ Obsolete files should not remain in this topology merely because they were creat
 | `SymbolGlyph.svelte`               | Svelte icon + stable id from the shared registry                                                                                                     | Domain algorithms                                                          |
 | `signal-presentation.ts`           | Emission speech bubbles + thin hearing-radius rings + selected investigation overlay                                                                 | Authoritative reception, emission lifetime, association updates            |
 | `listener-cue-presentation.ts`     | Coalesced neutral `?` from recent hear (brief) and/or active investigation (held)                                                                    | Investigation decisions, emission construction                             |
-| `announcement-cue-presentation.ts` | Dashed creature→trigger-feature lines for active announcement opportunities                                                                          | Clarity, speaking positions, emission construction                         |
-| `ThreeViewport.svelte`             | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal/listener/announcement presentation                        | Authoritative habitat or creature state                                    |
+| `ThreeViewport.svelte`             | Three.js scene lifecycle, camera framing, creature picking, wiring habitat/creature/signal/listener presentation                                     | Authoritative habitat or creature state                                    |
 | `habitat-camera.ts`                | Pure camera-framing and visibility calculations                                                                                                      | Scene construction, simulation state or UI controls                        |
 | `src/lib/workbench/`               | Domain-organised workbench UI: tab shell, Overview run controls, Creatures roster/detail, Communication, World, Events, Debug; pure view-models      | Authoritative simulation state, Three.js resources                         |
 | `src/routes/+page.svelte`          | Page composition, session simulation state, rAF catch-up, pause/reset, selected creature id                                                          | Domain algorithms, geometry rules or Three.js resource ownership           |
@@ -208,7 +206,7 @@ routes              -> workbench and viewport components
 workbench           -> habitat + simulation public entry points; SymbolGlyph / symbol-presentation
 viewport            -> habitat public entry point
 viewport            -> simulation Creature / SignalEmission types
-viewport            -> habitat-presentation, creature-presentation, signal-presentation, announcement-cue-presentation, habitat-camera
+viewport            -> habitat-presentation, creature-presentation, signal-presentation, listener-cue-presentation, habitat-camera
 habitat-camera      -> habitat types
 habitat subsystem   -> determinism
 simulation          -> determinism + habitat

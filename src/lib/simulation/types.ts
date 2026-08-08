@@ -236,17 +236,6 @@ export type Creature = {
 	announcementOpportunityCounter: number;
 	/** Bounded recent opportunity outcomes for local lifecycle diagnostics. */
 	recentAnnouncementOutcomes: AnnouncementOpportunityOutcome[];
-	/**
-	 * Presentation/diagnostic cue for the active (or just-emitted) opportunity.
-	 * Authoritative fade timing; presentation only reads this.
-	 */
-	activeAnnouncementCue: {
-		opportunityId: string;
-		triggerFeatureId: string;
-		triggerFeaturePosition: Vec2;
-		/** When set, cue is fading after emission; null while preparing. */
-		fadeStartedAt: number | null;
-	} | null;
 };
 
 export type SimulationState = {
@@ -362,11 +351,6 @@ export type SimulationConfig = {
 	speakingPositionSearchResolution: number;
 	/** Max length of recentAnnouncementOutcomes (oldest dropped). */
 	recentAnnouncementOutcomeHistoryLimit: number;
-	/**
-	 * How long the trigger-feature dashed cue remains after emission before disposal
-	 * (authoritative fade window for presentation).
-	 */
-	triggerFeatureCueFadeSeconds: number;
 
 	/**
 	 * Arbitrary symbol inventory. No built-in semantic mapping to resources or danger.

@@ -709,4 +709,171 @@ describe('announce_resource executor (no behaviour lock)', () => {
 		expect(next.intention).not.toBe('announce_resource');
 		expect(next.activeAnnouncementExecution).toBeNull();
 	});
+
+	it('clears food-B execution when fresh arbitration selects food-A for announce_resource', () => {
+		const config = {
+			...defaultSimulationConfig('ann-switch-feature'),
+			// Keep needs low so announce_resource wins over need intentions.
+			seekFoodThreshold: 0.5,
+			seekWaterThreshold: 0.5,
+			restThreshold: 0.2
+		};
+		const base = createSimulation(config);
+		const foodA = {
+			id: 'food-a',
+			kind: 'food' as const,
+			position: { x: -2, y: 0 },
+			size: { width: 0.5, height: 0.5 },
+			amount: 5,
+			capacity: 5
+		};
+		const foodB = {
+			id: 'food-b',
+			kind: 'food' as const,
+			position: { x: 2, y: 0 },
+			size: { width: 0.5, height: 0.5 },
+			amount: 5,
+			capacity: 5
+		};
+		const habitat = { ...base.habitat, food: [foodA, foodB], water: [] };
+		const speakingTarget = { x: 3, y: 1 };
+		const creature = announcingCreature({
+			position: { x: 0, y: 0 },
+			hunger: 0,
+			thirst: 0,
+			energy: 1,
+			// Pre-arbitration movement destination is B's speaking point.
+			target: { kind: 'point', position: { ...speakingTarget } },
+			activeAnnouncementExecution: {
+				id: 'ann-creature-0-b',
+				creatureId: 'creature-0',
+				triggerFeatureId: foodB.id,
+				resourceKind: 'food',
+				triggerFeaturePosition: { ...foodB.position },
+				state: 'repositioning',
+				speakingTarget: { ...speakingTarget },
+				initialClarity: {
+					announcedKind: 'food',
+					nearestAnnouncedKindDistance: 1,
+					nearestOppositeKindDistance: 1.1,
+					clarityMargin: 0.75,
+					clear: false,
+					reason: 'unclear_margin'
+				}
+			},
+			announcementExecutionCounter: 1,
+			perception: {
+				lastUpdatedAt: 1,
+				perceivedFoodIds: [foodA.id, foodB.id],
+				perceivedWaterIds: [],
+				observations: [
+					{
+						featureId: foodA.id,
+						featureKind: 'food',
+						position: { ...foodA.position },
+						observedAt: 1
+					},
+					{
+						featureId: foodB.id,
+						featureKind: 'food',
+						position: { ...foodB.position },
+						observedAt: 1
+					}
+				]
+			}
+		});
+
+		const next = replanFromArbitration(creature, habitat, 5, 'periodic', config, config.seed);
+
+		// Deterministic announce pick is featureId ascending → food-a, not food-b.
+		expect(next.intention).toBe('announce_resource');
+		expect(next.lastArbitration?.selectedTarget).toEqual({
+			kind: 'feature',
+			featureId: foodA.id,
+			featureKind: 'food'
+		});
+		// Old food-B prep must not survive against cognition's food-A selection.
+		expect(next.activeAnnouncementExecution).toBeNull();
+		expect(next.target).toEqual({
+			kind: 'feature',
+			featureId: foodA.id,
+			featureKind: 'food'
+		});
+	});
+
+	it('retains same-feature repositioning execution and restores speaking-point target', () => {
+		const config = {
+			...defaultSimulationConfig('ann-retain-same-feature'),
+			seekFoodThreshold: 0.5,
+			seekWaterThreshold: 0.5,
+			restThreshold: 0.2
+		};
+		const base = createSimulation(config);
+		const foodB = {
+			id: 'food-b',
+			kind: 'food' as const,
+			position: { x: 2, y: 0 },
+			size: { width: 0.5, height: 0.5 },
+			amount: 5,
+			capacity: 5
+		};
+		const habitat = { ...base.habitat, food: [foodB], water: [] };
+		const speakingTarget = { x: 4, y: 1 };
+		const executionId = 'ann-creature-0-b-same';
+		const creature = announcingCreature({
+			position: { x: 0.5, y: 0.5 },
+			hunger: 0,
+			thirst: 0,
+			energy: 1,
+			// applyArbitration would reset target to the feature; sync must restore the point.
+			target: { kind: 'feature', featureId: foodB.id, featureKind: 'food' },
+			activeAnnouncementExecution: {
+				id: executionId,
+				creatureId: 'creature-0',
+				triggerFeatureId: foodB.id,
+				resourceKind: 'food',
+				triggerFeaturePosition: { ...foodB.position },
+				state: 'repositioning',
+				speakingTarget: { ...speakingTarget },
+				initialClarity: {
+					announcedKind: 'food',
+					nearestAnnouncedKindDistance: 1,
+					nearestOppositeKindDistance: 1.1,
+					clarityMargin: 0.75,
+					clear: false,
+					reason: 'unclear_margin'
+				}
+			},
+			announcementExecutionCounter: 2,
+			perception: {
+				lastUpdatedAt: 1,
+				perceivedFoodIds: [foodB.id],
+				perceivedWaterIds: [],
+				observations: [
+					{
+						featureId: foodB.id,
+						featureKind: 'food',
+						position: { ...foodB.position },
+						observedAt: 1
+					}
+				]
+			}
+		});
+
+		const next = replanFromArbitration(creature, habitat, 5, 'periodic', config, config.seed);
+
+		expect(next.intention).toBe('announce_resource');
+		expect(next.lastArbitration?.selectedTarget).toEqual({
+			kind: 'feature',
+			featureId: foodB.id,
+			featureKind: 'food'
+		});
+		// Same feature → same execution identity survives reconsideration.
+		expect(next.activeAnnouncementExecution).not.toBeNull();
+		expect(next.activeAnnouncementExecution!.id).toBe(executionId);
+		expect(next.activeAnnouncementExecution!.triggerFeatureId).toBe(foodB.id);
+		expect(next.activeAnnouncementExecution!.state).toBe('repositioning');
+		// Physical movement destination remains the speaking point, not the feature centre.
+		expect(next.target).toEqual({ kind: 'point', position: speakingTarget });
+	});
 });

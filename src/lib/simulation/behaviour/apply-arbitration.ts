@@ -75,13 +75,29 @@ export function replanFromArbitration(
 		recentLearning = interrupted.recentLearning;
 	}
 
-	// Leaving announce → clear execution-local announcement state immediately.
-	if (
-		applied.intention !== 'announce_resource' &&
-		creature.intention === 'announce_resource' &&
-		activeAnnouncementExecution
-	) {
+	// Synchronize announcement execution with the latest cognition selection.
+	// Execution may survive reconsideration only while it still matches the
+	// announce_resource feature selected by this arbitration — never a lock.
+	if (applied.intention !== 'announce_resource') {
 		activeAnnouncementExecution = null;
+	} else {
+		const selectedFeatureId =
+			record.selectedTarget?.kind === 'feature' ? record.selectedTarget.featureId : null;
+		const continuing = activeAnnouncementExecution;
+		const sameFeature =
+			continuing !== null &&
+			selectedFeatureId !== null &&
+			continuing.triggerFeatureId === selectedFeatureId;
+
+		if (!sameFeature || continuing === null) {
+			// Different feature (or no feature): drop old prep; keep cognition's feature target
+			// so the executor starts fresh for the newly selected resource.
+			activeAnnouncementExecution = null;
+		} else if (continuing.state === 'repositioning' && continuing.speakingTarget) {
+			// Same feature mid-reposition: restore speaking point as physical destination
+			// rather than resetting movement to the feature centre.
+			target = pointTarget(continuing.speakingTarget);
+		}
 	}
 
 	if (applied.intention === 'wander') {

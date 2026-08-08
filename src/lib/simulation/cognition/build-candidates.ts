@@ -1,6 +1,9 @@
 /**
  * Build the baseline intention candidate set from body, perception and memory.
  * Candidates are ephemeral — no opportunity lifecycle objects.
+ *
+ * Resource need scores (FLAME-82): pressure × target-quality multiplier so
+ * visible evidence outranks remembered locations, which outrank blind search.
  */
 
 import type {
@@ -8,6 +11,7 @@ import type {
 	CandidateFactor,
 	CandidateReasonCode,
 	CandidateReference,
+	CognitionConfig,
 	IntentionCandidate,
 	IntentionKind
 } from './types';
@@ -15,7 +19,8 @@ import {
 	homeTarget,
 	selectAnnounceTarget,
 	selectResourceNeedTarget,
-	selectSignalInvestigationTarget
+	selectSignalInvestigationTarget,
+	type ResourceTargetResult
 } from './target-selection';
 
 function candidate(partial: {
@@ -42,6 +47,41 @@ function candidate(partial: {
 	};
 }
 
+function targetQualityFactor(
+	source: ResourceTargetResult['source'],
+	config: CognitionConfig
+): number {
+	if (source === 'visible') {
+		return config.targetQualityVisible;
+	}
+	if (source === 'remembered') {
+		return config.targetQualityRemembered;
+	}
+	return config.targetQualitySearch;
+}
+
+/**
+ * Effective need score = pressure × target quality.
+ * Factors always expose raw pressure and the quality multiplier used.
+ */
+function scoreResourceNeed(
+	pressure: number,
+	source: ResourceTargetResult['source'],
+	config: CognitionConfig,
+	pressureCode: 'hunger_pressure' | 'thirst_pressure',
+	targetReasonCodes: readonly CandidateReasonCode[]
+): { baseScore: number; factors: CandidateFactor[]; reasonCodes: CandidateReasonCode[] } {
+	const quality = targetQualityFactor(source, config);
+	return {
+		baseScore: pressure * quality,
+		factors: [
+			{ code: pressureCode, value: pressure },
+			{ code: 'target_quality', value: quality }
+		],
+		reasonCodes: [pressureCode, 'target_quality', ...targetReasonCodes]
+	};
+}
+
 /**
  * Always returns one entry per baseline intention kind (valid or invalid).
  * Order follows INTENTION_TIE_BREAK_ORDER for stable diagnostics.
@@ -49,12 +89,12 @@ function candidate(partial: {
 export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 	const { config, hunger, thirst, energy, memory, position } = input;
 
-	const hungerScore = hunger;
-	const thirstScore = thirst;
+	const hungerPressure = hunger;
+	const thirstPressure = thirst;
 	const restScore = 1 - energy;
 
-	const foodValid = hungerScore >= config.seekFoodThreshold;
-	const waterValid = thirstScore >= config.seekWaterThreshold;
+	const foodValid = hungerPressure >= config.seekFoodThreshold;
+	const waterValid = thirstPressure >= config.seekWaterThreshold;
 	const restValid = restScore >= config.restThreshold;
 
 	const foodTarget = selectResourceNeedTarget(position, input.availableFood, memory, 'food');
@@ -62,15 +102,33 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 	const signal = selectSignalInvestigationTarget(memory);
 	const announce = selectAnnounceTarget(input.availableFood, input.availableWater, memory);
 
-	const foodFactors: CandidateFactor[] = [{ code: 'hunger_pressure', value: hungerScore }];
-	const foodReasons: CandidateReasonCode[] = foodValid
-		? ['hunger_pressure', ...foodTarget.reasonCodes]
-		: ['below_threshold'];
+	const foodScored = foodValid
+		? scoreResourceNeed(
+				hungerPressure,
+				foodTarget.source,
+				config,
+				'hunger_pressure',
+				foodTarget.reasonCodes
+			)
+		: {
+				baseScore: 0,
+				factors: [{ code: 'hunger_pressure', value: hungerPressure }] as CandidateFactor[],
+				reasonCodes: ['below_threshold'] as CandidateReasonCode[]
+			};
 
-	const waterFactors: CandidateFactor[] = [{ code: 'thirst_pressure', value: thirstScore }];
-	const waterReasons: CandidateReasonCode[] = waterValid
-		? ['thirst_pressure', ...waterTarget.reasonCodes]
-		: ['below_threshold'];
+	const waterScored = waterValid
+		? scoreResourceNeed(
+				thirstPressure,
+				waterTarget.source,
+				config,
+				'thirst_pressure',
+				waterTarget.reasonCodes
+			)
+		: {
+				baseScore: 0,
+				factors: [{ code: 'thirst_pressure', value: thirstPressure }] as CandidateFactor[],
+				reasonCodes: ['below_threshold'] as CandidateReasonCode[]
+			};
 
 	const restFactors: CandidateFactor[] = [{ code: 'energy_deficit', value: restScore }];
 	const restReasons: CandidateReasonCode[] = restValid ? ['energy_deficit'] : ['below_threshold'];
@@ -115,7 +173,7 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 		candidate({
 			intention: 'satisfy_hunger',
 			valid: foodValid,
-			baseScore: foodValid ? hungerScore : 0,
+			baseScore: foodScored.baseScore,
 			target: foodValid ? foodTarget.target : null,
 			reference:
 				foodValid && foodTarget.featureId
@@ -125,14 +183,14 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 							resourceKind: 'food'
 						}
 					: null,
-			factors: foodFactors,
-			reasonCodes: foodReasons,
+			factors: foodScored.factors,
+			reasonCodes: foodScored.reasonCodes,
 			rejectionReason: foodValid ? undefined : 'below_threshold'
 		}),
 		candidate({
 			intention: 'satisfy_thirst',
 			valid: waterValid,
-			baseScore: waterValid ? thirstScore : 0,
+			baseScore: waterScored.baseScore,
 			target: waterValid ? waterTarget.target : null,
 			reference:
 				waterValid && waterTarget.featureId
@@ -142,8 +200,8 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 							resourceKind: 'water'
 						}
 					: null,
-			factors: waterFactors,
-			reasonCodes: waterReasons,
+			factors: waterScored.factors,
+			reasonCodes: waterScored.reasonCodes,
 			rejectionReason: waterValid ? undefined : 'below_threshold'
 		}),
 		candidate({

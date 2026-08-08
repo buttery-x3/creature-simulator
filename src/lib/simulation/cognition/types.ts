@@ -67,6 +67,7 @@ export type CandidateReasonCode =
 	| 'signal_recency'
 	| 'announce_baseline'
 	| 'continuity_bonus'
+	| 'target_quality'
 	| 'search_fallback'
 	| 'visible_resource'
 	| 'remembered_resource'
@@ -119,6 +120,13 @@ export type CognitionConfig = {
 	announceBaseline: number;
 	/** Soft stickiness for the current intention when still valid. */
 	continuityBonus: number;
+	/**
+	 * Multipliers applied to need pressure for satisfy_hunger / satisfy_thirst.
+	 * Visible evidence is strongest; blind search is materially discounted.
+	 */
+	targetQualityVisible: number;
+	targetQualityRemembered: number;
+	targetQualitySearch: number;
 };
 
 /**

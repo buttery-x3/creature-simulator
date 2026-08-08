@@ -61,6 +61,9 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	signalRecencyBoostMax: DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax,
 	announceBaseline: DEFAULT_COGNITION_CONFIG.announceBaseline,
 	continuityBonus: DEFAULT_COGNITION_CONFIG.continuityBonus,
+	targetQualityVisible: DEFAULT_COGNITION_CONFIG.targetQualityVisible,
+	targetQualityRemembered: DEFAULT_COGNITION_CONFIG.targetQualityRemembered,
+	targetQualitySearch: DEFAULT_COGNITION_CONFIG.targetQualitySearch,
 
 	reconsiderIntervalSeconds: 1.5,
 
@@ -203,6 +206,9 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		'signalRecencyBoostMax',
 		'announceBaseline',
 		'continuityBonus',
+		'targetQualityVisible',
+		'targetQualityRemembered',
+		'targetQualitySearch',
 		'reconsiderIntervalSeconds',
 		'eatUntilHunger',
 		'drinkUntilThirst',

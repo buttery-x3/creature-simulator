@@ -116,6 +116,32 @@ export function buildInvestigationScoreBreakdown(
 	return buildInvestigationOpportunitySummary(creature, timeSeconds);
 }
 
+/** Map structured arbitration factor codes to inspector labels. */
+function factorLabel(code: string): string {
+	switch (code) {
+		case 'hunger_pressure':
+			return 'Hunger pressure';
+		case 'thirst_pressure':
+			return 'Thirst pressure';
+		case 'energy_deficit':
+			return 'Energy deficit';
+		case 'target_quality':
+			return 'Target quality';
+		case 'signal_baseline':
+			return 'Signal baseline';
+		case 'signal_recency':
+			return 'Signal recency';
+		case 'announce_baseline':
+			return 'Announce baseline';
+		case 'wander_baseline':
+			return 'Wander baseline';
+		case 'continuity_bonus':
+			return 'Continuity';
+		default:
+			return code;
+	}
+}
+
 export function buildCandidateViews(
 	creature: Creature,
 	investigation: InvestigationOpportunitySummary
@@ -123,43 +149,34 @@ export function buildCandidateViews(
 	const candidates: IntentionCandidate[] = creature.lastArbitration?.candidates ?? [];
 	const selectedIntention = creature.lastArbitration?.selectedIntention ?? creature.intention;
 
-	return candidates.map((c) => ({
-		intention: c.intention,
-		valid: c.valid,
-		score: c.score,
-		baseScore: c.baseScore,
-		continuityAdjustment: c.continuityAdjustment,
-		reasonCodes: [...c.reasonCodes],
-		rejectionReason: c.rejectionReason,
-		selected: c.intention === selectedIntention,
-		scoreTerms:
-			c.intention === 'investigate_signal' && investigation
-				? [
-						{ label: 'Total score', value: c.score },
-						{ label: 'Heard memories', value: investigation.heardSignalMemoryCount },
-						...(c.continuityAdjustment !== 0
-							? [{ label: 'Continuity', value: c.continuityAdjustment }]
-							: [])
-					]
-				: c.valid
-					? [
-							{ label: 'Total score', value: c.score },
-							{ label: 'Base score', value: c.baseScore },
-							...(c.continuityAdjustment !== 0
-								? [{ label: 'Continuity', value: c.continuityAdjustment }]
-								: []),
-							...(c.intention === 'satisfy_hunger'
-								? [{ label: 'Hunger pressure', value: creature.hunger }]
-								: []),
-							...(c.intention === 'satisfy_thirst'
-								? [{ label: 'Thirst pressure', value: creature.thirst }]
-								: []),
-							...(c.intention === 'rest'
-								? [{ label: 'Energy deficit', value: 1 - creature.energy }]
-								: [])
-						]
-					: null
-	}));
+	return candidates.map((c) => {
+		const factorTerms = c.factors.map((f) => ({
+			label: factorLabel(f.code),
+			value: f.value
+		}));
+		const scoreTerms: LabelledScoreTerm[] | null = c.valid
+			? [
+					{ label: 'Total score', value: c.score },
+					{ label: 'Base score', value: c.baseScore },
+					...factorTerms,
+					...(c.intention === 'investigate_signal' && investigation
+						? [{ label: 'Heard memories', value: investigation.heardSignalMemoryCount }]
+						: [])
+				]
+			: null;
+
+		return {
+			intention: c.intention,
+			valid: c.valid,
+			score: c.score,
+			baseScore: c.baseScore,
+			continuityAdjustment: c.continuityAdjustment,
+			reasonCodes: [...c.reasonCodes],
+			rejectionReason: c.rejectionReason,
+			selected: c.intention === selectedIntention,
+			scoreTerms
+		};
+	});
 }
 
 export function lastEmittedSymbolId(creature: Creature): SymbolId | null {

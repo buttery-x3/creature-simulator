@@ -18,6 +18,9 @@ export type ArbitrationConfig = Pick<
 	| 'signalRecencyBoostMax'
 	| 'announceBaseline'
 	| 'continuityBonus'
+	| 'targetQualityVisible'
+	| 'targetQualityRemembered'
+	| 'targetQualitySearch'
 >;
 
 export function cognitionConfigFromSimulation(config: ArbitrationConfig): CognitionConfig {
@@ -29,7 +32,10 @@ export function cognitionConfigFromSimulation(config: ArbitrationConfig): Cognit
 		signalBaseline: config.signalBaseline,
 		signalRecencyBoostMax: config.signalRecencyBoostMax,
 		announceBaseline: config.announceBaseline,
-		continuityBonus: config.continuityBonus
+		continuityBonus: config.continuityBonus,
+		targetQualityVisible: config.targetQualityVisible,
+		targetQualityRemembered: config.targetQualityRemembered,
+		targetQualitySearch: config.targetQualitySearch
 	};
 }
 

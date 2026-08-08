@@ -314,6 +314,12 @@ export type SimulationConfig = {
 	announceBaseline: number;
 	/** Soft continuity bonus for the current intention when still valid. */
 	continuityBonus: number;
+	/** Need score multiplier when a usable resource is currently perceived. */
+	targetQualityVisible: number;
+	/** Need score multiplier when only a remembered resource location is known. */
+	targetQualityRemembered: number;
+	/** Need score multiplier when the only path is blind search. */
+	targetQualitySearch: number;
 
 	/** Interval between ordinary (periodic) reconsiderations. Heartbeat only. */
 	reconsiderIntervalSeconds: number;

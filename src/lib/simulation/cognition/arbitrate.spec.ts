@@ -130,7 +130,7 @@ describe('baseline choice', () => {
 			symbolId: 'glyph-0',
 			origin: { x: 1, y: 1 }
 		});
-		// energy 0.2 → deficit 0.8; signal max ≈ 0.45
+		// energy 0.2 → deficit 0.8; signal max ≈ 0.42
 		const record = arbitrate(baseInput({ energy: 0.2, memory }));
 		expect(record.selectedIntention).toBe('rest');
 		expect(record.selectedTarget).toEqual({
@@ -269,8 +269,7 @@ describe('continuity', () => {
 	});
 
 	it('keeps a non-wander current intention against a tiny challenger via continuity', () => {
-		// investigate ≈ 0.40 + 0.10 continuity = 0.50
-		// mild hunger at threshold 0.45 cannot interrupt with continuity on investigate
+		// Mild blind hunger is discounted; modest continuity preserves investigation.
 		let memory = emptyMemory();
 		memory = rememberHeardSignal(memory, {
 			rememberedAt: 5,
@@ -291,7 +290,7 @@ describe('continuity', () => {
 		expect(record.selectionReasonCodes).toContain('continuity_bonus');
 	});
 
-	it('lets a clearly stronger need interrupt signal investigation', () => {
+	it('lets a clearly stronger visible need interrupt signal investigation', () => {
 		let memory = emptyMemory();
 		memory = rememberHeardSignal(memory, {
 			rememberedAt: 5,
@@ -308,25 +307,6 @@ describe('continuity', () => {
 			})
 		);
 		expect(record.selectedIntention).toBe('satisfy_hunger');
-	});
-
-	it('does not make current activity uninterruptible', () => {
-		// Even with continuity, hunger 0.9 beats investigate (~0.45+0.1)
-		let memory = emptyMemory();
-		memory = rememberHeardSignal(memory, {
-			rememberedAt: 5,
-			emissionId: 'em-1',
-			symbolId: 'glyph-0',
-			origin: { x: 1, y: 1 }
-		});
-		const withContinuity = arbitrate(
-			baseInput({
-				memory,
-				currentIntention: 'investigate_signal',
-				hunger: 0.9
-			})
-		);
-		expect(withContinuity.selectedIntention).toBe('satisfy_hunger');
 	});
 });
 
@@ -410,8 +390,13 @@ describe('announcement candidate', () => {
 		expect(DEFAULT_COGNITION_CONFIG.announceBaseline).toBeGreaterThan(
 			DEFAULT_COGNITION_CONFIG.wanderBaseline
 		);
+		// Bare-threshold *visible* need (threshold × 1.0) must still beat announce.
 		expect(DEFAULT_COGNITION_CONFIG.announceBaseline).toBeLessThan(
-			DEFAULT_COGNITION_CONFIG.seekFoodThreshold
+			DEFAULT_COGNITION_CONFIG.seekFoodThreshold * DEFAULT_COGNITION_CONFIG.targetQualityVisible
+		);
+		// Announce beats max signal so post-consumption sharing wins over generic investigation.
+		expect(DEFAULT_COGNITION_CONFIG.announceBaseline).toBeGreaterThan(
+			DEFAULT_COGNITION_CONFIG.signalBaseline + DEFAULT_COGNITION_CONFIG.signalRecencyBoostMax
 		);
 	});
 
@@ -575,5 +560,259 @@ describe('open decision preferences', () => {
 		const kinds = record.candidates.map((c) => c.intention);
 		expect(kinds).not.toContain('continue' as IntentionKind);
 		expect(kinds).toEqual([...INTENTION_TIE_BREAK_ORDER]);
+	});
+});
+
+/**
+ * FLAME-82: relative behavioural outcomes for target-quality weighting.
+ * Exact scores may evolve; these orderings are the regression contract.
+ */
+describe('actionable resource weighting', () => {
+	function factorValue(
+		candidate: ReturnType<typeof byIntention>[string] | undefined,
+		code: string
+	): number | undefined {
+		return candidate?.factors.find((f) => f.code === code)?.value;
+	}
+
+	it('1. visible water beats blind food search at max hunger', () => {
+		const record = arbitrate(
+			baseInput({
+				hunger: 1,
+				thirst: 0.75,
+				availableWater: [waterPerceived('water-1')]
+			})
+		);
+		expect(record.selectedIntention).toBe('satisfy_thirst');
+		const map = byIntention(record);
+		expect(map.satisfy_hunger?.reasonCodes).toContain('search_fallback');
+		expect(map.satisfy_thirst?.reasonCodes).toContain('visible_resource');
+		expect(map.satisfy_thirst!.score).toBeGreaterThan(map.satisfy_hunger!.score);
+	});
+
+	it('2. visible food makes hunger beat low-information optional behaviour', () => {
+		let memory = emptyMemory();
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 1,
+			emissionId: 'em-1',
+			symbolId: 'glyph-0',
+			origin: { x: 2, y: 2 }
+		});
+		const record = arbitrate(
+			baseInput({
+				hunger: 0.6,
+				memory,
+				availableFood: [foodPerceived('food-1')]
+			})
+		);
+		expect(record.selectedIntention).toBe('satisfy_hunger');
+		const map = byIntention(record);
+		expect(map.satisfy_hunger!.score).toBeGreaterThan(map.announce_resource!.score);
+		expect(map.satisfy_hunger!.score).toBeGreaterThan(map.investigate_signal!.score);
+		expect(map.satisfy_hunger!.score).toBeGreaterThan(map.wander!.score);
+	});
+
+	it('3. visible > remembered > search for equal need pressure, with diagnostics', () => {
+		const pressure = 0.8;
+		const visible = byIntention(
+			arbitrate(
+				baseInput({
+					hunger: pressure,
+					availableFood: [foodPerceived('food-vis')]
+				})
+			)
+		).satisfy_hunger!;
+
+		let memory = emptyMemory();
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 1,
+			featureId: 'food-mem',
+			resourceKind: 'food',
+			position: { x: 5, y: 5 },
+			empty: false
+		});
+		const remembered = byIntention(
+			arbitrate(baseInput({ hunger: pressure, memory }))
+		).satisfy_hunger!;
+
+		const search = byIntention(
+			arbitrate(baseInput({ hunger: pressure, availableFood: [] }))
+		).satisfy_hunger!;
+
+		expect(visible.score).toBeGreaterThan(remembered.score);
+		expect(remembered.score).toBeGreaterThan(search.score);
+
+		expect(factorValue(visible, 'hunger_pressure')).toBeCloseTo(pressure, 10);
+		expect(factorValue(visible, 'target_quality')).toBe(
+			DEFAULT_COGNITION_CONFIG.targetQualityVisible
+		);
+		expect(factorValue(remembered, 'target_quality')).toBe(
+			DEFAULT_COGNITION_CONFIG.targetQualityRemembered
+		);
+		expect(factorValue(search, 'target_quality')).toBe(
+			DEFAULT_COGNITION_CONFIG.targetQualitySearch
+		);
+		expect(visible.reasonCodes).toContain('visible_resource');
+		expect(remembered.reasonCodes).toContain('remembered_resource');
+		expect(search.reasonCodes).toContain('search_fallback');
+		expect(visible.reasonCodes).toContain('target_quality');
+	});
+
+	it('4. recent signal beats blind need search', () => {
+		let memory = emptyMemory();
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 1,
+			emissionId: 'em-1',
+			symbolId: 'glyph-0',
+			origin: { x: 3, y: 3 }
+		});
+		const record = arbitrate(
+			baseInput({
+				hunger: 0.9,
+				memory
+			})
+		);
+		expect(record.selectedIntention).toBe('investigate_signal');
+		const map = byIntention(record);
+		expect(map.satisfy_hunger?.reasonCodes).toContain('search_fallback');
+		expect(map.investigate_signal!.score).toBeGreaterThan(map.satisfy_hunger!.score);
+	});
+
+	it('5. blind search remains available when no signal competes', () => {
+		const record = arbitrate(
+			baseInput({
+				hunger: 0.9,
+				availableFood: []
+			})
+		);
+		expect(record.selectedIntention).toBe('satisfy_hunger');
+		const hunger = byIntention(record).satisfy_hunger!;
+		expect(hunger.target).toBeNull();
+		expect(hunger.reasonCodes).toContain('search_fallback');
+		expect(hunger.score).toBeGreaterThan(byIntention(record).wander!.score);
+	});
+
+	it('6. post-consumption-like state prefers announce over signal and wander', () => {
+		// Recovery complete: hunger below threshold; food still visible/unannounced;
+		// generic signal present (must not suppress announce).
+		let memory = emptyMemory();
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 1,
+			emissionId: 'em-1',
+			symbolId: 'glyph-0',
+			origin: { x: 4, y: 4 }
+		});
+		const record = arbitrate(
+			baseInput({
+				hunger: 0.12,
+				thirst: 0.1,
+				energy: 0.95,
+				memory,
+				availableFood: [foodPerceived('food-1')],
+				currentIntention: 'satisfy_hunger',
+				trigger: 'need_or_recovery_complete'
+			})
+		);
+		expect(record.selectedIntention).toBe('announce_resource');
+		const map = byIntention(record);
+		expect(map.announce_resource!.score).toBeGreaterThan(map.investigate_signal!.score);
+		expect(map.announce_resource!.score).toBeGreaterThan(map.wander!.score);
+	});
+
+	it('7. depleted / missing food is not announced', () => {
+		const record = arbitrate(
+			baseInput({
+				hunger: 0.12,
+				availableFood: []
+			})
+		);
+		const announce = byIntention(record).announce_resource!;
+		expect(announce.valid).toBe(false);
+		expect(announce.rejectionReason).toBe('no_unannounced_resource');
+		expect(record.selectedIntention).not.toBe('announce_resource');
+	});
+
+	it('8. strong actionable need may beat announcement', () => {
+		const record = arbitrate(
+			baseInput({
+				hunger: 0.8,
+				availableFood: [foodPerceived('food-1')]
+			})
+		);
+		expect(record.selectedIntention).toBe('satisfy_hunger');
+		const map = byIntention(record);
+		expect(map.announce_resource?.valid).toBe(true);
+		expect(map.satisfy_hunger!.score).toBeGreaterThan(map.announce_resource!.score);
+	});
+
+	it('9a. modest continuity preserves current intention against a near-equal alternative', () => {
+		// Engineered close scores: current announce vs slightly lower wander-like challenger
+		// is covered by investigate + continuity vs threshold blind hunger (existing continuity suite).
+		// Here: stay on announce when challenger is nearly equal after continuity.
+		const config = mergeCognitionConfig({
+			announceBaseline: 0.4,
+			continuityBonus: 0.05,
+			// Force a close challenger via remembered thirst just under announce+continuity
+			seekWaterThreshold: 0.4,
+			targetQualityRemembered: 0.7
+		});
+		let memory = emptyMemory();
+		memory = rememberResourceObservation(memory, {
+			rememberedAt: 1,
+			featureId: 'water-mem',
+			resourceKind: 'water',
+			position: { x: 2, y: 2 },
+			empty: false
+		});
+		// thirst 0.6 × 0.7 = 0.42; announce 0.4 + continuity 0.05 = 0.45 → announce wins
+		const record = arbitrate(
+			baseInput({
+				config,
+				memory,
+				thirst: 0.6,
+				availableFood: [foodPerceived('food-1')],
+				currentIntention: 'announce_resource'
+			})
+		);
+		expect(record.selectedIntention).toBe('announce_resource');
+		expect(record.selectionReasonCodes).toContain('continuity_bonus');
+	});
+
+	it('9b. clearly superior visible information still causes a switch despite continuity', () => {
+		const config = mergeCognitionConfig({
+			announceBaseline: 0.4,
+			continuityBonus: 0.05
+		});
+		// thirst 0.8 × 1.0 = 0.8 ≫ announce 0.4 + 0.05
+		const record = arbitrate(
+			baseInput({
+				config,
+				thirst: 0.8,
+				availableFood: [foodPerceived('food-1')],
+				availableWater: [waterPerceived('water-1')],
+				currentIntention: 'announce_resource'
+			})
+		);
+		expect(record.selectedIntention).toBe('satisfy_thirst');
+	});
+
+	it('10. wander does not win when meaningful actionable candidates exist', () => {
+		const withFood = arbitrate(
+			baseInput({
+				availableFood: [foodPerceived('food-1')],
+				hunger: 0.1
+			})
+		);
+		expect(withFood.selectedIntention).toBe('announce_resource');
+		expect(withFood.selectedIntention).not.toBe('wander');
+
+		const withNeed = arbitrate(
+			baseInput({
+				hunger: 0.7,
+				availableFood: [foodPerceived('food-1')]
+			})
+		);
+		expect(withNeed.selectedIntention).toBe('satisfy_hunger');
+		expect(withNeed.selectedIntention).not.toBe('wander');
 	});
 });

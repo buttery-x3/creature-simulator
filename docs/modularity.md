@@ -201,9 +201,9 @@ Internal cognition subdomain (`simulation/cognition/`), pure memory-aware
 intention arbitration — **runtime-authoritative**:
 
 - `types.ts` — intention kinds, candidates, ArbitrationRecord, triggers, config shape;
-- `score-constants.ts` — default baselines, continuity bonus, need thresholds;
+- `score-constants.ts` — default baselines, continuity, need thresholds, target-quality multipliers;
 - `target-selection.ts` — perception-then-memory resource targets; signal/announce picks;
-- `build-candidates.ts` — baseline candidate set from body + perception + memory;
+- `build-candidates.ts` — baseline candidate set; need scores = pressure × target quality;
 - `select-intention.ts` — soft continuity, best-score + explicit tie-break;
 - `arbitrate.ts` — single pure entry `arbitrate(input) → ArbitrationRecord`;
 - `index.ts` — exports for simulation siblings.

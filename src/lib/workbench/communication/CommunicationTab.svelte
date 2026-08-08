@@ -223,7 +223,6 @@
 						<th scope="col">Ann. memories</th>
 						<th scope="col">Active trigger</th>
 						<th scope="col">Active state</th>
-						<th scope="col">Last decision</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -241,16 +240,6 @@
 							<td>{row.announcementMemoryCount}</td>
 							<td>{row.activeTriggerFeatureId ?? '—'}</td>
 							<td>{row.activeState ?? '—'}</td>
-							<td>
-								{#if row.lastDecisionReason}
-									{row.lastDecisionReason}
-									{#if row.lastDecisionFeatureId}
-										<span class="muted"> · {row.lastDecisionFeatureId}</span>
-									{/if}
-								{:else}
-									—
-								{/if}
-							</td>
 						</tr>
 					{/each}
 				</tbody>

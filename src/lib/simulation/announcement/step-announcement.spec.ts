@@ -7,7 +7,7 @@ import { evaluateKindClarity } from './clarity';
 import { stepAnnouncement } from './step-announcement';
 
 describe('stepAnnouncement integration', () => {
-	it('creates an opportunity and can emit when intention is announce_resource', () => {
+	it('creates execution state and can emit when intention is announce_resource', () => {
 		const config = {
 			...defaultSimulationConfig('ann-needless'),
 			sensingRadius: 4,
@@ -57,7 +57,7 @@ describe('stepAnnouncement integration', () => {
 		const c = result.creature;
 		expect(
 			c.recentAnnouncementOutcomes.length +
-				(c.activeAnnouncementOpportunity !== null ? 1 : 0) +
+				(c.activeAnnouncementExecution !== null ? 1 : 0) +
 				(result.emissionRequest !== null ? 1 : 0)
 		).toBeGreaterThan(0);
 		if (result.emissionRequest) {
@@ -66,7 +66,7 @@ describe('stepAnnouncement integration', () => {
 		}
 	});
 
-	it('does not create opportunity when intention is not announce_resource', () => {
+	it('does not create execution state when intention is not announce_resource', () => {
 		const config = {
 			...defaultSimulationConfig('ann-no-intent'),
 			emissionCooldownSeconds: 0,
@@ -87,7 +87,7 @@ describe('stepAnnouncement integration', () => {
 			timeSeconds: 1,
 			config
 		});
-		expect(result.creature.activeAnnouncementOpportunity).toBeNull();
+		expect(result.creature.activeAnnouncementExecution).toBeNull();
 		expect(result.emissionRequest).toBeNull();
 		expect(result.endedPreparation).toBe(false);
 	});
@@ -109,7 +109,7 @@ describe('stepAnnouncement integration', () => {
 			timeSeconds: 1,
 			config
 		});
-		const open = result.creature.activeAnnouncementOpportunity;
+		const open = result.creature.activeAnnouncementExecution;
 		const done = result.creature.recentAnnouncementOutcomes[0];
 		const triggerId = open?.triggerFeatureId ?? done?.triggerFeatureId;
 		expect(triggerId).toBe(food.id);
@@ -129,8 +129,7 @@ describe('stepAnnouncement integration', () => {
 		});
 		const broken = {
 			...base,
-			memory: undefined,
-			recentAnnouncementOpportunityDecisions: undefined
+			memory: undefined
 		} as unknown as typeof base;
 
 		expect(() =>
@@ -150,7 +149,6 @@ describe('stepAnnouncement integration', () => {
 		});
 		expect(Array.isArray(result.creature.memory.entries)).toBe(true);
 		expect(result.creature.memory.capacity).toBeGreaterThanOrEqual(1);
-		expect(Array.isArray(result.creature.recentAnnouncementOpportunityDecisions)).toBe(true);
 	});
 
 	it('does not create announcement while investigating (intention is investigate_signal)', () => {
@@ -185,7 +183,7 @@ describe('stepAnnouncement integration', () => {
 			timeSeconds: 1,
 			config
 		});
-		expect(direct.creature.activeAnnouncementOpportunity).toBeNull();
+		expect(direct.creature.activeAnnouncementExecution).toBeNull();
 		expect(direct.emissionRequest).toBeNull();
 
 		let state: SimulationState = {
@@ -199,7 +197,7 @@ describe('stepAnnouncement integration', () => {
 			const c = state.creatures[0]!;
 			// Only while still investigating should we assert no announce executor.
 			if (c.intention === 'investigate_signal') {
-				expect(c.activeAnnouncementOpportunity).toBeNull();
+				expect(c.activeAnnouncementExecution).toBeNull();
 			}
 		}
 	});
@@ -233,45 +231,38 @@ describe('stepAnnouncement integration', () => {
 			for (const c of state.creatures) {
 				expect(c.memory).toBeDefined();
 				expect(Array.isArray(c.memory.entries)).toBe(true);
-				expect(Array.isArray(c.recentAnnouncementOpportunityDecisions)).toBe(true);
 			}
 		}
 	});
 
 	describe('active opportunity availability gate (featureStillAvailable)', () => {
-		function openFoodOpportunity(
+		function openFoodExecution(
 			creatureId: string,
 			food: { id: string; position: { x: number; y: number } }
 		) {
 			return {
-				id: `opp-${creatureId}-food`,
+				id: `exec-${creatureId}-food`,
 				creatureId,
 				triggerFeatureId: food.id,
 				resourceKind: 'food' as const,
 				triggerFeaturePosition: { ...food.position },
-				perceptionEpisodeId: `ep-${food.id}-reg`,
-				discoveredAt: 1,
-				discoveryCreaturePosition: { ...food.position },
-				state: 'ready' as const,
+				state: 'evaluating' as const,
 				speakingTarget: null,
 				initialClarity: null
 			};
 		}
 
-		function openWaterOpportunity(
+		function openWaterExecution(
 			creatureId: string,
 			water: { id: string; position: { x: number; y: number } }
 		) {
 			return {
-				id: `opp-${creatureId}-water`,
+				id: `exec-${creatureId}-water`,
 				creatureId,
 				triggerFeatureId: water.id,
 				resourceKind: 'water' as const,
 				triggerFeaturePosition: { ...water.position },
-				perceptionEpisodeId: `ep-${water.id}-reg`,
-				discoveredAt: 1,
-				discoveryCreaturePosition: { ...water.position },
-				state: 'ready' as const,
+				state: 'evaluating' as const,
 				speakingTarget: null,
 				initialClarity: null
 			};
@@ -292,7 +283,7 @@ describe('stepAnnouncement integration', () => {
 				action: 'move',
 				target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
 				lastEmissionAt: 1.5,
-				activeAnnouncementOpportunity: openFoodOpportunity('creature-0', food)
+				activeAnnouncementExecution: openFoodExecution('creature-0', food)
 			});
 
 			expect(() =>
@@ -315,12 +306,12 @@ describe('stepAnnouncement integration', () => {
 					(o) => o.reason === 'invalid_trigger_feature'
 				)
 			).toBe(false);
-			const stillOpen = result.creature.activeAnnouncementOpportunity?.triggerFeatureId === food.id;
+			const stillOpen = result.creature.activeAnnouncementExecution?.triggerFeatureId === food.id;
 			const completedOther =
 				result.creature.recentAnnouncementOutcomes.length > 0 &&
 				result.creature.recentAnnouncementOutcomes[0]!.reason !== 'invalid_trigger_feature';
 			expect(
-				stillOpen || completedOther || result.creature.activeAnnouncementOpportunity !== null
+				stillOpen || completedOther || result.creature.activeAnnouncementExecution !== null
 			).toBe(true);
 		});
 
@@ -338,7 +329,7 @@ describe('stepAnnouncement integration', () => {
 				intention: 'announce_resource',
 				action: 'move',
 				target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
-				activeAnnouncementOpportunity: openFoodOpportunity('creature-0', food)
+				activeAnnouncementExecution: openFoodExecution('creature-0', food)
 			});
 
 			expect(() =>
@@ -356,7 +347,7 @@ describe('stepAnnouncement integration', () => {
 				timeSeconds: 2,
 				config
 			});
-			expect(result.creature.activeAnnouncementOpportunity).toBeNull();
+			expect(result.creature.activeAnnouncementExecution).toBeNull();
 			expect(result.creature.recentAnnouncementOutcomes[0]?.reason).toBe('invalid_trigger_feature');
 			expect(result.creature.recentAnnouncementOutcomes[0]?.triggerFeatureId).toBe(food.id);
 			expect(result.endedPreparation).toBe(true);
@@ -376,7 +367,7 @@ describe('stepAnnouncement integration', () => {
 				intention: 'announce_resource',
 				action: 'move',
 				target: { kind: 'feature', featureId: water.id, featureKind: 'water' },
-				activeAnnouncementOpportunity: openWaterOpportunity('creature-0', water)
+				activeAnnouncementExecution: openWaterExecution('creature-0', water)
 			});
 
 			expect(() =>
@@ -395,7 +386,7 @@ describe('stepAnnouncement integration', () => {
 				config
 			});
 			expect(habitatEmptyBasin.water.some((w) => w.id === water.id)).toBe(true);
-			expect(result.creature.activeAnnouncementOpportunity).toBeNull();
+			expect(result.creature.activeAnnouncementExecution).toBeNull();
 			expect(result.creature.recentAnnouncementOutcomes[0]?.reason).toBe('invalid_trigger_feature');
 			expect(result.creature.recentAnnouncementOutcomes[0]?.triggerFeatureId).toBe(water.id);
 		});

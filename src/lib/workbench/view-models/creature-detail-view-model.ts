@@ -4,7 +4,6 @@
  */
 
 import type {
-	AnnouncementOpportunityDecision,
 	Creature,
 	CreatureMemory,
 	CreatureTarget,
@@ -33,7 +32,7 @@ export type LabelledScoreTerm = {
 /**
  * Compact investigation / heard-signal summary for the Creatures tab.
  */
-export type InvestigationOpportunitySummary = {
+export type InvestigationSummary = {
 	heardSignalMemoryCount: number;
 	activeEmissionId: string | null;
 	activeSymbolId: SymbolId | null;
@@ -77,15 +76,16 @@ export function formatTargetLabel(target: CreatureTarget | null): string {
 
 /**
  * Build investigation / heard-signal memory summary for the selected creature.
+ * Uses newest-first ordering from listHeardSignalMemories (index 0 = newest).
  */
-export function buildInvestigationOpportunitySummary(
+export function buildInvestigationSummary(
 	creature: Creature,
 	_timeSeconds: number
-): InvestigationOpportunitySummary {
+): InvestigationSummary {
 	void _timeSeconds;
 	const heard = listHeardSignalMemories(ensureCreatureMemory(creature).memory);
 	const active = creature.activeInvestigation;
-	const newest = heard.length > 0 ? heard[heard.length - 1]! : null;
+	const newest = heard.length > 0 ? heard[0]! : null;
 
 	if (!newest && !active && heard.length === 0) {
 		return {
@@ -104,16 +104,6 @@ export function buildInvestigationOpportunitySummary(
 		newestHeardEmissionId: newest?.emissionId ?? null,
 		newestHeardSymbolId: newest?.symbolId ?? null
 	};
-}
-
-/** @deprecated Use {@link buildInvestigationOpportunitySummary}. */
-export function buildInvestigationScoreBreakdown(
-	creature: Creature,
-	timeSeconds: number,
-	_config?: unknown
-): InvestigationOpportunitySummary {
-	void _config;
-	return buildInvestigationOpportunitySummary(creature, timeSeconds);
 }
 
 /** Map structured arbitration factor codes to inspector labels. */
@@ -144,7 +134,7 @@ function factorLabel(code: string): string {
 
 export function buildCandidateViews(
 	creature: Creature,
-	investigation: InvestigationOpportunitySummary
+	investigation: InvestigationSummary
 ): CandidateView[] {
 	const candidates: IntentionCandidate[] = creature.lastArbitration?.candidates ?? [];
 	const selectedIntention = creature.lastArbitration?.selectedIntention ?? creature.intention;
@@ -213,7 +203,6 @@ export type MemoryEntryView = {
 	timeSeconds: number;
 	sequence: number;
 	emissionId: string | null;
-	opportunityId: string | null;
 	/** Water observation empty flag; null when not applicable. */
 	empty: boolean | null;
 	/** Compact position label for observation/heard entries. */
@@ -256,7 +245,6 @@ export function buildMemorySectionView(creature: Creature): MemorySectionView {
 					timeSeconds: entry.rememberedAt,
 					sequence: entry.sequence,
 					emissionId: entry.emissionId,
-					opportunityId: entry.opportunityId,
 					empty: null,
 					positionLabel: null
 				};
@@ -272,7 +260,6 @@ export function buildMemorySectionView(creature: Creature): MemorySectionView {
 					timeSeconds: entry.rememberedAt,
 					sequence: entry.sequence,
 					emissionId: null,
-					opportunityId: null,
 					empty: entry.resourceKind === 'water' ? entry.empty : null,
 					positionLabel: formatPositionLabel(entry.position)
 				};
@@ -286,7 +273,6 @@ export function buildMemorySectionView(creature: Creature): MemorySectionView {
 				timeSeconds: entry.rememberedAt,
 				sequence: entry.sequence,
 				emissionId: entry.emissionId,
-				opportunityId: null,
 				empty: null,
 				positionLabel: formatPositionLabel(entry.origin)
 			};
@@ -302,14 +288,4 @@ export function buildMemorySectionView(creature: Creature): MemorySectionView {
 /** Serialised memory for Debug tab copy/inspect. */
 export function formatCreatureMemoryJson(memory: CreatureMemory | null | undefined): string {
 	return JSON.stringify(memory ?? createEmptyMemory(1), null, 2);
-}
-
-export function lastAnnouncementOpportunityDecision(
-	creature: Creature
-): AnnouncementOpportunityDecision | null {
-	const list = creature.recentAnnouncementOpportunityDecisions;
-	if (!Array.isArray(list) || list.length === 0) {
-		return null;
-	}
-	return list[list.length - 1] ?? null;
 }

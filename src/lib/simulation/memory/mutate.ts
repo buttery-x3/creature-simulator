@@ -43,7 +43,6 @@ export function rememberResourceAnnouncement(
 		rememberedAt: draft.rememberedAt,
 		featureId: draft.featureId,
 		resourceKind: draft.resourceKind,
-		opportunityId: draft.opportunityId,
 		emissionId: draft.emissionId
 	};
 

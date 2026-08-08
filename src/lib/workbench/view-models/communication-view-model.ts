@@ -72,14 +72,12 @@ export type CompletedOutcomeCounts = {
 	source: 'recent_history';
 };
 
-/** Light announcement-memory / opportunity state before full audit (FLAME-72). */
+/** Light announcement-memory / execution state for Communication tab. */
 export type AnnouncementMemorySummaryRow = {
 	creatureId: string;
 	announcementMemoryCount: number;
 	activeTriggerFeatureId: string | null;
-	activeState: 'ready' | 'repositioning' | null;
-	lastDecisionReason: string | null;
-	lastDecisionFeatureId: string | null;
+	activeState: 'evaluating' | 'repositioning' | null;
 };
 
 export type CommunicationViewModel = {
@@ -88,8 +86,6 @@ export type CommunicationViewModel = {
 	lexiconMatrix: LexiconMatrixRow[];
 	liveFeed: LiveFeedItem[];
 	activeInvestigations: ActiveInvestigationRow[];
-	/** @deprecated Prefer heardSignalMemories; kept for transitional UI bindings. */
-	curiosityOpportunities: HeardSignalMemoryRow[];
 	heardSignalMemories: HeardSignalMemoryRow[];
 	completedOutcomes: CompletedOutcomeCounts;
 	announcementMemorySummaries: AnnouncementMemorySummaryRow[];
@@ -154,20 +150,14 @@ export function buildCommunicationViewModel(
 			completedOutcomes[entry.outcome] = (completedOutcomes[entry.outcome] ?? 0) + 1;
 		}
 
-		const activeOpp = creature.activeAnnouncementOpportunity;
-		const decisionHistory = Array.isArray(creature.recentAnnouncementOpportunityDecisions)
-			? creature.recentAnnouncementOpportunityDecisions
-			: [];
-		const lastDecision = decisionHistory[decisionHistory.length - 1] ?? null;
+		const activeExec = creature.activeAnnouncementExecution;
 		const memoryEntries = Array.isArray(creature.memory?.entries) ? creature.memory.entries : [];
 		announcementMemorySummaries.push({
 			creatureId: creature.id,
 			announcementMemoryCount: memoryEntries.filter((e) => e.kind === 'resource_announcement')
 				.length,
-			activeTriggerFeatureId: activeOpp?.triggerFeatureId ?? null,
-			activeState: activeOpp?.state ?? null,
-			lastDecisionReason: lastDecision?.reason ?? null,
-			lastDecisionFeatureId: lastDecision?.featureId ?? null
+			activeTriggerFeatureId: activeExec?.triggerFeatureId ?? null,
+			activeState: activeExec?.state ?? null
 		});
 	}
 
@@ -179,7 +169,6 @@ export function buildCommunicationViewModel(
 		lexiconMatrix,
 		liveFeed,
 		activeInvestigations,
-		curiosityOpportunities: heardSignalMemories,
 		heardSignalMemories,
 		completedOutcomes,
 		announcementMemorySummaries

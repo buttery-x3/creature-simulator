@@ -36,13 +36,12 @@ function draft(featureId: string, sequenceHint = 0) {
 		rememberedAt: 10 + sequenceHint,
 		featureId,
 		resourceKind: 'food' as const,
-		opportunityId: `ann-${featureId}`,
 		emissionId: `em-${featureId}`
 	};
 }
 
 describe('ensureCreatureMemory', () => {
-	it('returns the same creature when memory and decisions are valid', () => {
+	it('returns the same creature when memory is valid', () => {
 		const creature = testCreature();
 		expect(ensureCreatureMemory(creature)).toBe(creature);
 		expect(isValidCreatureMemory(creature.memory)).toBe(true);
@@ -58,16 +57,6 @@ describe('ensureCreatureMemory', () => {
 		expect(isValidCreatureMemory(fixed.memory)).toBe(true);
 		expect(Array.isArray(fixed.memory.entries)).toBe(true);
 		expect(fixed.memory.capacity).toBeGreaterThanOrEqual(1);
-	});
-
-	it('repairs missing recentAnnouncementOpportunityDecisions', () => {
-		const creature = {
-			...testCreature(),
-			recentAnnouncementOpportunityDecisions: undefined as unknown as []
-		} as Creature;
-		const fixed = ensureCreatureMemory(creature);
-		expect(Array.isArray(fixed.recentAnnouncementOpportunityDecisions)).toBe(true);
-		expect(fixed.recentAnnouncementOpportunityDecisions).toEqual([]);
 	});
 });
 
@@ -101,14 +90,13 @@ describe('createEmptyMemory / sampleMemoryCapacity', () => {
 });
 
 describe('rememberResourceAnnouncement', () => {
-	it('writes one entry with feature, opportunity and emission ids', () => {
+	it('writes one entry with feature and emission ids', () => {
 		const memory = rememberResourceAnnouncement(createEmptyMemory(4), draft('food-1'));
 		expect(memory.entries).toHaveLength(1);
 		expect(memory.entries[0]).toMatchObject({
 			kind: 'resource_announcement',
 			sequence: 0,
 			featureId: 'food-1',
-			opportunityId: 'ann-food-1',
 			emissionId: 'em-food-1'
 		});
 		expect(memory.nextSequence).toBe(1);
@@ -189,11 +177,8 @@ describe('applySuccessfulAnnouncementMemories', () => {
 			provenance:
 				partial.provenance === undefined
 					? {
-							opportunityId: 'ann-creature-0-0',
-							perceptionEpisodeId: 'ep-1',
 							triggerFeatureId: 'food-1',
 							triggerFeaturePosition: { x: 1, y: 1 },
-							discoveredAt: 1,
 							clarityEvidence: null
 						}
 					: partial.provenance
@@ -210,7 +195,6 @@ describe('applySuccessfulAnnouncementMemories', () => {
 		expect(updated!.memory.entries).toHaveLength(1);
 		expect(updated!.memory.entries[0]).toMatchObject({
 			featureId: 'food-1',
-			opportunityId: 'ann-creature-0-0',
 			emissionId: 'em-0',
 			rememberedAt: 3
 		});

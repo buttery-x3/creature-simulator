@@ -194,7 +194,7 @@ test('selecting a creature shows needs, goal, action and candidate scores', asyn
 	await expect(page.getByTestId('inspector-hunger')).toBeVisible();
 	await expect(page.getByTestId('inspector-thirst')).toBeVisible();
 	await expect(page.getByTestId('inspector-energy')).toBeVisible();
-	await expect(page.getByTestId('inspector-goal')).toBeVisible();
+	await expect(page.getByTestId('inspector-intention')).toBeVisible();
 	await expect(page.getByTestId('inspector-action')).toBeVisible();
 	await expect(page.getByTestId('inspector-target')).toBeVisible();
 	await expect(page.getByTestId('inspector-decision-reason')).not.toHaveText('—');

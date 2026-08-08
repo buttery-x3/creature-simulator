@@ -129,7 +129,7 @@
 			</thead>
 			<tbody>
 				{#each Object.entries(b.byIntention) as [intention, count] (intention)}
-					<tr data-testid={`overview-goal-${intention}`}>
+					<tr data-testid={`overview-intention-${intention}`}>
 						<td>{intention}</td>
 						<td>{count}</td>
 					</tr>

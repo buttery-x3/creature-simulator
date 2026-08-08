@@ -73,7 +73,7 @@ src/
                 types.ts
                 clarity.ts
                 speaking-position.ts
-                opportunity-lifecycle.ts
+                execution-state.ts
                 step-announcement.ts
                 *.spec.ts
             memory/

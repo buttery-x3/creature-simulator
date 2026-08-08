@@ -16,9 +16,9 @@ import { ensureCreatureMemory } from '../memory/create-memory';
 import { hasResourceAnnouncementMemory } from '../memory/query';
 import type { Creature, SimulationConfig } from '../types';
 import { evaluateKindClarity, type ClarityResourceCandidate } from './clarity';
-import { appendOutcome, buildOutcome, getActiveOpportunity } from './opportunity-lifecycle';
+import { appendOutcome, buildOutcome, getActiveExecution } from './execution-state';
 import { findSpeakingPosition } from './speaking-position';
-import type { AnnouncementOpportunity } from './types';
+import type { ActiveAnnouncementExecution } from './types';
 
 export type AnnouncementStepConfig = Pick<
 	SimulationConfig,
@@ -26,7 +26,6 @@ export type AnnouncementStepConfig = Pick<
 	| 'speakingPositionSearchRadius'
 	| 'speakingPositionSearchResolution'
 	| 'recentAnnouncementOutcomeHistoryLimit'
-	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
 	| 'emissionCooldownSeconds'
 	| 'creatureRadius'
 	| 'sensingRadius'
@@ -97,11 +96,10 @@ function featureStillAvailable(
 	return feature !== undefined && feature.amount > 0;
 }
 
-function ensureExecutorOpportunity(
+function ensureExecutorState(
 	creature: Creature,
-	habitat: Habitat,
-	timeSeconds: number
-): { creature: Creature; active: AnnouncementOpportunity | null } {
+	habitat: Habitat
+): { creature: Creature; active: ActiveAnnouncementExecution | null } {
 	const target = creature.target;
 	if (
 		creature.intention !== 'announce_resource' ||
@@ -112,7 +110,7 @@ function ensureExecutorOpportunity(
 		return {
 			creature: {
 				...creature,
-				activeAnnouncementOpportunity: null
+				activeAnnouncementExecution: null
 			},
 			active: null
 		};
@@ -123,13 +121,13 @@ function ensureExecutorOpportunity(
 		return {
 			creature: {
 				...creature,
-				activeAnnouncementOpportunity: null
+				activeAnnouncementExecution: null
 			},
 			active: null
 		};
 	}
 
-	const existing = getActiveOpportunity(creature.activeAnnouncementOpportunity);
+	const existing = getActiveExecution(creature.activeAnnouncementExecution);
 	if (existing && existing.triggerFeatureId === target.featureId) {
 		return { creature, active: existing };
 	}
@@ -138,22 +136,19 @@ function ensureExecutorOpportunity(
 	const feature = list.find((f) => f.id === target.featureId);
 	if (!feature || feature.amount <= 0) {
 		return {
-			creature: { ...creature, activeAnnouncementOpportunity: null },
+			creature: { ...creature, activeAnnouncementExecution: null },
 			active: null
 		};
 	}
 
-	const counter = creature.announcementOpportunityCounter + 1;
-	const active: AnnouncementOpportunity = {
+	const counter = creature.announcementExecutionCounter + 1;
+	const active: ActiveAnnouncementExecution = {
 		id: `ann-${creature.id}-${counter}`,
 		creatureId: creature.id,
 		triggerFeatureId: feature.id,
 		resourceKind: target.featureKind,
 		triggerFeaturePosition: { x: feature.position.x, y: feature.position.y },
-		perceptionEpisodeId: `exec-${feature.id}`,
-		discoveredAt: timeSeconds,
-		discoveryCreaturePosition: { x: creature.position.x, y: creature.position.y },
-		state: 'ready',
+		state: 'evaluating',
 		speakingTarget: null,
 		initialClarity: null
 	};
@@ -161,8 +156,8 @@ function ensureExecutorOpportunity(
 	return {
 		creature: {
 			...creature,
-			activeAnnouncementOpportunity: active,
-			announcementOpportunityCounter: counter
+			activeAnnouncementExecution: active,
+			announcementExecutionCounter: counter
 		},
 		active
 	};
@@ -181,15 +176,15 @@ export function stepAnnouncement(input: {
 	const { habitat, timeSeconds, config } = input;
 	let creature = ensureCreatureMemory(input.creature);
 
-	// Not announcing: drop executor opportunity.
+	// Not announcing: drop executor state.
 	if (creature.intention !== 'announce_resource') {
-		if (creature.activeAnnouncementOpportunity !== null) {
-			creature = { ...creature, activeAnnouncementOpportunity: null };
+		if (creature.activeAnnouncementExecution !== null) {
+			creature = { ...creature, activeAnnouncementExecution: null };
 		}
 		return { creature, emissionRequest: null, endedPreparation: false };
 	}
 
-	const ensured = ensureExecutorOpportunity(creature, habitat, timeSeconds);
+	const ensured = ensureExecutorState(creature, habitat);
 	creature = ensured.creature;
 	let active = ensured.active;
 	if (!active) {
@@ -223,7 +218,7 @@ export function stepAnnouncement(input: {
 		active = { ...active, initialClarity: clarity };
 		creature = {
 			...creature,
-			activeAnnouncementOpportunity: active
+			activeAnnouncementExecution: active
 		};
 	}
 
@@ -237,11 +232,8 @@ export function stepAnnouncement(input: {
 			origin: { x: creature.position.x, y: creature.position.y },
 			context: 'resource_discovered',
 			contextDetail: active.resourceKind,
-			opportunityId: active.id,
-			perceptionEpisodeId: active.perceptionEpisodeId,
 			triggerFeatureId: active.triggerFeatureId,
 			triggerFeaturePosition: { ...active.triggerFeaturePosition },
-			discoveredAt: active.discoveredAt,
 			clarityEvidence: clarity
 		};
 
@@ -250,20 +242,17 @@ export function stepAnnouncement(input: {
 			(active.initialClarity !== null && !active.initialClarity.clear);
 
 		const outcome = buildOutcome({
-			opportunity: active,
+			execution: active,
 			completedAt: timeSeconds,
-			reason: 'emitted',
+			reason: 'emission_requested',
 			finalClarity: clarity,
 			repositioningRequired,
-			finalEmitterPosition: { x: creature.position.x, y: creature.position.y },
-			emittedSignalId: null,
-			emittedSymbolId: null,
-			productionMode: null
+			finalEmitterPosition: { x: creature.position.x, y: creature.position.y }
 		});
 
 		creature = {
 			...creature,
-			activeAnnouncementOpportunity: null,
+			activeAnnouncementExecution: null,
 			recentAnnouncementOutcomes: appendOutcome(
 				creature.recentAnnouncementOutcomes,
 				outcome,
@@ -312,7 +301,7 @@ export function stepAnnouncement(input: {
 	// Executor only moves the target point; intention remains announce_resource.
 	creature = {
 		...creature,
-		activeAnnouncementOpportunity: active,
+		activeAnnouncementExecution: active,
 		action: 'move',
 		target: { kind: 'point', position: { ...speaking.position } }
 	};
@@ -322,26 +311,23 @@ export function stepAnnouncement(input: {
 
 function finalizeInvalid(
 	creature: Creature,
-	active: AnnouncementOpportunity,
+	active: ActiveAnnouncementExecution,
 	timeSeconds: number,
 	reason: 'invalid_trigger_feature' | 'no_announced_kind_available' | 'no_valid_speaking_position',
 	config: AnnouncementStepConfig
 ): AnnouncementStepResult {
 	const outcome = buildOutcome({
-		opportunity: active,
+		execution: active,
 		completedAt: timeSeconds,
 		reason,
 		finalClarity: active.initialClarity,
 		repositioningRequired: active.state === 'repositioning',
-		finalEmitterPosition: { x: creature.position.x, y: creature.position.y },
-		emittedSignalId: null,
-		emittedSymbolId: null,
-		productionMode: null
+		finalEmitterPosition: { x: creature.position.x, y: creature.position.y }
 	});
 	return {
 		creature: {
 			...creature,
-			activeAnnouncementOpportunity: null,
+			activeAnnouncementExecution: null,
 			recentAnnouncementOutcomes: appendOutcome(
 				creature.recentAnnouncementOutcomes,
 				outcome,

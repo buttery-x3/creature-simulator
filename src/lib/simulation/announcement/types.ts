@@ -1,56 +1,35 @@
 /**
  * Resource-announcement subdomain types.
  *
- * Feature identity drives episodes, provenance and presentation.
+ * Feature identity drives provenance and presentation.
  * Resource kind drives clarity, symbol selection and learning meaning.
  * Listener-facing HeardSignal must never include these fields.
  *
- * At most one active opportunity per creature — no deferred announcement queue.
+ * Active state is execution-local after cognition selects announce_resource —
+ * not a discovered behavioural opportunity waiting for acceptance.
  */
 
 import type { Vec2 } from '$lib/habitat';
-import type { SymbolId, SymbolSelectionMode } from '../communication/types';
 
-/** Continuous perception episode for one creature + one resource feature. */
-export type ResourceFeaturePerceptionEpisode = {
-	episodeId: string;
-	featureId: string;
-	resourceKind: 'food' | 'water';
-	/** Simulation time when the feature entered perception for this episode. */
-	startedAt: number;
-};
-
-/** Feature that transitioned not-perceived → perceived on a sensing pass. */
-export type NewlyPerceivedResource = {
-	featureId: string;
-	resourceKind: 'food' | 'water';
-	position: Vec2;
-	perceptionEpisodeId: string;
-	discoveredAt: number;
-};
-
-/** Lifecycle state for the single current announcement opportunity. */
-export type AnnouncementOpportunityState = 'ready' | 'repositioning';
+/** Lifecycle state while executing an already-selected announce_resource intention. */
+export type AnnouncementExecutionState = 'evaluating' | 'repositioning';
 
 /**
- * Authoritative announcement opportunity for one discovery episode.
- * triggerFeatureId is causal provenance and must never be silently rewritten.
+ * Execution-local state for clarity evaluation, speaking-position search,
+ * multi-step repositioning, and emission handoff.
+ * Not a decision owner — cognition already selected announce_resource.
  */
-export type AnnouncementOpportunity = {
+export type ActiveAnnouncementExecution = {
 	id: string;
 	creatureId: string;
 	triggerFeatureId: string;
 	resourceKind: 'food' | 'water';
-	/** Feature centre at discovery (fallback for presentation). */
+	/** Feature centre at execution start (diagnostics / presentation). */
 	triggerFeaturePosition: Vec2;
-	perceptionEpisodeId: string;
-	discoveredAt: number;
-	/** Creature position when the opportunity was created. */
-	discoveryCreaturePosition: Vec2;
-	state: AnnouncementOpportunityState;
+	state: AnnouncementExecutionState;
 	/** Speaking point while repositioning; null when not yet chosen / not needed. */
 	speakingTarget: Vec2 | null;
-	/** Initial clarity snapshot at opportunity creation (or first evaluation). */
+	/** Initial clarity snapshot at first evaluation. */
 	initialClarity: ClarityEvidence | null;
 };
 
@@ -65,31 +44,28 @@ export type ClarityEvidence = {
 };
 
 export type AnnouncementOutcomeReason =
-	| 'emitted'
+	| 'emission_requested'
 	| 'invalid_trigger_feature'
 	| 'no_announced_kind_available'
 	| 'no_valid_speaking_position'
 	| 'world_reset'
 	| 'creature_removed';
 
-/** Bounded inspectable history of completed or invalidated opportunities. */
-export type AnnouncementOpportunityOutcome = {
-	opportunityId: string;
+/**
+ * Bounded inspectable history of completed or invalidated announcement executions.
+ * Records only facts known at executor completion — emission ids live on SignalEmission.
+ */
+export type AnnouncementExecutionOutcome = {
+	executionId: string;
 	creatureId: string;
 	triggerFeatureId: string;
 	resourceKind: 'food' | 'water';
-	perceptionEpisodeId: string;
-	discoveredAt: number;
-	discoveryCreaturePosition: Vec2;
 	triggerFeaturePosition: Vec2;
 	initialClarity: ClarityEvidence | null;
 	finalClarity: ClarityEvidence | null;
 	repositioningRequired: boolean;
 	speakingTarget: Vec2 | null;
 	finalEmitterPosition: Vec2 | null;
-	emittedSignalId: string | null;
-	emittedSymbolId: SymbolId | null;
-	productionMode: SymbolSelectionMode | null;
 	completedAt: number;
 	reason: AnnouncementOutcomeReason;
 };

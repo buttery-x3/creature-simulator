@@ -492,15 +492,12 @@ describe('announce_resource executor (no behaviour lock)', () => {
 			hunger: 0.1,
 			thirst: 0.1,
 			energy: 0.95,
-			activeAnnouncementOpportunity: {
+			activeAnnouncementExecution: {
 				id: 'ann-creature-0-0',
 				creatureId: 'creature-0',
 				triggerFeatureId: 'food-0',
 				resourceKind: 'food',
 				triggerFeaturePosition: { x: 2, y: 0 },
-				perceptionEpisodeId: 'ep-food-0-0',
-				discoveredAt: 0,
-				discoveryCreaturePosition: { x: 0, y: 0 },
 				state: 'repositioning',
 				speakingTarget: { ...speakingTarget },
 				initialClarity: {
@@ -512,7 +509,7 @@ describe('announce_resource executor (no behaviour lock)', () => {
 					reason: 'unclear_margin'
 				}
 			},
-			announcementOpportunityCounter: 1,
+			announcementExecutionCounter: 1,
 			...overrides
 		});
 	}
@@ -530,11 +527,11 @@ describe('announce_resource executor (no behaviour lock)', () => {
 			position: { ...food.position },
 			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
 			nextReconsiderAt: 9999,
-			activeAnnouncementOpportunity: {
-				...announcingCreature().activeAnnouncementOpportunity!,
+			activeAnnouncementExecution: {
+				...announcingCreature().activeAnnouncementExecution!,
 				triggerFeatureId: food.id,
 				triggerFeaturePosition: { ...food.position },
-				state: 'ready',
+				state: 'evaluating',
 				speakingTarget: { ...food.position }
 			}
 		});
@@ -552,7 +549,7 @@ describe('announce_resource executor (no behaviour lock)', () => {
 		expect(
 			result.emissionRequest !== null ||
 				next.recentAnnouncementOutcomes.length > 0 ||
-				next.activeAnnouncementOpportunity !== null ||
+				next.activeAnnouncementExecution !== null ||
 				next.intention !== 'announce_resource'
 		).toBe(true);
 	});
@@ -566,8 +563,8 @@ describe('announce_resource executor (no behaviour lock)', () => {
 		const creature = announcingCreature({
 			nextReconsiderAt: 8888,
 			target: { kind: 'feature', featureId: 'missing-food-feature', featureKind: 'food' },
-			activeAnnouncementOpportunity: {
-				...announcingCreature().activeAnnouncementOpportunity!,
+			activeAnnouncementExecution: {
+				...announcingCreature().activeAnnouncementExecution!,
 				triggerFeatureId: 'missing-food-feature',
 				state: 'repositioning'
 			}
@@ -584,7 +581,7 @@ describe('announce_resource executor (no behaviour lock)', () => {
 		expect(
 			next.recentAnnouncementOutcomes.some((o) => o.reason === 'invalid_trigger_feature')
 		).toBe(true);
-		expect(next.activeAnnouncementOpportunity).toBeNull();
+		expect(next.activeAnnouncementExecution).toBeNull();
 		// Invalid end triggers ordinary arbitration (no lock); winner is unconstrained.
 		expect(next.lastArbitration).not.toBeNull();
 		expect(next.lastArbitration?.candidates.length).toBeGreaterThan(0);
@@ -604,8 +601,8 @@ describe('announce_resource executor (no behaviour lock)', () => {
 			thirst: 0.2,
 			energy: 0.95,
 			target: { kind: 'feature', featureId: 'gone-feature', featureKind: 'food' },
-			activeAnnouncementOpportunity: {
-				...announcingCreature().activeAnnouncementOpportunity!,
+			activeAnnouncementExecution: {
+				...announcingCreature().activeAnnouncementExecution!,
 				triggerFeatureId: 'gone-feature',
 				state: 'repositioning'
 			}
@@ -664,6 +661,6 @@ describe('announce_resource executor (no behaviour lock)', () => {
 		);
 		expect(result.creature.intention).toBe('wander');
 		expect(result.emissionRequest).toBeNull();
-		expect(result.creature.activeAnnouncementOpportunity).toBeNull();
+		expect(result.creature.activeAnnouncementExecution).toBeNull();
 	});
 });

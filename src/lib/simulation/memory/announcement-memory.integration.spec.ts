@@ -12,7 +12,27 @@ import { hasResourceAnnouncementMemory } from './query';
 import { rememberResourceAnnouncement } from './mutate';
 import { applySuccessfulAnnouncementMemories } from './apply-announcement-memory';
 import { createEmptyMemory } from './create-memory';
-import { createOpportunitiesFromDiscoveries } from '../announcement/opportunity-lifecycle';
+import { arbitrate, DEFAULT_COGNITION_CONFIG } from '../cognition';
+import type { ArbitrationInput } from '../cognition/types';
+
+function baseArbitration(overrides: Partial<ArbitrationInput> = {}): ArbitrationInput {
+	return {
+		timeSeconds: 10,
+		trigger: 'periodic',
+		position: { x: 0, y: 0 },
+		hunger: 0,
+		thirst: 0,
+		energy: 1,
+		availableFood: [],
+		availableWater: [],
+		memory: createEmptyMemory(4),
+		currentIntention: 'wander',
+		currentTarget: null,
+		homeFeatureId: 'home-0',
+		config: DEFAULT_COGNITION_CONFIG,
+		...overrides
+	};
+}
 
 describe('announcement memory integration', () => {
 	it('writes memory after a successful resource announcement emission', () => {
@@ -67,7 +87,6 @@ describe('announcement memory integration', () => {
 				);
 				expect(entry?.kind).toBe('resource_announcement');
 				if (entry?.kind === 'resource_announcement') {
-					expect(entry.opportunityId).toMatch(/^ann-creature-0-/);
 					expect(entry.emissionId).toMatch(/^em-creature-0-/);
 					expect(entry.resourceKind).toBe('food');
 				}
@@ -86,32 +105,28 @@ describe('announcement memory integration', () => {
 		expect(remembered).toBe(true);
 	});
 
-	it('suppresses opportunity on rediscovery while memory is retained', () => {
+	it('suppresses announce_resource candidate while memory is retained', () => {
 		const memory = rememberResourceAnnouncement(createEmptyMemory(4), {
 			rememberedAt: 2,
 			featureId: 'food-1',
 			resourceKind: 'food',
-			opportunityId: 'ann-creature-0-0',
 			emissionId: 'em-creature-0-0'
 		});
-		const result = createOpportunitiesFromDiscoveries({
-			creatureId: 'creature-0',
-			creaturePosition: { x: 0, y: 0 },
-			newlyPerceived: [
-				{
-					featureId: 'food-1',
-					resourceKind: 'food',
-					position: { x: 1, y: 1 },
-					perceptionEpisodeId: 'ep-reenter',
-					discoveredAt: 10
-				}
-			],
-			activeOpportunity: null,
-			opportunityCounter: 1,
-			memory
-		});
-		expect(result.activeOpportunity).toBeNull();
-		expect(result.decisions[0]!.reason).toBe('announcement_remembered');
+		const record = arbitrate(
+			baseArbitration({
+				memory,
+				availableFood: [
+					{
+						featureId: 'food-1',
+						resourceKind: 'food',
+						position: { x: 1, y: 1 }
+					}
+				]
+			})
+		);
+		const announce = record.candidates.find((c) => c.intention === 'announce_resource');
+		expect(announce?.valid).toBe(false);
+		expect(announce?.rejectionReason).toBe('no_unannounced_resource');
 	});
 
 	it('writes memory for every same-step emission even when history limit is smaller', () => {
@@ -138,11 +153,8 @@ describe('announcement memory integration', () => {
 			origin: { ...c.position },
 			context: 'resource_discovered',
 			contextDetail: 'food',
-			opportunityId: `ann-${c.id}-0`,
-			perceptionEpisodeId: `ep-${c.id}-0`,
 			triggerFeatureId: `food-${i}`,
-			triggerFeaturePosition: { x: i + 10, y: 0 },
-			discoveredAt: 1
+			triggerFeaturePosition: { x: i + 10, y: 0 }
 		}));
 
 		const bare = createSimulation({ ...config, creatureCount: 0 });
@@ -174,7 +186,6 @@ describe('announcement memory integration', () => {
 			);
 			expect(entry?.kind).toBe('resource_announcement');
 			if (entry?.kind === 'resource_announcement') {
-				expect(entry.opportunityId).toBe(`ann-creature-${i}-0`);
 				expect(entry.emissionId).toBe(`em-creature-${i}-0`);
 			}
 		}
@@ -194,13 +205,12 @@ describe('announcement memory integration', () => {
 		}
 	});
 
-	it('allows rediscovery after the announcement memory is evicted', () => {
+	it('allows announce candidate after the announcement memory is evicted', () => {
 		let memory = createEmptyMemory(1);
 		memory = rememberResourceAnnouncement(memory, {
 			rememberedAt: 1,
 			featureId: 'food-old',
 			resourceKind: 'food',
-			opportunityId: 'ann-old',
 			emissionId: 'em-old'
 		});
 		// Evict food-old by inserting another entry.
@@ -208,28 +218,25 @@ describe('announcement memory integration', () => {
 			rememberedAt: 2,
 			featureId: 'food-new',
 			resourceKind: 'food',
-			opportunityId: 'ann-new',
 			emissionId: 'em-new'
 		});
 		expect(hasResourceAnnouncementMemory(memory, 'food-old')).toBe(false);
 
-		const result = createOpportunitiesFromDiscoveries({
-			creatureId: 'creature-0',
-			creaturePosition: { x: 0, y: 0 },
-			newlyPerceived: [
-				{
-					featureId: 'food-old',
-					resourceKind: 'food',
-					position: { x: 1, y: 1 },
-					perceptionEpisodeId: 'ep-after-evict',
-					discoveredAt: 20
-				}
-			],
-			activeOpportunity: null,
-			opportunityCounter: 0,
-			memory
-		});
-		expect(result.activeOpportunity).not.toBeNull();
-		expect(result.decisions[0]!.reason).toBe('created');
+		const record = arbitrate(
+			baseArbitration({
+				timeSeconds: 20,
+				memory,
+				availableFood: [
+					{
+						featureId: 'food-old',
+						resourceKind: 'food',
+						position: { x: 1, y: 1 }
+					}
+				]
+			})
+		);
+		const announce = record.candidates.find((c) => c.intention === 'announce_resource');
+		expect(announce?.valid).toBe(true);
+		expect(announce?.reference).toMatchObject({ kind: 'feature', featureId: 'food-old' });
 	});
 });

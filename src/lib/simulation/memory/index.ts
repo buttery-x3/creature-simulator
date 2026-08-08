@@ -6,8 +6,6 @@
  */
 
 export type {
-	AnnouncementOpportunityDecision,
-	AnnouncementOpportunityDecisionReason,
 	CreatureMemory,
 	CreatureMemoryEntry,
 	CreatureMemoryEntryKind,

@@ -7,12 +7,10 @@
  */
 
 export type {
+	ActiveAnnouncementExecution,
 	ActiveSignalInvestigation,
-	AnnouncementOpportunity,
-	AnnouncementOpportunityDecision,
-	AnnouncementOpportunityDecisionReason,
-	AnnouncementOpportunityOutcome,
-	AnnouncementOpportunityState,
+	AnnouncementExecutionOutcome,
+	AnnouncementExecutionState,
 	AnnouncementOutcomeReason,
 	ArbitrationInput,
 	ArbitrationRecord,

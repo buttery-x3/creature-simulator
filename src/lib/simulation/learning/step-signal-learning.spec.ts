@@ -107,7 +107,7 @@ describe('step signal learning', () => {
 		expect(
 			next.recentLexiconChanges.some((c) => c.meaning === 'food' && c.newSymbolId === 'glyph-2')
 		).toBe(true);
-		expect(next.activeAnnouncementOpportunity).toBeNull();
+		expect(next.activeAnnouncementExecution).toBeNull();
 		const again = resolveInvestigationAtSite(next, habitat, 3, learningConfig);
 		expect(again.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!.foodEvidenceCount).toBe(
 			1

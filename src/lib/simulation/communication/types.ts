@@ -102,12 +102,9 @@ export type EmissionRequest = {
 	origin: Vec2;
 	context: EmissionContext;
 	contextDetail: ResourceDiscoveryDetail;
-	/** Announcement opportunity id when emission completes a resource announcement. */
-	opportunityId?: string;
-	perceptionEpisodeId?: string;
+	/** Feature that was announced; required for resource_announcement memory. */
 	triggerFeatureId?: string;
 	triggerFeaturePosition?: Vec2;
-	discoveredAt?: number;
 	clarityEvidence?: ClarityEvidence;
 };
 
@@ -116,10 +113,7 @@ export type EmissionRequest = {
  * Must never appear on HeardSignal.
  */
 export type EmissionProvenance = {
-	opportunityId: string;
-	perceptionEpisodeId: string;
 	triggerFeatureId: string;
-	triggerFeaturePosition: Vec2;
-	discoveredAt: number;
+	triggerFeaturePosition: Vec2 | null;
 	clarityEvidence: ClarityEvidence | null;
 };

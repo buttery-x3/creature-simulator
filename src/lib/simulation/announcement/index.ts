@@ -6,13 +6,11 @@
  */
 
 export type {
-	AnnouncementOpportunity,
-	AnnouncementOpportunityOutcome,
-	AnnouncementOpportunityState,
+	ActiveAnnouncementExecution,
+	AnnouncementExecutionOutcome,
+	AnnouncementExecutionState,
 	AnnouncementOutcomeReason,
-	ClarityEvidence,
-	NewlyPerceivedResource,
-	ResourceFeaturePerceptionEpisode
+	ClarityEvidence
 } from './types';
 
 export {
@@ -30,13 +28,11 @@ export {
 } from './speaking-position';
 
 export {
-	appendOpportunityDecisions,
 	appendOutcome,
 	buildOutcome,
-	createOpportunitiesFromDiscoveries,
 	emptyAnnouncementState,
-	getActiveOpportunity
-} from './opportunity-lifecycle';
+	getActiveExecution
+} from './execution-state';
 
 export {
 	collectClarityCandidates,

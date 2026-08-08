@@ -55,7 +55,7 @@ export function replanFromArbitration(
 	let activeInvestigation = creature.activeInvestigation;
 	let symbolAssociations = creature.symbolAssociations;
 	let recentLearning = creature.recentLearning;
-	let activeAnnouncementOpportunity = creature.activeAnnouncementOpportunity;
+	let activeAnnouncementExecution = creature.activeAnnouncementExecution;
 
 	// Leaving investigate → interrupt learning context (not a lock).
 	if (activeInvestigation && applied.intention !== 'investigate_signal') {
@@ -75,13 +75,13 @@ export function replanFromArbitration(
 		recentLearning = interrupted.recentLearning;
 	}
 
-	// Leaving announce → clear executor opportunity (cue may continue fading).
+	// Leaving announce → clear executor state (cue may continue fading).
 	if (
 		applied.intention !== 'announce_resource' &&
 		creature.intention === 'announce_resource' &&
-		activeAnnouncementOpportunity
+		activeAnnouncementExecution
 	) {
-		activeAnnouncementOpportunity = null;
+		activeAnnouncementExecution = null;
 	}
 
 	if (applied.intention === 'wander') {
@@ -157,6 +157,6 @@ export function replanFromArbitration(
 		activeInvestigation,
 		symbolAssociations,
 		recentLearning,
-		activeAnnouncementOpportunity
+		activeAnnouncementExecution
 	};
 }

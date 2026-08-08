@@ -26,12 +26,7 @@ export function applySuccessfulAnnouncementMemories(
 	const bySender = new Map<string, SignalEmission[]>();
 	for (const emission of emissions) {
 		const provenance = emission.provenance;
-		if (
-			provenance === null ||
-			provenance === undefined ||
-			!provenance.triggerFeatureId ||
-			!provenance.opportunityId
-		) {
+		if (provenance === null || provenance === undefined || !provenance.triggerFeatureId) {
 			continue;
 		}
 		if (emission.context !== 'resource_discovered') {
@@ -62,7 +57,6 @@ export function applySuccessfulAnnouncementMemories(
 				rememberedAt: timeSeconds,
 				featureId: provenance.triggerFeatureId,
 				resourceKind: emission.contextDetail,
-				opportunityId: provenance.opportunityId,
 				emissionId: emission.id
 			});
 		}

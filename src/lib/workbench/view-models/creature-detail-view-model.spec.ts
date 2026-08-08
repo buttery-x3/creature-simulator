@@ -6,7 +6,7 @@ import {
 } from '$lib/simulation';
 import { describe, expect, it } from 'vitest';
 import {
-	buildInvestigationOpportunitySummary,
+	buildInvestigationSummary,
 	buildMemorySectionView,
 	buildRosterRows,
 	formatTargetLabel
@@ -51,12 +51,33 @@ describe('creature-detail-view-model', () => {
 				startedAt: 1.5
 			}
 		};
-		const summary = buildInvestigationOpportunitySummary(creature, 2);
+		const summary = buildInvestigationSummary(creature, 2);
 		expect(summary).not.toBeNull();
 		expect(summary!.heardSignalMemoryCount).toBe(1);
 		expect(summary!.newestHeardEmissionId).toBe('e-1');
 		expect(summary!.activeEmissionId).toBe('e-1');
 		expect(summary!.activeSymbolId).toBe('glyph-0');
+	});
+
+	it('uses the newest heard-signal memory for the newest-heard summary', () => {
+		const config = defaultSimulationConfig('demo');
+		const state = createSimulation(config);
+		let memory = rememberHeardSignal(state.creatures[0]!.memory, {
+			rememberedAt: 1,
+			emissionId: 'e-old',
+			symbolId: 'glyph-0' as const,
+			origin: { x: 0, y: 0 }
+		});
+		memory = rememberHeardSignal(memory, {
+			rememberedAt: 2,
+			emissionId: 'e-new',
+			symbolId: 'glyph-1' as const,
+			origin: { x: 2, y: 2 }
+		});
+		const summary = buildInvestigationSummary({ ...state.creatures[0]!, memory }, 3);
+		expect(summary!.heardSignalMemoryCount).toBe(2);
+		expect(summary!.newestHeardEmissionId).toBe('e-new');
+		expect(summary!.newestHeardSymbolId).toBe('glyph-1');
 	});
 
 	it('builds a structured memory section with capacity and entries', () => {
@@ -68,7 +89,6 @@ describe('creature-detail-view-model', () => {
 				rememberedAt: 12.5,
 				featureId: 'food-3',
 				resourceKind: 'food',
-				opportunityId: 'ann-0',
 				emissionId: 'em-0'
 			}),
 			recentEmitted: [

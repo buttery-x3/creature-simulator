@@ -14,7 +14,10 @@
  */
 
 import type { Habitat, HabitatFeatureKind, HabitatGenerationConfig, Vec2 } from '$lib/habitat';
-import type { AnnouncementOpportunity, AnnouncementOpportunityOutcome } from './announcement/types';
+import type {
+	ActiveAnnouncementExecution,
+	AnnouncementExecutionOutcome
+} from './announcement/types';
 import type { ArbitrationRecord, ArbitrationTrigger, IntentionKind } from './cognition/types';
 import type { HeardSignal, SignalEmission, SymbolId } from './communication/types';
 import type {
@@ -24,7 +27,7 @@ import type {
 	LexiconChangeEntry,
 	SymbolAssociation
 } from './learning/types';
-import type { AnnouncementOpportunityDecision, CreatureMemory } from './memory/types';
+import type { CreatureMemory } from './memory/types';
 import type { EnvironmentState } from './resources/types';
 
 export type {
@@ -47,15 +50,13 @@ export type {
 } from './learning/types';
 export { LEXICON_MEANINGS } from './learning/types';
 export type {
-	AnnouncementOpportunity,
-	AnnouncementOpportunityOutcome,
-	AnnouncementOpportunityState,
+	ActiveAnnouncementExecution,
+	AnnouncementExecutionOutcome,
+	AnnouncementExecutionState,
 	AnnouncementOutcomeReason,
 	ClarityEvidence
 } from './announcement/types';
 export type {
-	AnnouncementOpportunityDecision,
-	AnnouncementOpportunityDecisionReason,
 	CreatureMemory,
 	CreatureMemoryEntry,
 	HeardSignalMemory,
@@ -162,11 +163,6 @@ export type Creature = {
 	 * Capacity is sampled at creation; entries are kind-discriminated.
 	 */
 	memory: CreatureMemory;
-	/**
-	 * Bounded recent announcement opportunity create/suppress decisions
-	 * (local diagnostics before a global audit stream exists).
-	 */
-	recentAnnouncementOpportunityDecisions: AnnouncementOpportunityDecision[];
 
 	/** What the creature is trying to accomplish (cognition-selected). */
 	intention: IntentionKind;
@@ -231,11 +227,11 @@ export type Creature = {
 	 * Executor state for announce_resource intention (clarity / speaking position).
 	 * Not a decision owner — cognition selects the intention; this only advances emit prep.
 	 */
-	activeAnnouncementOpportunity: AnnouncementOpportunity | null;
-	/** Monotonic counter for stable opportunity ids. */
-	announcementOpportunityCounter: number;
-	/** Bounded recent opportunity outcomes for local lifecycle diagnostics. */
-	recentAnnouncementOutcomes: AnnouncementOpportunityOutcome[];
+	activeAnnouncementExecution: ActiveAnnouncementExecution | null;
+	/** Monotonic counter for stable execution diagnostic ids. */
+	announcementExecutionCounter: number;
+	/** Bounded recent announcement-execution outcomes for local diagnostics. */
+	recentAnnouncementOutcomes: AnnouncementExecutionOutcome[];
 };
 
 export type SimulationState = {
@@ -396,8 +392,6 @@ export type SimulationConfig = {
 	 * Min must be ≥ 1. Not derived from intelligence.
 	 */
 	memoryCapacityRange: { min: number; max: number };
-	/** Max length of recentAnnouncementOpportunityDecisions (oldest dropped). */
-	recentAnnouncementOpportunityDecisionHistoryLimit: number;
 	/**
 	 * Characteristic length for presentation-only smooth distance falloff on signal rings:
 	 * distanceFactor = 1 / (1 + distance / investigationDistanceScale).

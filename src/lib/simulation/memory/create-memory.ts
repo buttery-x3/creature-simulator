@@ -44,7 +44,7 @@ export function isValidCreatureMemory(
 }
 
 /**
- * Ensure the creature has a valid `memory` (and opportunity-decision history).
+ * Ensure the creature has a valid `memory` container.
  * Returns the same reference when already valid so hot paths stay allocation-free.
  *
  * Repairs HMR-stale or partially constructed creatures that would otherwise throw
@@ -54,25 +54,18 @@ export function ensureCreatureMemory(
 	creature: Creature,
 	fallbackCapacity: number = DEFAULT_FALLBACK_MEMORY_CAPACITY
 ): Creature {
-	const memoryOk = isValidCreatureMemory(creature.memory);
-	const decisionsOk = Array.isArray(creature.recentAnnouncementOpportunityDecisions);
-	if (memoryOk && decisionsOk) {
+	if (isValidCreatureMemory(creature.memory)) {
 		return creature;
 	}
 
 	const capacity =
-		memoryOk && creature.memory.capacity >= 1
-			? creature.memory.capacity
-			: Number.isInteger(fallbackCapacity) && fallbackCapacity >= 1
-				? fallbackCapacity
-				: DEFAULT_FALLBACK_MEMORY_CAPACITY;
+		Number.isInteger(fallbackCapacity) && fallbackCapacity >= 1
+			? fallbackCapacity
+			: DEFAULT_FALLBACK_MEMORY_CAPACITY;
 
 	return {
 		...creature,
-		memory: memoryOk ? creature.memory : createEmptyMemory(capacity),
-		recentAnnouncementOpportunityDecisions: decisionsOk
-			? creature.recentAnnouncementOpportunityDecisions
-			: []
+		memory: createEmptyMemory(capacity)
 	};
 }
 

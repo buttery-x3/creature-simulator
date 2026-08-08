@@ -83,7 +83,6 @@ export type BehaviourStepConfig = Pick<
 	| 'speakingPositionSearchRadius'
 	| 'speakingPositionSearchResolution'
 	| 'recentAnnouncementOutcomeHistoryLimit'
-	| 'recentAnnouncementOpportunityDecisionHistoryLimit'
 	| 'emissionCooldownSeconds'
 >;
 
@@ -328,7 +327,7 @@ export function stepCreatureBehaviour(
 	// After movement, re-check announcement clarity — never a second executor pass after emit.
 	if (
 		!emissionRequest &&
-		(next.intention === 'announce_resource' || next.activeAnnouncementOpportunity !== null)
+		(next.intention === 'announce_resource' || next.activeAnnouncementExecution !== null)
 	) {
 		const afterMove = stepAnnouncement({
 			creature: next,

@@ -267,19 +267,19 @@ describe('announce_resource same-step race (successful emit)', () => {
 			recentEmissions: []
 		};
 
-		const beforeCounter = state.creatures[0]!.announcementOpportunityCounter;
+		const beforeCounter = state.creatures[0]!.announcementExecutionCounter;
 		state = stepSimulation(state, config);
 		const c = state.creatures[0]!;
 
 		expect(c.emissionCount).toBe(1);
 		const emittedOutcomes = c.recentAnnouncementOutcomes.filter(
-			(o) => o.reason === 'emitted' && o.triggerFeatureId === food.id
+			(o) => o.reason === 'emission_requested' && o.triggerFeatureId === food.id
 		);
 		expect(emittedOutcomes).toHaveLength(1);
 		expect(hasResourceAnnouncementMemory(c.memory, food.id)).toBe(true);
 		// No second executor creation for the same feature mid/post emit same step.
-		expect(c.announcementOpportunityCounter).toBeLessThanOrEqual(beforeCounter + 1);
-		expect(c.activeAnnouncementOpportunity).toBeNull();
+		expect(c.announcementExecutionCounter).toBeLessThanOrEqual(beforeCounter + 1);
+		expect(c.activeAnnouncementExecution).toBeNull();
 		// Deferred replan pending so next step sees committed memory.
 		expect(c.pendingArbitrationTrigger).toBe('action_complete');
 
@@ -290,7 +290,7 @@ describe('announce_resource same-step race (successful emit)', () => {
 		expect(after.emissionCount).toBe(emissionsBefore);
 		expect(
 			after.recentAnnouncementOutcomes.filter(
-				(o) => o.reason === 'emitted' && o.triggerFeatureId === food.id
+				(o) => o.reason === 'emission_requested' && o.triggerFeatureId === food.id
 			)
 		).toHaveLength(1);
 		expect(hasResourceAnnouncementMemory(after.memory, food.id)).toBe(true);

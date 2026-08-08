@@ -100,7 +100,6 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	// Memory: large enough for the small habitat not to churn every announcement,
 	// while still proving bounded capacity (not intelligence-derived).
 	memoryCapacityRange: { min: 8, max: 16 },
-	recentAnnouncementOpportunityDecisionHistoryLimit: 12,
 	// Presentation-only signal-ring falloff scale (not decision motivation).
 	investigationDistanceScale: 8,
 	learningEvidenceRadius: 3,
@@ -310,14 +309,6 @@ function validateSimulationConfig(config: SimulationConfig): void {
 		);
 	}
 	if (
-		!Number.isInteger(config.recentAnnouncementOpportunityDecisionHistoryLimit) ||
-		config.recentAnnouncementOpportunityDecisionHistoryLimit < 1
-	) {
-		throw new SimulationCreationError(
-			`recentAnnouncementOpportunityDecisionHistoryLimit must be a positive integer, received ${config.recentAnnouncementOpportunityDecisionHistoryLimit}`
-		);
-	}
-	if (
 		!(config.associationStrengthMin < config.associationStrengthMax) ||
 		!Number.isFinite(config.associationStrengthMin) ||
 		!Number.isFinite(config.associationStrengthMax)
@@ -441,7 +432,6 @@ function createCreatures(
 			energy: config.initialEnergy,
 			// Independent memory object per creature — never share references.
 			memory: createEmptyMemory(memoryCapacity),
-			recentAnnouncementOpportunityDecisions: [],
 			intention: 'wander',
 			action: 'wander',
 			target: pointTarget(wanderTarget),
@@ -462,8 +452,8 @@ function createCreatures(
 			recentLexiconChanges: [],
 			activeInvestigation: null,
 			recentLearning: [],
-			activeAnnouncementOpportunity: null,
-			announcementOpportunityCounter: 0,
+			activeAnnouncementExecution: null,
+			announcementExecutionCounter: 0,
 			recentAnnouncementOutcomes: []
 		};
 

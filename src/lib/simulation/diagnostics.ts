@@ -336,7 +336,7 @@ export function formatCreatureInspection(
 			} else {
 				lines.push(
 					`  #${entry.sequence} announced ${entry.resourceKind}:${entry.featureId}` +
-						` opp=${entry.opportunityId} @${entry.rememberedAt.toFixed(2)}`
+						` emission=${entry.emissionId} @${entry.rememberedAt.toFixed(2)}`
 				);
 			}
 		}

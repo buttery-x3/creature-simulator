@@ -3,7 +3,7 @@
 	import type { Creature, SimulationConfig, SimulationState } from '$lib/simulation';
 	import {
 		buildCandidateViews,
-		buildInvestigationOpportunitySummary,
+		buildInvestigationSummary,
 		buildMemorySectionView,
 		buildRosterRows,
 		formatTargetLabel,
@@ -29,9 +29,7 @@
 		simulation.creatures.find((c) => c.id === selectedCreatureId) ?? null
 	);
 	const investigation = $derived(
-		selectedCreature
-			? buildInvestigationOpportunitySummary(selectedCreature, simulation.timeSeconds)
-			: null
+		selectedCreature ? buildInvestigationSummary(selectedCreature, simulation.timeSeconds) : null
 	);
 	const candidates = $derived(
 		selectedCreature ? buildCandidateViews(selectedCreature, investigation) : []
@@ -91,7 +89,7 @@
 				</div>
 				<div>
 					<dt>Intention</dt>
-					<dd data-testid="inspector-goal">{selectedCreature.intention}</dd>
+					<dd data-testid="inspector-intention">{selectedCreature.intention}</dd>
 				</div>
 				<div>
 					<dt>Action</dt>
@@ -103,7 +101,7 @@
 				</div>
 				<div>
 					<dt>Intention start</dt>
-					<dd data-testid="inspector-goal-started">
+					<dd data-testid="inspector-intention-started">
 						{selectedCreature.intentionStartedAt.toFixed(3)} s
 					</dd>
 				</div>
@@ -230,7 +228,7 @@
 					<dl class="meta">
 						<div>
 							<dt>Heard-signal memories</dt>
-							<dd data-testid="investigation-summary-accepted-count">
+							<dd data-testid="investigation-summary-heard-count">
 								{investigation.heardSignalMemoryCount}
 							</dd>
 						</div>

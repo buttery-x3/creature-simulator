@@ -27,7 +27,6 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		thirst: 0.2,
 		energy: 0.85,
 		memory: createEmptyMemory(10),
-		recentAnnouncementOpportunityDecisions: [],
 		intention: 'wander',
 		action: 'wander',
 		target: { kind: 'point', position: { ...wanderTarget } },
@@ -47,8 +46,8 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 		recentLexiconChanges: [],
 		activeInvestigation: null,
 		recentLearning: [],
-		activeAnnouncementOpportunity: null,
-		announcementOpportunityCounter: 0,
+		activeAnnouncementExecution: null,
+		announcementExecutionCounter: 0,
 		recentAnnouncementOutcomes: [],
 		...overrides
 	};

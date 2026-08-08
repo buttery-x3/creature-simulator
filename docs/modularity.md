@@ -124,7 +124,7 @@ Runtime resource mutation and weather clocks live in `simulation/resources/`, no
 
 Top-level modules:
 
-- `types.ts` — `SimulationState`, `Creature`, needs/goals/actions/decision types and configuration;
+- `types.ts` — `SimulationState`, `Creature`, needs/intentions/actions and configuration;
 - `create-simulation.ts` — deterministic habitat + creature population creation;
 - `step-simulation.ts` — fixed-step advance and bounded catch-up (resources phase first);
 - `creature-movement.ts` — pure turn, translate, clamp and wander retarget helpers;
@@ -168,21 +168,22 @@ subsystem. Creatures must not live on `Habitat`.
 Internal announcement subdomain (`simulation/announcement/`), executor under the
 `announce_resource` intention:
 
-- `types.ts` — executor opportunity/outcome/clarity records;
+- `types.ts` — execution-local state/outcome/clarity records;
 - `clarity.ts` — pure kind-level clarity evaluation;
 - `speaking-position.ts` — pure deterministic speaking-position search;
-- `opportunity-lifecycle.ts` — outcome construction and diagnostic helpers;
+- `execution-state.ts` — outcome construction and empty-state helpers;
 - `step-announcement.ts` — advance clarity/reposition/emit when intention is announce;
 - `index.ts` — exports for simulation siblings.
 
 Cognition selects announce; behaviour calls `stepAnnouncement` as executor only.
 Communication owns transmission. Do not couple future danger/predator signalling
-to resource-announcement preparation.
+to resource-announcement preparation. Do not reintroduce discovery→opportunity
+ownership.
 
 Internal memory subdomain (`simulation/memory/`), first-class bounded creature
 memory (FLAME-74 baseline; FLAME-78 observation + heard-signal kinds):
 
-- `types.ts` — `CreatureMemory`, entry union (announcement / observation / heard), opportunity-decision diagnostics;
+- `types.ts` — `CreatureMemory`, entry union (announcement / observation / heard);
 - `create-memory.ts` — empty memory + deterministic capacity sampling;
 - `query.ts` — pure recall / contains helpers;
 - `mutate.ts` — remember (insert/refresh/dedupe), forget, oldest-first eviction;

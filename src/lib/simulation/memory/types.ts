@@ -1,8 +1,8 @@
 /**
  * Creature memory types: first-class bounded retained experience.
  *
- * Memory is distinct from perception (current sensing), announcement queues,
- * communication histories, and learning/lexicon evidence.
+ * Memory is distinct from perception (current sensing), announcement
+ * execution state, communication histories, and learning/lexicon evidence.
  *
  * Entry kinds:
  * - resource_announcement — “I announced this feature” (no position)
@@ -29,7 +29,6 @@ export type ResourceAnnouncementMemory = {
 	rememberedAt: number;
 	featureId: string;
 	resourceKind: 'food' | 'water';
-	opportunityId: string;
 	emissionId: string;
 };
 
@@ -82,34 +81,11 @@ export type CreatureMemory = {
 	entries: CreatureMemoryEntry[];
 };
 
-/**
- * Why a newly perceived feature did or did not create an announcement opportunity.
- * Local diagnostics only — not a global audit stream.
- */
-export type AnnouncementOpportunityDecisionReason =
-	| 'same_episode'
-	| 'already_active'
-	| 'announcement_remembered'
-	| 'created'
-	| 'announcement_busy'
-	| 'not_selected_same_perception_pass';
-
-export type AnnouncementOpportunityDecision = {
-	timeSeconds: number;
-	featureId: string;
-	resourceKind: 'food' | 'water';
-	perceptionEpisodeId: string;
-	reason: AnnouncementOpportunityDecisionReason;
-	/** Present when reason is created. */
-	opportunityId: string | null;
-};
-
 /** Draft for a new resource-announcement memory before sequence assignment. */
 export type ResourceAnnouncementMemoryDraft = {
 	rememberedAt: number;
 	featureId: string;
 	resourceKind: 'food' | 'water';
-	opportunityId: string;
 	emissionId: string;
 };
 

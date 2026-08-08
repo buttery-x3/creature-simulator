@@ -438,7 +438,6 @@ describe('announcement candidate', () => {
 			rememberedAt: 1,
 			featureId: 'food-1',
 			resourceKind: 'food',
-			opportunityId: 'ann-1',
 			emissionId: 'em-1'
 		});
 		const record = arbitrate(

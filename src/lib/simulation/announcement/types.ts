@@ -47,9 +47,7 @@ export type AnnouncementOutcomeReason =
 	| 'emission_requested'
 	| 'invalid_trigger_feature'
 	| 'no_announced_kind_available'
-	| 'no_valid_speaking_position'
-	| 'world_reset'
-	| 'creature_removed';
+	| 'no_valid_speaking_position';
 
 /**
  * Bounded inspectable history of completed or invalidated announcement executions.

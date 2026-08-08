@@ -479,7 +479,7 @@ describe('discovery integration via stepSimulation', () => {
 		expect(state.creatures[0]!.emissionCount).toBeGreaterThanOrEqual(1);
 		const emissionsAfterFirst = state.creatures[0]!.emissionCount;
 
-		// Cooldown / completed opportunity should not spam re-emits while standing still.
+		// Cooldown / completed announcement should not spam re-emits while standing still.
 		for (let i = 0; i < 5; i += 1) {
 			state = stepSimulation(state, config);
 		}

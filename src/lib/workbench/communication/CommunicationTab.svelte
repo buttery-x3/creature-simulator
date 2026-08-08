@@ -209,11 +209,12 @@
 	<section
 		class="block"
 		data-testid="announcement-memory-summary"
-		aria-label="Announcement memory and opportunities"
+		aria-label="Announcement memory and execution"
 	>
 		<h3>Announcement memory</h3>
 		<p class="hint">
-			Local opportunity state and retained announcement memories (not a full causal audit).
+			Execution-local announcement state and retained announcement memories (not a full causal
+			audit).
 		</p>
 		<div class="table-wrap">
 			<table class="table">
@@ -263,7 +264,7 @@
 		{/if}
 	</section>
 
-	<section class="block" data-testid="curiosity-opportunities" aria-label="Heard signal memories">
+	<section class="block" data-testid="heard-signal-memories" aria-label="Heard signal memories">
 		<h3>Heard-signal memories</h3>
 		<p class="hint">
 			Retained heard signals eligible for investigation via intention arbitration. Selected =
@@ -285,7 +286,7 @@
 					</thead>
 					<tbody>
 						{#each vm.heardSignalMemories as row (row.listenerId + row.emissionId)}
-							<tr data-testid={`curiosity-row-${row.listenerId}-${row.emissionId}`}>
+							<tr data-testid={`heard-signal-row-${row.listenerId}-${row.emissionId}`}>
 								<td>
 									<button
 										type="button"

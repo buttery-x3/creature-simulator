@@ -11,6 +11,7 @@ import { testCreature } from '../test-creature';
 import { actionForIntention, appendTransition } from './actions';
 import { emptyPerception } from './perception';
 import { isAtFeature, isTargetValid } from './resource-awareness';
+import { replanFromArbitration } from './apply-arbitration';
 import { stepCreatureBehaviour } from './step-creature-behaviour';
 
 describe('stepCreatureBehaviour integration', () => {
@@ -662,5 +663,50 @@ describe('announce_resource executor (no behaviour lock)', () => {
 		expect(result.creature.intention).toBe('wander');
 		expect(result.emissionRequest).toBeNull();
 		expect(result.creature.activeAnnouncementExecution).toBeNull();
+	});
+
+	it('clears active announcement execution immediately when arbitration leaves announce_resource', () => {
+		const config = {
+			...defaultSimulationConfig('ann-clear-on-switch'),
+			reconsiderIntervalSeconds: 1.5,
+			seekFoodThreshold: 0.1
+		};
+		const base = createSimulation(config);
+		const food = base.habitat.food[0]!;
+		const creature = announcingCreature({
+			position: { x: 0, y: 0 },
+			// Strong hunger so cognition leaves announce for satisfy_hunger.
+			hunger: 0.95,
+			thirst: 0.1,
+			energy: 0.95,
+			nextReconsiderAt: 0,
+			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
+			activeAnnouncementExecution: {
+				...announcingCreature().activeAnnouncementExecution!,
+				triggerFeatureId: food.id,
+				triggerFeaturePosition: { ...food.position },
+				state: 'repositioning',
+				speakingTarget: { x: 1, y: 1 }
+			},
+			perception: {
+				lastUpdatedAt: 1,
+				perceivedFoodIds: [food.id],
+				perceivedWaterIds: [],
+				observations: [
+					{
+						featureId: food.id,
+						featureKind: 'food',
+						position: { ...food.position },
+						observedAt: 1
+					}
+				]
+			}
+		});
+
+		expect(creature.activeAnnouncementExecution).not.toBeNull();
+		const next = replanFromArbitration(creature, base.habitat, 5, 'periodic', config, config.seed);
+		// Execution is not a lock: leaving announce clears it immediately.
+		expect(next.intention).not.toBe('announce_resource');
+		expect(next.activeAnnouncementExecution).toBeNull();
 	});
 });

@@ -176,7 +176,7 @@ describe('stepAnnouncement integration', () => {
 			},
 			nextReconsiderAt: 999
 		});
-		// Direct executor call: non-announce intention never opens opportunity.
+		// Direct executor call: non-announce intention never opens execution.
 		const direct = stepAnnouncement({
 			creature,
 			habitat: base.habitat,
@@ -235,7 +235,7 @@ describe('stepAnnouncement integration', () => {
 		}
 	});
 
-	describe('active opportunity availability gate (featureStillAvailable)', () => {
+	describe('active execution availability gate (featureStillAvailable)', () => {
 		function openFoodExecution(
 			creatureId: string,
 			food: { id: string; position: { x: number; y: number } }
@@ -268,7 +268,7 @@ describe('stepAnnouncement integration', () => {
 			};
 		}
 
-		it('does not throw when advancing an active opportunity with an available trigger', () => {
+		it('does not throw when advancing an active execution with an available trigger', () => {
 			const config = {
 				...defaultSimulationConfig('ann-avail-ok'),
 				emissionCooldownSeconds: 100,
@@ -389,6 +389,166 @@ describe('stepAnnouncement integration', () => {
 			expect(result.creature.activeAnnouncementExecution).toBeNull();
 			expect(result.creature.recentAnnouncementOutcomes[0]?.reason).toBe('invalid_trigger_feature');
 			expect(result.creature.recentAnnouncementOutcomes[0]?.triggerFeatureId).toBe(water.id);
+		});
+	});
+
+	describe('multi-step repositioning execution survival', () => {
+		/**
+		 * Food and water far enough that food centre is clear, but the midpoint is not.
+		 * Speaking-position search around food should find a clear point.
+		 */
+		function repositionHabitat() {
+			const base = createSimulation(defaultSimulationConfig('ann-reposition-habitat')).habitat;
+			return {
+				...base,
+				food: [
+					{
+						id: 'food-a',
+						kind: 'food' as const,
+						position: { x: -3, y: 0 },
+						size: { width: 0.5, height: 0.5 },
+						amount: 5,
+						capacity: 5
+					}
+				],
+				water: [
+					{
+						id: 'water-b',
+						kind: 'water' as const,
+						position: { x: 3, y: 0 },
+						size: { width: 0.5, height: 0.5 },
+						amount: 5,
+						capacity: 5
+					}
+				]
+			};
+		}
+
+		const repositionConfig = {
+			...defaultSimulationConfig('ann-reposition-multi'),
+			emissionCooldownSeconds: 0,
+			// Midpoint: d_food=d_water=3 → difference 0 → unclear. Food centre: clear.
+			resourceAnnouncementClarityMargin: 2,
+			speakingPositionSearchRadius: 4,
+			speakingPositionSearchResolution: 8,
+			sensingRadius: 12,
+			creatureRadius: 0.25
+		};
+
+		it('keeps the same active execution while moving toward a speaking position', () => {
+			const habitat = repositionHabitat();
+			const food = habitat.food[0]!;
+
+			// Start equidistant — kind clarity is unclear at this margin.
+			let creature = testCreature({
+				id: 'creature-0',
+				position: { x: 0, y: 0 },
+				hunger: 0,
+				thirst: 0,
+				energy: 1,
+				intention: 'announce_resource',
+				action: 'move',
+				target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
+				nextReconsiderAt: 999,
+				movementSpeed: 0.5,
+				lexicon: { food: 'glyph-0', water: null },
+				preferredSymbolId: 'glyph-0'
+			});
+
+			const first = stepAnnouncement({
+				creature,
+				habitat,
+				timeSeconds: 1,
+				config: repositionConfig
+			});
+			creature = first.creature;
+			const active = creature.activeAnnouncementExecution;
+			expect(first.emissionRequest).toBeNull();
+			expect(active).not.toBeNull();
+			expect(active!.state).toBe('repositioning');
+			expect(active!.triggerFeatureId).toBe(food.id);
+			expect(active!.speakingTarget).not.toBeNull();
+			expect(creature.target?.kind).toBe('point');
+			const executionId = active!.id;
+			const speakingTarget = active!.speakingTarget!;
+
+			// Subsequent steps with a point target must retain the same execution.
+			let sawReevaluation = false;
+			let emitted = false;
+			for (let step = 0; step < 40; step += 1) {
+				// Advance toward the speaking point (physical move between executor ticks).
+				const dx = speakingTarget.x - creature.position.x;
+				const dy = speakingTarget.y - creature.position.y;
+				const dist = Math.hypot(dx, dy);
+				if (dist > 0.15) {
+					const stepLen = Math.min(0.5, dist);
+					creature = {
+						...creature,
+						position: {
+							x: creature.position.x + (dx / dist) * stepLen,
+							y: creature.position.y + (dy / dist) * stepLen
+						}
+					};
+				}
+
+				const result = stepAnnouncement({
+					creature,
+					habitat,
+					timeSeconds: 2 + step * 0.1,
+					config: repositionConfig
+				});
+				creature = result.creature;
+
+				if (result.emissionRequest) {
+					emitted = true;
+					expect(result.emissionRequest.triggerFeatureId).toBe(food.id);
+					expect(creature.activeAnnouncementExecution).toBeNull();
+					expect(
+						creature.recentAnnouncementOutcomes.some(
+							(o) =>
+								o.reason === 'emission_requested' &&
+								o.executionId === executionId &&
+								o.repositioningRequired
+						)
+					).toBe(true);
+					break;
+				}
+
+				const still = creature.activeAnnouncementExecution;
+				expect(still).not.toBeNull();
+				expect(still!.id).toBe(executionId);
+				expect(still!.triggerFeatureId).toBe(food.id);
+				// Target remains a movement point while repositioning.
+				if (still!.state === 'repositioning') {
+					expect(creature.target?.kind).toBe('point');
+					sawReevaluation = true;
+				}
+			}
+
+			expect(sawReevaluation).toBe(true);
+			expect(emitted).toBe(true);
+		});
+
+		it('does not treat a bare point target as a new execution without prior state', () => {
+			const habitat = repositionHabitat();
+			const creature = testCreature({
+				id: 'creature-0',
+				position: { x: 0, y: 0 },
+				intention: 'announce_resource',
+				action: 'move',
+				// Point target without an existing execution is not a create path.
+				target: { kind: 'point', position: { x: 1, y: 1 } },
+				activeAnnouncementExecution: null
+			});
+			const result = stepAnnouncement({
+				creature,
+				habitat,
+				timeSeconds: 1,
+				config: repositionConfig
+			});
+			expect(result.creature.activeAnnouncementExecution).toBeNull();
+			expect(result.emissionRequest).toBeNull();
+			expect(result.endedPreparation).toBe(true);
 		});
 	});
 });

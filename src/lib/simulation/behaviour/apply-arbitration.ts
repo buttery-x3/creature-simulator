@@ -75,7 +75,7 @@ export function replanFromArbitration(
 		recentLearning = interrupted.recentLearning;
 	}
 
-	// Leaving announce → clear executor state (cue may continue fading).
+	// Leaving announce → clear execution-local announcement state immediately.
 	if (
 		applied.intention !== 'announce_resource' &&
 		creature.intention === 'announce_resource' &&

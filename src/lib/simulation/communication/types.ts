@@ -75,7 +75,7 @@ export type SignalEmission = {
 	/** Full selection evidence for inspection; never heard by listeners. */
 	selectionEvidence: SymbolSelectionEvidence;
 	/**
-	 * Hidden announcement provenance (opportunity / trigger feature / clarity).
+	 * Hidden announcement provenance (trigger feature / clarity).
 	 * Null for non-announcement emissions; never exposed to listeners.
 	 */
 	provenance: EmissionProvenance | null;

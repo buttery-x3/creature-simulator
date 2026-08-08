@@ -35,7 +35,7 @@ describe('buildCommunicationViewModel', () => {
 		expect(vm.population.creatureCount).toBe(state.creatures.length);
 	});
 
-	it('exposes announcement memory counts and opportunity triggers', () => {
+	it('exposes announcement memory counts and active execution triggers', () => {
 		const config = defaultSimulationConfig('demo');
 		const state = createSimulation(config);
 		const vm = buildCommunicationViewModel(state, {

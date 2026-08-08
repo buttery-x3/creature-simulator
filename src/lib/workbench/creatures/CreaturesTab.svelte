@@ -223,7 +223,7 @@
 			</dl>
 
 			{#if investigation}
-				<div class="score-box" data-testid="investigation-opportunity-summary">
+				<div class="score-box" data-testid="investigation-summary">
 					<h4>Heard signals & investigation</h4>
 					<dl class="meta">
 						<div>

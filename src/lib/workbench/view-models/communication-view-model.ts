@@ -220,11 +220,11 @@ function buildFunnel(
 			note: 'No lifetime discovery counter yet (see FLAME-72)'
 		},
 		{
-			id: 'announcement_opportunities',
-			label: 'Announcement opportunities',
+			id: 'announcement_executions',
+			label: 'Announcement executions',
 			availability: 'unavailable',
 			value: null,
-			note: 'No opportunity counter yet (see FLAME-72)'
+			note: 'No lifetime execution counter yet (see FLAME-72)'
 		},
 		{
 			id: 'announcements_emitted',

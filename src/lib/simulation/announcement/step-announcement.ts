@@ -29,7 +29,6 @@ export type AnnouncementStepConfig = Pick<
 	| 'emissionCooldownSeconds'
 	| 'creatureRadius'
 	| 'sensingRadius'
-	| 'decisionHistoryLimit'
 >;
 
 export type AnnouncementStepResult = {
@@ -96,13 +95,47 @@ function featureStillAvailable(
 	return feature !== undefined && feature.amount > 0;
 }
 
+/**
+ * Ensure execution-local state for announce_resource.
+ *
+ * Ordering is intentional: an existing execution survives when the creature
+ * target is the speaking-position point (repositioning). New executions still
+ * require a cognition-selected feature target. The trigger feature identity
+ * lives on the execution record, not on the movement target.
+ */
 function ensureExecutorState(
 	creature: Creature,
 	habitat: Habitat
 ): { creature: Creature; active: ActiveAnnouncementExecution | null } {
+	if (creature.intention !== 'announce_resource') {
+		return {
+			creature: {
+				...creature,
+				activeAnnouncementExecution: null
+			},
+			active: null
+		};
+	}
+
+	const existing = getActiveExecution(creature.activeAnnouncementExecution);
+	if (existing) {
+		// Memory may have been written mid-flight (should be rare); do not keep prep.
+		if (hasResourceAnnouncementMemory(creature.memory, existing.triggerFeatureId)) {
+			return {
+				creature: {
+					...creature,
+					activeAnnouncementExecution: null
+				},
+				active: null
+			};
+		}
+		// Continue execution — target may legitimately be the speaking-position point.
+		return { creature, active: existing };
+	}
+
+	// No active execution: create only from cognition-selected feature target.
 	const target = creature.target;
 	if (
-		creature.intention !== 'announce_resource' ||
 		!target ||
 		target.kind !== 'feature' ||
 		(target.featureKind !== 'food' && target.featureKind !== 'water')
@@ -116,7 +149,6 @@ function ensureExecutorState(
 		};
 	}
 
-	// Already committed announcement memory — do not recreate executor state.
 	if (hasResourceAnnouncementMemory(creature.memory, target.featureId)) {
 		return {
 			creature: {
@@ -125,11 +157,6 @@ function ensureExecutorState(
 			},
 			active: null
 		};
-	}
-
-	const existing = getActiveExecution(creature.activeAnnouncementExecution);
-	if (existing && existing.triggerFeatureId === target.featureId) {
-		return { creature, active: existing };
 	}
 
 	const list = target.featureKind === 'food' ? habitat.food : habitat.water;

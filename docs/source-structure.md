@@ -368,3 +368,10 @@ No source-structure checker currently enforces these rules.
 Agents must inspect and follow this document manually. Do not add architecture scripts, import restrictions or directory-capacity checks during unrelated feature work.
 
 Mechanical enforcement may be introduced by a dedicated issue when repository complexity justifies its maintenance cost.
+
+## Production transport
+
+`server/app.mjs` owns compiled-file HTTP handling and `server/static-server.mjs`
+owns its listener lifecycle. Tests live beside the transport. `scripts/deploy.sh`
+and `scripts/deploy-remote.mjs` own release operations; they do not import `src/lib`.
+See [deployment.md](deployment.md) for build and proxy configuration.

@@ -469,3 +469,9 @@ behaviour are out of scope unless a future issue explicitly expands that target.
 When a feature introduces a new durable responsibility, document the ownership split
 in the same issue and update this file. Empty placeholder directories and unused
 abstractions are forbidden.
+
+## Production hosting
+
+The standalone HTTP transport in `server/` serves compiled public files only.
+It has no dependency on simulation or presentation modules. Build configuration,
+PM2 process ownership and deployment are documented in [deployment.md](deployment.md).

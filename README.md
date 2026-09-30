@@ -78,3 +78,7 @@ device-specific mobile behaviour are intentionally out of scope.
 - [Architecture notes](docs/architecture.md)
 - [Module design and growth policy](docs/modularity.md)
 - [Source structure and subsystem boundaries](docs/source-structure.md)
+
+## Production hosting
+
+See [Deployment](docs/deployment.md) for buttery.wtf hosting, PM2 and manual deployments.

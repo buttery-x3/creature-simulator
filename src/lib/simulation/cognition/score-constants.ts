@@ -16,6 +16,8 @@ import type { CognitionConfig } from './types';
  * Optional investigate_signal uses (baseline + recency) × curiosityWeight;
  * need-driven information floor restores unweighted (baseline + recency) when a
  * valid hunger/thirst need has only search_fallback knowledge (trait-independent).
+ * Signal investigation then adds bounded listener-local matched-need relevance;
+ * that policy and its cap live in investigation/signal-candidate.ts.
  *
  * Approximate relationships (relative, not locks):
  * - explore ≈ 0.30 (lowest-information fallback; no continuity stickiness)

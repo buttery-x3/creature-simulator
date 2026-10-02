@@ -1,5 +1,5 @@
 /**
- * Pure target selection for cognition candidates.
+ * Pure resource and announcement target selection for cognition candidates.
  *
  * Resource order: currently perceived usable → newest usable memory → none
  * (search_fallback).
@@ -7,16 +7,14 @@
  * - Visible resources → authoritative feature targets (habitat availability).
  * - Remembered observations → point targets at the stored belief position
  *   (not habitat feature identity — creature may be wrong until re-sensed).
- * - Signal origins → point targets at stored origin.
  */
 
 import type { Vec2 } from '$lib/habitat';
 import {
 	findNewestUsableResourceObservation,
-	hasResourceAnnouncementMemory,
-	listHeardSignalMemories
+	hasResourceAnnouncementMemory
 } from '../memory/query';
-import type { CreatureMemory, HeardSignalMemory } from '../memory/types';
+import type { CreatureMemory } from '../memory/types';
 import type { CreatureTarget } from '../types';
 import type { CandidateReasonCode, PerceivedResource } from './types';
 
@@ -101,35 +99,6 @@ export function selectResourceNeedTarget(
 		featureId: null,
 		source: 'none',
 		reasonCodes: ['search_fallback']
-	};
-}
-
-export type SignalTargetResult = {
-	target: CreatureTarget | null;
-	memory: HeardSignalMemory | null;
-	/** 0…1 recency factor from sequence vs memory stream. */
-	recencyFactor: number;
-};
-
-/**
- * Newest heard_signal memory by sequence. Point target at stored origin.
- * Lexicon / symbol meaning are intentionally ignored.
- */
-export function selectSignalInvestigationTarget(memory: CreatureMemory): SignalTargetResult {
-	const signals = listHeardSignalMemories(memory);
-	const newest = signals[0] ?? null;
-	if (!newest) {
-		return { target: null, memory: null, recencyFactor: 0 };
-	}
-	const denom = Math.max(1, memory.nextSequence - 1);
-	const recencyFactor = Math.min(1, Math.max(0, newest.sequence / denom));
-	return {
-		target: {
-			kind: 'point',
-			position: { x: newest.origin.x, y: newest.origin.y }
-		},
-		memory: newest,
-		recencyFactor
 	};
 }
 

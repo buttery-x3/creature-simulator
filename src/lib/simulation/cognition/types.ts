@@ -17,6 +17,7 @@
  */
 
 import type { Vec2 } from '$lib/habitat';
+import type { CreatureLexicon } from '../learning/types';
 import type { CreatureMemory } from '../memory/types';
 import type { CreatureTarget } from '../types';
 
@@ -72,6 +73,7 @@ export type CandidateReasonCode =
 	| 'curiosity_weight'
 	| 'optional_signal_score'
 	| 'need_information_value'
+	| 'semantic_relevance'
 	| 'continuity_bonus'
 	| 'target_quality'
 	| 'search_fallback'
@@ -90,6 +92,25 @@ export type CandidateReference =
 	| { kind: 'heard_signal'; emissionId: string; symbolId: string }
 	| { kind: 'point'; position: Vec2 };
 
+/** Ranked retained-signal evidence, bounded by memory capacity; scores exclude continuity. */
+export type SignalEvaluation = {
+	emissionId: string;
+	symbolId: string;
+	origin: Vec2;
+	sequence: number;
+	interpretation: 'food' | 'water' | 'unknown';
+	hungerPressure: number;
+	thirstPressure: number;
+	foodKnowledge: 'visible' | 'remembered' | 'none';
+	waterKnowledge: 'visible' | 'remembered' | 'none';
+	optionalScore: number;
+	informationFloor: number;
+	semanticContribution: number;
+	recencyBoost: number;
+	score: number;
+	selected: boolean;
+};
+
 export type IntentionCandidate = {
 	intention: IntentionKind;
 	valid: boolean;
@@ -103,6 +124,7 @@ export type IntentionCandidate = {
 	factors: CandidateFactor[];
 	reasonCodes: CandidateReasonCode[];
 	rejectionReason?: CandidateReasonCode;
+	signalEvaluations?: SignalEvaluation[];
 };
 
 export type ArbitrationRecord = {
@@ -162,6 +184,8 @@ export type ArbitrationInput = {
 	/** Available water currently in perception (already filtered usable). */
 	availableWater: readonly PerceivedResource[];
 	memory: CreatureMemory;
+	/** Listener-local resolved assignments; never raw evidence or speaker context. */
+	lexicon: Readonly<CreatureLexicon>;
 	currentIntention: IntentionKind | null;
 	currentTarget: CreatureTarget | null;
 	/** Innate home feature id for rest targeting. */

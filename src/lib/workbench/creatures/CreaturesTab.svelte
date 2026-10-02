@@ -2,7 +2,6 @@
 	import SymbolGlyph from '$lib/SymbolGlyph.svelte';
 	import type { Creature, SimulationConfig, SimulationState } from '$lib/simulation';
 	import {
-		buildCandidateViews,
 		buildExplorationSectionView,
 		buildInvestigationSummary,
 		buildMemorySectionView,
@@ -15,6 +14,7 @@
 	} from '../view-models/creature-detail-view-model';
 	import type { WorkbenchNavigate } from '../workbench-types';
 	import CreatureRoster from './CreatureRoster.svelte';
+	import CreatureBehaviour from './CreatureBehaviour.svelte';
 
 	type Props = {
 		simulation: SimulationState;
@@ -32,9 +32,6 @@
 	);
 	const investigation = $derived(
 		selectedCreature ? buildInvestigationSummary(selectedCreature, simulation.timeSeconds) : null
-	);
-	const candidates = $derived(
-		selectedCreature ? buildCandidateViews(selectedCreature, investigation) : []
 	);
 	const memorySection = $derived(
 		selectedCreature ? buildMemorySectionView(selectedCreature) : null
@@ -265,105 +262,7 @@
 			</section>
 		{/if}
 
-		<section class="block" data-testid="creature-behaviour" aria-label="Current behaviour">
-			<h3>Current behaviour</h3>
-			<dl class="meta">
-				<div>
-					<dt>Trigger</dt>
-					<dd data-testid="inspector-decision-trigger">
-						{selectedCreature.lastArbitration?.trigger ?? '—'}
-					</dd>
-				</div>
-				<div>
-					<dt>Selected intention</dt>
-					<dd>
-						{selectedCreature.lastArbitration?.selectedIntention ?? selectedCreature.intention}
-					</dd>
-				</div>
-				<div>
-					<dt>Selected target</dt>
-					<dd>
-						{formatTargetLabel(
-							selectedCreature.lastArbitration?.selectedTarget ?? selectedCreature.target
-						)}
-					</dd>
-				</div>
-				<div>
-					<dt>Selection reasons</dt>
-					<dd data-testid="inspector-decision-reason">
-						{selectedCreature.lastArbitration?.selectionReasonCodes.join(', ') ?? '—'}
-					</dd>
-				</div>
-				<div>
-					<dt>Pending arbitration</dt>
-					<dd>{selectedCreature.pendingArbitrationTrigger ?? '—'}</dd>
-				</div>
-			</dl>
-
-			{#if investigation}
-				<div class="score-box" data-testid="investigation-summary">
-					<h4>Heard signals & investigation</h4>
-					<dl class="meta">
-						<div>
-							<dt>Heard-signal memories</dt>
-							<dd data-testid="investigation-summary-heard-count">
-								{investigation.heardSignalMemoryCount}
-							</dd>
-						</div>
-						<div>
-							<dt>Newest heard</dt>
-							<dd data-testid="investigation-summary-recent-decision">
-								{#if investigation.newestHeardSymbolId}
-									<SymbolGlyph symbolId={investigation.newestHeardSymbolId} />
-									{investigation.newestHeardEmissionId}
-								{:else}
-									—
-								{/if}
-							</dd>
-						</div>
-						<div>
-							<dt>Active</dt>
-							<dd data-testid="investigation-summary-active">
-								{#if investigation.activeSymbolId}
-									<SymbolGlyph symbolId={investigation.activeSymbolId} />
-									{investigation.activeEmissionId}
-								{:else}
-									—
-								{/if}
-							</dd>
-						</div>
-					</dl>
-				</div>
-			{/if}
-
-			<h4 class="subhead">Arbitration candidates</h4>
-			<ul class="candidates" data-testid="inspector-candidates">
-				{#each candidates as candidate (candidate.intention)}
-					<li
-						data-testid={`inspector-candidate-${candidate.intention}`}
-						class:selected={candidate.selected}
-					>
-						<strong>{candidate.intention}</strong>
-						score={candidate.score.toFixed(3)}
-						{candidate.valid ? 'valid' : 'invalid'}
-						{#if candidate.scoreTerms}
-							<ul class="terms">
-								{#each candidate.scoreTerms as term (term.label)}
-									<li>{term.label}: {term.value.toFixed(3)}</li>
-								{/each}
-							</ul>
-						{:else}
-							— {candidate.reasonCodes.join(', ') || 'n/a'}
-						{/if}
-						{#if candidate.rejectionReason}
-							<span class="reject">({candidate.rejectionReason})</span>
-						{/if}
-					</li>
-				{:else}
-					<li data-testid="inspector-candidates-empty">No candidate snapshot yet.</li>
-				{/each}
-			</ul>
-		</section>
+		<CreatureBehaviour creature={selectedCreature} {investigation} />
 
 		<section class="block" data-testid="creature-perception" aria-label="Perception">
 			<h3>Perception</h3>
@@ -564,8 +463,7 @@
 		color: #9ca3af;
 	}
 
-	.subhead,
-	.score-box h4 {
+	.subhead {
 		margin: 0.45rem 0 0.25rem;
 		font-size: 0.72rem;
 		font-weight: 600;
@@ -705,36 +603,6 @@
 
 	.fill.energy {
 		background: #22c55e;
-	}
-
-	.score-box {
-		margin-top: 0.45rem;
-		padding: 0.45rem;
-		border: 1px solid #1e293b;
-		border-radius: 0.35rem;
-		background: #0f172a;
-	}
-
-	.candidates {
-		margin: 0;
-		padding-left: 1rem;
-		color: #cbd5e1;
-		font-size: 0.72rem;
-		line-height: 1.4;
-	}
-
-	.candidates .selected {
-		color: #e2e8f0;
-	}
-
-	.candidates .reject {
-		color: #fca5a5;
-	}
-
-	.terms {
-		margin: 0.15rem 0 0.25rem;
-		padding-left: 1rem;
-		color: #94a3b8;
 	}
 
 	.assoc {

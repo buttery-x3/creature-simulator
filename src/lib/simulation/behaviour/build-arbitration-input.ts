@@ -96,6 +96,7 @@ export function buildArbitrationInput(
 		availableFood,
 		availableWater,
 		memory: creature.memory,
+		lexicon: { ...creature.lexicon },
 		currentIntention: creature.intention,
 		currentTarget: creature.target,
 		homeFeatureId: habitat.home.id,

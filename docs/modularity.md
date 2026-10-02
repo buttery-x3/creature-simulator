@@ -128,9 +128,17 @@ Top-level modules:
 - `create-simulation.ts` — deterministic habitat + creature population creation;
 - `step-simulation.ts` — fixed-step advance and bounded catch-up (resources phase first);
 - `creature-movement.ts` — pure turn, translate, clamp and need-driven search sample helpers;
-- `diagnostics.ts` — simulation and creature inspection text from structured evidence;
+- `diagnostics.ts` — compose simulation and creature inspection text from structured evidence;
+- `arbitration-diagnostics.ts` — observational saved arbitration/candidate/retained-signal text;
 - `population-symbol-diagnostics.ts` — pure population association/emission summaries (observational only);
 - `index.ts` — explicit public exports only.
+
+Simulation root now has six implementation files. The new arbitration formatter
+extracts the existing decision-evidence section before adding retained-signal
+explanations, preserving the public inspection function without growing its
+already substantial body. The six-file headroom review leaves two root slots;
+further independently growing diagnostic formats would justify a named diagnostics
+subdomain rather than another unrelated root helper. No threshold changes.
 
 Internal resources subdomain (`simulation/resources/`), introduced for finite
 renewable resources and minimal rain (FLAME-77):
@@ -215,18 +223,31 @@ scoring stays out of memory.
 Internal cognition subdomain (`simulation/cognition/`), pure memory-aware
 intention arbitration — **runtime-authoritative**:
 
-- `types.ts` — intention kinds, candidates, ArbitrationRecord, triggers, config shape;
+- `types.ts` — intention kinds, candidates, ranked SignalEvaluation evidence, ArbitrationRecord, triggers, config shape and required listener lexicon input;
 - `score-constants.ts` — default baselines, continuity, need thresholds, target-quality multipliers;
 - `speech-weight.ts` — bounded verbosity → speech preference multiplier (announce first consumer);
-- `curiosity-weight.ts` — bounded curiosity → optional investigation multiplier (investigate first consumer);
-- `target-selection.ts` — perception-then-memory resource targets; signal/announce picks;
-- `build-candidates.ts` — baseline candidate set; need scores = pressure × target quality; dual signal motivation;
+- `target-selection.ts` — perception-then-memory resource targets and announce picks (newest-only signal selection removed);
+- `build-candidates.ts` — baseline candidate assembly; need scores = pressure × target quality; delegates signal policy;
 - `select-intention.ts` — soft continuity, best-score + explicit tie-break;
 - `arbitrate.ts` — single pure entry `arbitrate(input) → ArbitrationRecord`;
 - `index.ts` — exports for simulation siblings.
 
-At implementation-file capacity (8 excluding tests/`index.ts`). Further growth
-requires ownership restatement rather than thin extra helpers.
+Listener-local investigation is a named internal concept under
+`cognition/investigation/` (FLAME-133):
+
+- `signal-candidate.ts` — interpret each retained signal using resolved listener
+  lexicon values; rank optional curiosity, generic need-information floor and
+  matching unresolved-need contribution; produce one investigation candidate and
+  bounded diagnostics;
+- `curiosity-weight.ts` — bounded curiosity → optional investigation multiplier,
+  moved unchanged with its public cognition exports preserved.
+
+This split follows independently testable signal policy and existing cognition
+capacity pressure; cognition root now has seven implementation files (eight-file
+limit), investigation has two. Root owns arbitration and one candidate per
+intention. No new app-facing subsystem or threshold increase. Cognition’s only
+learning dependency is the resolved `CreatureLexicon` type; no evidence mutation,
+lexicon resolution or learning algorithm import is permitted.
 
 Does not own movement, emission, sensing, or memory writes. Continuity is a score
 bonus on the current intention, not locks. Live stepping builds input via behaviour
@@ -299,6 +320,21 @@ only). Responsibilities are split by product domain rather than stacked panels:
 - `events/` — chronological rows from bounded histories with a reusable filter model;
 - `debug/` — raw `format*` diagnostics and copy/export helpers;
 - `view-models/` — pure structured builders (no Svelte, no prose parsing).
+
+`creatures/CreatureBehaviour.svelte` owns the existing behaviour/arbitration
+section and its new bounded retained-signal display. Extracting this affected
+section avoids adding policy or diagnostic markup to the already oversized
+`CreaturesTab.svelte`; unrelated identity, perception and language sections stay
+in place. `view-models/signal-evaluation-view-model.ts` only adapts authoritative
+ranked snapshots, preserving personal interpretation and every captured score.
+The creatures directory has three implementation files; view-models has five.
+No new public Workbench entry point or presentation-to-domain dependency is added.
+
+The residual `CreaturesTab.svelte` remains above the file review/hard thresholds;
+this pre-existing pressure is reduced, not waived. Its untouched detail sections
+are a future split point when their responsibilities next change. The inspection
+formatter remains above the function review threshold after the arbitration
+extraction; unrelated communication/learning/memory formatting is not expanded.
 
 Tab selection, event filters and creature selection are presentation state and
 must never enter `SimulationState`. Components consume `$lib/simulation` public

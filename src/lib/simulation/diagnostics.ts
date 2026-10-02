@@ -5,8 +5,9 @@
  * Population convergence metrics are pure derived observations (never feed back into behaviour).
  */
 
-import type { Creature, CreatureTarget, SimulationConfig, SimulationState } from './types';
+import type { Creature, SimulationConfig, SimulationState } from './types';
 import type { HeardSignal, SignalEmission } from './communication/types';
+import { formatArbitrationDiagnostics, formatDiagnosticTarget } from './arbitration-diagnostics';
 import {
 	buildExplorationDiagnostics,
 	formatExplorationDiagnostics
@@ -15,16 +16,6 @@ import {
 	buildPopulationSymbolDiagnostics,
 	formatPopulationSymbolDiagnostics
 } from './population-symbol-diagnostics';
-
-function formatTarget(target: CreatureTarget | null): string {
-	if (!target) {
-		return 'none';
-	}
-	if (target.kind === 'point') {
-		return `point=(${target.position.x.toFixed(3)}, ${target.position.y.toFixed(3)})`;
-	}
-	return `${target.featureKind}:${target.featureId}`;
-}
 
 function formatCreature(creature: Creature): string {
 	const {
@@ -47,7 +38,7 @@ function formatCreature(creature: Creature): string {
 		`facing=${facing.toFixed(3)} speed=${movementSpeed.toFixed(3)} ` +
 		`verbosity=${verbosity.toFixed(3)} curiosity=${curiosity.toFixed(3)} ` +
 		`needs=[h=${hunger.toFixed(2)} t=${thirst.toFixed(2)} e=${energy.toFixed(2)}] ` +
-		`intention=${intention} action=${action} target=${formatTarget(target)} ` +
+		`intention=${intention} action=${action} target=${formatDiagnosticTarget(target)} ` +
 		`reconsider@${nextReconsiderAt.toFixed(2)}`
 	);
 }
@@ -151,7 +142,7 @@ export function formatCreatureInspection(
 		`energy: ${creature.energy.toFixed(3)} (satisfaction; 0=exhausted 1=full)`,
 		`intention: ${creature.intention}`,
 		`action: ${creature.action}`,
-		`target: ${formatTarget(creature.target)}`,
+		`target: ${formatDiagnosticTarget(creature.target)}`,
 		`intention started: ${creature.intentionStartedAt.toFixed(3)} s`,
 		`action started: ${creature.actionStartedAt.toFixed(3)} s`,
 		`next reconsider: ${creature.nextReconsiderAt.toFixed(3)} s (in ${Math.max(0, creature.nextReconsiderAt - timeSeconds).toFixed(3)} s)`,
@@ -206,42 +197,7 @@ export function formatCreatureInspection(
 		}
 	}
 
-	lines.push('', 'last arbitration:');
-
-	if (creature.lastArbitration) {
-		const d = creature.lastArbitration;
-		lines.push(
-			`  time: ${d.timeSeconds.toFixed(3)} s`,
-			`  trigger: ${d.trigger}`,
-			`  previous intention: ${d.previousIntention ?? 'none'}`,
-			`  selected: ${d.selectedIntention} → ${formatTarget(d.selectedTarget)}`,
-			`  reasons: ${d.selectionReasonCodes.join(', ')}`
-		);
-	} else {
-		lines.push('  (none)');
-	}
-
-	lines.push('', 'candidates:');
-	const candidates = creature.lastArbitration?.candidates ?? [];
-	if (candidates.length === 0) {
-		lines.push('  (none)');
-	} else {
-		for (const c of candidates) {
-			const flag = c.valid ? 'valid' : 'invalid';
-			const reject = c.rejectionReason ? ` | reject: ${c.rejectionReason}` : '';
-			const continuity =
-				c.continuityAdjustment !== 0 ? ` cont=${c.continuityAdjustment.toFixed(3)}` : '';
-			const factors =
-				c.factors.length > 0
-					? ` factors=[${c.factors.map((f) => `${f.code}=${f.value.toFixed(3)}`).join(', ')}]`
-					: '';
-			lines.push(
-				`  ${c.intention}: score=${c.score.toFixed(3)} base=${c.baseScore.toFixed(3)}${continuity} ${flag}` +
-					` codes=[${c.reasonCodes.join(',')}]${reject}` +
-					` target=${formatTarget(c.target)}${factors}`
-			);
-		}
-	}
+	lines.push(...formatArbitrationDiagnostics(creature.lastArbitration));
 
 	lines.push('', 'recent transitions:');
 	if (creature.recentTransitions.length === 0) {

@@ -15,13 +15,12 @@ import type {
 	IntentionCandidate,
 	IntentionKind
 } from './types';
-import { curiosityToInvestigationWeight } from './curiosity-weight';
+import { buildSignalCandidate } from './investigation/signal-candidate';
 import { verbosityToSpeechWeight } from './speech-weight';
 import {
 	homeTarget,
 	selectAnnounceTarget,
 	selectResourceNeedTarget,
-	selectSignalInvestigationTarget,
 	type ResourceTargetResult
 } from './target-selection';
 
@@ -101,7 +100,6 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 
 	const foodTarget = selectResourceNeedTarget(position, input.availableFood, memory, 'food');
 	const waterTarget = selectResourceNeedTarget(position, input.availableWater, memory, 'water');
-	const signal = selectSignalInvestigationTarget(memory);
 	const announce = selectAnnounceTarget(input.availableFood, input.availableWater, memory);
 
 	const foodScored = foodValid
@@ -134,53 +132,6 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 
 	const restFactors: CandidateFactor[] = [{ code: 'energy_deficit', value: restScore }];
 	const restReasons: CandidateReasonCode[] = restValid ? ['energy_deficit'] : ['below_threshold'];
-
-	const signalValid = signal.memory !== null;
-	const signalRecencyBoost = signalValid ? config.signalRecencyBoostMax * signal.recencyFactor : 0;
-	// Unweighted signal motivation: used as need-driven information floor (trait-independent).
-	const unweightedSignal = signalValid ? config.signalBaseline + signalRecencyBoost : 0;
-	// Preference weight only — curiosity never decides validity.
-	// Map trait → bounded optional-investigation multiplier so mid-range stays quieter
-	// than the old uniform signal baseline while high curiosity can still compete.
-	const curiosityWeight = curiosityToInvestigationWeight(input.curiosity);
-	const optionalSignalScore = signalValid ? unweightedSignal * curiosityWeight : 0;
-	// Need-driven floor: meaningful unmet need with only blind search knowledge
-	// (target source `none` / reason `search_fallback`) may treat a retained signal
-	// as potentially useful information, independent of curiosity.
-	const hungerNeedsInformation = foodValid && foodTarget.source === 'none' && signalValid;
-	const thirstNeedsInformation = waterValid && waterTarget.source === 'none' && signalValid;
-	const needInformationFloor =
-		hungerNeedsInformation || thirstNeedsInformation ? unweightedSignal : 0;
-	const signalBase = Math.max(optionalSignalScore, needInformationFloor);
-	const signalFactors: CandidateFactor[] = signalValid
-		? [
-				{ code: 'signal_baseline', value: config.signalBaseline },
-				{ code: 'signal_recency', value: signalRecencyBoost },
-				{ code: 'curiosity', value: input.curiosity },
-				{ code: 'curiosity_weight', value: curiosityWeight },
-				{ code: 'optional_signal_score', value: optionalSignalScore },
-				...(needInformationFloor > 0
-					? ([{ code: 'need_information_value', value: needInformationFloor }] as CandidateFactor[])
-					: [])
-			]
-		: [];
-	const signalReasons: CandidateReasonCode[] = signalValid
-		? [
-				'signal_baseline',
-				'signal_recency',
-				'curiosity',
-				'curiosity_weight',
-				'optional_signal_score',
-				...(needInformationFloor > 0 ? (['need_information_value'] as CandidateReasonCode[]) : [])
-			]
-		: ['no_heard_signal'];
-	const signalReference: CandidateReference | null = signal.memory
-		? {
-				kind: 'heard_signal',
-				emissionId: signal.memory.emissionId,
-				symbolId: signal.memory.symbolId
-			}
-		: null;
 
 	const announceValid = announce.featureId !== null;
 	// Preference weight only — verbosity never decides validity.
@@ -254,16 +205,7 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 			reasonCodes: restReasons,
 			rejectionReason: restValid ? undefined : 'below_threshold'
 		}),
-		candidate({
-			intention: 'investigate_signal',
-			valid: signalValid,
-			baseScore: signalBase,
-			target: signal.target,
-			reference: signalReference,
-			factors: signalFactors,
-			reasonCodes: signalReasons,
-			rejectionReason: signalValid ? undefined : 'no_heard_signal'
-		}),
+		buildSignalCandidate(input, foodTarget.source, waterTarget.source),
 		candidate({
 			intention: 'announce_resource',
 			valid: announceValid,

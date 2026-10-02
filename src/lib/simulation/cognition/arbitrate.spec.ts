@@ -13,7 +13,6 @@ import {
 	mergeCognitionConfig,
 	selectBestCandidate,
 	selectResourceNeedTarget,
-	selectSignalInvestigationTarget,
 	curiosityToInvestigationWeight,
 	verbosityToSpeechWeight
 } from './index';
@@ -35,6 +34,7 @@ function baseInput(overrides: Partial<ArbitrationInput> = {}): ArbitrationInput 
 		verbosity: 1,
 		// Fully curious default so existing optional investigation margins stay true.
 		curiosity: 1,
+		lexicon: { food: null, water: null },
 		availableFood: [],
 		availableWater: [],
 		memory: emptyMemory(),
@@ -346,9 +346,6 @@ describe('signal memory', () => {
 			symbolId: 'glyph-1',
 			origin: { x: 9, y: 9 }
 		});
-		const selected = selectSignalInvestigationTarget(memory);
-		expect(selected.memory?.emissionId).toBe('em-new');
-		expect(selected.target).toEqual({ kind: 'point', position: { x: 9, y: 9 } });
 
 		const record = arbitrate(baseInput({ memory }));
 		expect(byIntention(record).investigate_signal?.reference).toMatchObject({
@@ -356,7 +353,7 @@ describe('signal memory', () => {
 		});
 	});
 
-	it('does not change score based on symbol id / lexicon meaning', () => {
+	it('does not change generic score based on unknown symbol identity', () => {
 		let memA = emptyMemory();
 		memA = rememberHeardSignal(memA, {
 			rememberedAt: 1,
@@ -1159,6 +1156,7 @@ describe('curiosity investigation weighting (FLAME-85)', () => {
 			baseInput({
 				memory,
 				curiosity: 1,
+				lexicon: { food: null, water: null },
 				hunger: 0.1,
 				thirst: 0.1,
 				energy: 0.95
@@ -1254,6 +1252,7 @@ describe('curiosity investigation weighting (FLAME-85)', () => {
 			baseInput({
 				memory,
 				curiosity: 1,
+				lexicon: { food: null, water: null },
 				hunger: 0.9,
 				availableFood: [foodPerceived('food-1')]
 			})

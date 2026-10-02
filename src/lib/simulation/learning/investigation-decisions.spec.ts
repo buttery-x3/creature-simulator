@@ -18,6 +18,7 @@ function baseInput(overrides: Partial<ArbitrationInput> = {}): ArbitrationInput 
 		energy: 0.95,
 		verbosity: 1,
 		curiosity: 1,
+		lexicon: { food: null, water: null },
 		availableFood: [],
 		availableWater: [],
 		memory: createEmptyMemory(16),

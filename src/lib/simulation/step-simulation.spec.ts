@@ -389,6 +389,7 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			energy: announcedCreature.energy,
 			verbosity: announcedCreature.verbosity,
 			curiosity: announcedCreature.curiosity,
+			lexicon: { ...announcedCreature.lexicon },
 			availableFood: [
 				{
 					featureId: food.id,

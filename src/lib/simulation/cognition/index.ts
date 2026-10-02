@@ -30,14 +30,13 @@ export {
 	CURIOSITY_WEIGHT_FLOOR,
 	CURIOSITY_WEIGHT_SPAN,
 	curiosityToInvestigationWeight
-} from './curiosity-weight';
+} from './investigation/curiosity-weight';
 
 export {
 	homeTarget,
 	selectAnnounceTarget,
 	selectNearestPerceivedResource,
-	selectResourceNeedTarget,
-	selectSignalInvestigationTarget
+	selectResourceNeedTarget
 } from './target-selection';
 
 export { buildCandidates } from './build-candidates';

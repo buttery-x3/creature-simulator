@@ -175,6 +175,8 @@ function factorLabel(code: string): string {
 			return 'Optional signal score';
 		case 'need_information_value':
 			return 'Need information value';
+		case 'semantic_relevance':
+			return 'Listener semantic relevance';
 		case 'explore_baseline':
 			return 'Explore baseline';
 		case 'continuity_bonus':

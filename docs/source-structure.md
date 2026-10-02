@@ -47,6 +47,8 @@ src/
             step-simulation.ts
             creature-movement.ts
             diagnostics.ts
+            arbitration-diagnostics.ts
+            arbitration-diagnostics.spec.ts
             *.spec.ts
             resources/
                 index.ts
@@ -90,12 +92,15 @@ src/
                 types.ts
                 score-constants.ts
                 speech-weight.ts
-                curiosity-weight.ts
                 target-selection.ts
                 build-candidates.ts
                 select-intention.ts
                 arbitrate.ts
                 *.spec.ts
+                investigation/
+                    signal-candidate.ts
+                    curiosity-weight.ts
+                    *.spec.ts
             communication/
                 index.ts
                 types.ts
@@ -130,11 +135,15 @@ src/
             view-models/
                 overview-view-model.ts
                 creature-detail-view-model.ts
+                signal-evaluation-view-model.ts
                 communication-view-model.ts
                 events-view-model.ts
                 *.spec.ts
             overview/
             creatures/
+                CreaturesTab.svelte
+                CreatureRoster.svelte
+                CreatureBehaviour.svelte
             communication/
             world/
             events/
@@ -175,7 +184,7 @@ Obsolete files should not remain in this topology merely because they were creat
 | `simulation/behaviour/`            | Needs, action execution, apply arbitration, local perception, habitat-feature query, search, thin per-creature step orchestration                    | Intention scoring (cognition), transmission/reception, association updates |
 | `simulation/announcement/`         | Announce-resource executor: kind-level clarity, speaking-position search, emission handoff provenance                                                | Intention selection, memory storage semantics, transmission range          |
 | `simulation/memory/`               | First-class bounded creature memory container, pure remember/recall/evict, capacity sampling, announcement + observation + heard-signal writes       | Perception ownership, intention selection, transmission, lexicon learning  |
-| `simulation/cognition/`            | Runtime-authoritative memory-aware intention arbitration (candidates, scores, continuity, ArbitrationRecord)                                         | Movement, emission, perception sensing, memory writes                      |
+| `simulation/cognition/`            | Runtime-authoritative memory/lexicon-aware intention arbitration (candidates, scores, continuity, ArbitrationRecord)                                 | Movement, emission, perception sensing, memory writes                      |
 | `simulation/communication/`        | Arbitrary symbols, emission construction, lexicon/exploratory selection, hearing radius, reception records, emission expiry, communication histories | Evidence/lexicon mutation, memory storage, presentation meshes             |
 | `simulation/learning/`             | Raw symbol evidence, exclusive lexicon resolution, investigation arrival learning, learning/lexicon history                                          | Emission construction, reception range, intention selection, presentation  |
 | `population-symbol-diagnostics.ts` | Pure observational population evidence/lexicon/emission summaries                                                                                    | Authoritative creature state, selection policy                             |
@@ -224,7 +233,9 @@ simulation/resources -> determinism + habitat (placement, resource features); no
 simulation/behaviour -> simulation sibling modules + habitat (private to simulation); may construct EmissionRequest only; thin hooks into learning/announcement; reads availability via resources
 simulation/announcement -> simulation types + habitat + behaviour habitat-feature-query + memory query (private); pure clarity/speaking search; emission requests only
 simulation/memory -> simulation types + communication emission shapes + determinism (capacity); pure ops; no presentation
-simulation/cognition -> simulation types (CreatureTarget) + memory query; pure snapshot arbitration; no behaviour/decisions, no learning opportunities, no presentation
+simulation/cognition -> simulation types (CreatureTarget) + memory query + type-only learning/types (CreatureLexicon values); pure snapshot arbitration; no learning algorithms/evidence mutation or presentation
+simulation/cognition/investigation -> cognition input/types + memory query; listener-local retained-signal ranking and curiosity weight
+arbitration-diagnostics -> simulation types; observational saved arbitration/alternative text; no selection policy
 simulation/communication -> simulation types + determinism (private to simulation); reads association values from creature state only; no learning/memory manager role
 simulation/learning -> simulation types + habitat Vec2 + communication SymbolId/HeardSignal shapes; no presentation
 population-symbol-diagnostics -> simulation state/types + communication emission shapes; pure; no mutation
@@ -272,6 +283,21 @@ import { stepCreature } from '$lib/simulation/creature-movement';
 Private modules within a subsystem may import sibling implementation files directly.
 
 The root `src/lib/index.ts` may expose deliberately app-wide capabilities, but it must not become a universal barrel that erases ownership boundaries.
+
+Cognition keeps `arbitrate`, candidate construction and the existing curiosity
+function exports at its entry point; only the obsolete newest-only
+`selectSignalInvestigationTarget` export is removed. `ArbitrationInput.lexicon` is
+required. `IntentionCandidate.signalEvaluations` carries the bounded diagnostic
+snapshot through the existing simulation public type; presentation uses that type
+rather than deep-importing cognition internals. The internal `investigation/`
+files are consumed only by cognition and require no separate app-facing entry.
+
+`arbitration-diagnostics.ts` owns saved arbitration/candidate/retained-signal text;
+`diagnostics.ts` composes it into the unchanged public `formatCreatureInspection`.
+`creatures/CreatureBehaviour.svelte` owns the selected-creature behaviour and
+arbitration section; `view-models/signal-evaluation-view-model.ts` adapts captured
+signal rows without scoring or reordering. Both Workbench files depend on the
+simulation public entry point only.
 
 ## Svelte components and presentation files
 

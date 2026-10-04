@@ -229,11 +229,11 @@ export function hearMovementLearning(
 	time: number,
 	config: MovementLearningConfig
 ): Creature {
+	const currentSignals = heard.filter((event) => event.heardAt === time);
+	if (currentSignals.length === 0) return creature;
 	const peers = freshPeers(creature, time, config);
 	let state = creature.movementLearning;
-	for (const signal of [...heard]
-		.filter((event) => event.heardAt === time)
-		.sort((a, b) => a.emissionId.localeCompare(b.emissionId))) {
+	for (const signal of currentSignals.sort((a, b) => a.emissionId.localeCompare(b.emissionId))) {
 		const matches = peers.filter(
 			(peer) => distanceSquared(peer.position, signal.origin) <= POLICY.originBindingRadius ** 2
 		);

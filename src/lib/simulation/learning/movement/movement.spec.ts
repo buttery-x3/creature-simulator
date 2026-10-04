@@ -203,6 +203,55 @@ describe('grounded local approach sequences', () => {
 });
 
 describe('bounded response opportunities and state', () => {
+	it('keeps quiet hearing inert while actual sensing still expires responses and traces', () => {
+		const pending = hear(receiver());
+		const quiet = {
+			...pending,
+			get perceivedPeers(): PeerObservation[] {
+				throw Error('quiet hearing must not inspect peers');
+			}
+		};
+		expect(hearMovementLearning(quiet, [], 5, config)).toBe(quiet);
+		expect(quiet.movementLearning.response).not.toBeNull();
+		expect(quiet.movementLearning.encounters[0].trace?.status).toBe('pending');
+		const observed = sense(pending, 5, []);
+		expect(observed.movementLearning.response).toBeNull();
+		expect(observed.movementLearning.encounters[0].trace?.status).toBe('unobserved');
+	});
+
+	it('returns the same creature for stale-only or future-only hearing without touching source geometry', () => {
+		const original = receiver();
+		for (const heardAt of [-1, 1]) {
+			const event = {
+				emissionId: 'irrelevant',
+				symbolId: 'glyph-0' as const,
+				heardAt,
+				get origin(): { x: number; y: number } {
+					throw Error('non-current source read');
+				}
+			};
+			expect(hearMovementLearning(original, [event], 0, config)).toBe(original);
+		}
+	});
+
+	it('preserves current-signal ordering and binding when mixed with stale hearing', () => {
+		const original = receiver();
+		const event = (emissionId: string, heardAt = 0) => ({
+			emissionId,
+			heardAt,
+			symbolId: 'glyph-0' as const,
+			origin: { x: 2, y: 0 }
+		});
+		const current = [event('b'), event('a')];
+		const mixed = [current[0], event('stale', -1), current[1], event('future', 1)];
+		const snapshot = JSON.stringify(mixed);
+		const next = hearMovementLearning(original, mixed, 0, config);
+		expect(next).toEqual(hearMovementLearning(original, current, 0, config));
+		expect(next.movementLearning.encounters[0].trace?.emissionId).toBe('a');
+		expect(next.movementLearning.lastBinding?.emissionId).toBe('b');
+		expect(JSON.stringify(mixed)).toBe(snapshot);
+	});
+
 	it('does not extend a response by rehearing, and consumes arrival, loss and expiry', () => {
 		const initial = hear(receiver());
 		const repeated = hear({ ...initial, perceivedPeers: [peer(2, 0.5)] }, 0.5, 'repeat');

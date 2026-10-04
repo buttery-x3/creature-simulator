@@ -19,8 +19,9 @@ bounded relationships and innate expression are implemented and checked. Lifecyc
 and population turnover are implemented and observed, including natural births
 and eventual extinction. Grounded approach learning and reproducible scenario presets
 are implemented and observed, including voluntary visible companionship/following.
-Personal meanings are now observable by living generation. Next is the measured
-empty-hearing fast path for larger populations.
+Personal meanings are observable by living generation. The measured empty-hearing
+fast path is implemented with exact trajectory checks. Next is grounded personal
+experience from useful companionship, subject to actual local evidence.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -555,3 +556,26 @@ Validation: full npm run check passed 657 unit tests in 81 files, server check,
 build and 13 browser tests. Next is the measured empty-hearing fast path: the
 64-founder profile found that most movement-learning calls have no current signal,
 but still scan/sort peers. Its behavior must match complete per-step trajectories.
+
+## Checkpoint 12: empty-hearing work reduction
+
+The 64-founder CPU profile identified movement hearing as avoidable work on quiet
+ticks: 89–95% of calls had no current signal but still filtered and sorted retained
+peer observations. The change filters current events before looking at peers and
+returns unchanged state when there is no hearing work. Sensing continues to own
+trace/response expiry; real current signals keep their existing ordering/binding.
+
+This extends the existing learning/movement hearing responsibility with no new
+module, state, public entry point, threshold or dependency direction. The function's
+input and output data contract is preserved; unchanged creatures can retain their
+object identity. All 16,200 complete post-step serialized states matched the prior
+implementation across three seeds and 12/32/64 founder populations over 60s.
+Warmed alternating A/B pairs measured median time reductions of 4.20%/7.04%/7.60%;
+these are local wall-time results, not guaranteed frame-rate gains. See
+overnight-scale-performance.md for configurations, fingerprints, ranges and limits.
+
+Validation: full npm run check passed 660 unit tests in 81 files, server check,
+build and 13 browser tests. Three focused regressions protect quiet hearing,
+sensing-owned expiry and mixed stale/current ordering. Next: inspect actual
+resource handoffs after following before deciding whether a bounded personal
+helpful-experience update has enough observable evidence.

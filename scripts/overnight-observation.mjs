@@ -20,6 +20,13 @@ const reportPath = path.resolve(
 const duration = Number(process.argv[3] ?? 600);
 assert.ok(Number.isFinite(duration) && duration > 0, 'Duration must be positive and finite');
 const seeds = ['demo', 'overnight-river', 'overnight-drought'];
+// Historical 600-second physical-slice measurements, retained in checkpoint c73806b.
+// Values are observational comparisons, never pass/fail thresholds or tuning targets.
+const physicalBaseline = {
+	demo: { rapid: 258, fleeRest: 42, hunger: 2696.0667, thirst: 7.7 },
+	'overnight-river': { rapid: 767, fleeRest: 281, hunger: 2578.2, thirst: 321.5667 },
+	'overnight-drought': { rapid: 1423, fleeRest: 444, hunger: 2671.4, thirst: 72.0667 }
+};
 const fields = ['hunger', 'thirst', 'energy', 'health'];
 const rounded = (value) => Number(value.toFixed(4));
 const increment = (counts, key, amount = 1) => {
@@ -208,7 +215,7 @@ function report(results, repeat, metadata) {
 		'',
 		'Encounter counters select records whose timestamp equals the current step, rather than counting the same bounded history repeatedly. A saturated history step makes totals a lower bound. Hunt/flee entries count actual intention changes into those states. “Rapid switches” means successive intention changes within two seconds; it is a diagnostic proxy, not proof of pathological oscillation. “Stationary movement” means consecutive one-second observations moving less than 0.02 units while action is move/search/explore; it can include turning or edge effects.',
 		'',
-		'This is the physical ecology slice: population is fixed and creature health is injury-only. These results do not measure mortality, reproduction, lifespan or population survival. High need pressure is reported directly; no ecological success criterion is imposed.',
+		'This run covers the current physical ecology and danger-behaviour slice: population is fixed and creature health is injury-only. These results do not measure mortality, reproduction, lifespan or population survival. High need pressure is reported directly; no ecological success criterion is imposed.',
 		'',
 		'## Results',
 		'',
@@ -254,6 +261,26 @@ function report(results, repeat, metadata) {
 			'',
 			`Final mean hunger/thirst/energy: ${row.final.meanHunger} / ${row.final.meanThirst} / ${row.final.meanEnergy}; injured creatures: ${row.final.injuredCreatures}/${row.final.population}; food sources: ${row.final.foodSources}. Memory bound violations: ${row.memoryBoundViolations}; saturated encounter-history steps: ${row.saturatedEncounterSteps}.`
 		);
+	if (duration === 600) {
+		lines.push(
+			'',
+			'## Comparison with the physical checkpoint',
+			'',
+			'The historical measurements were recorded with the same seeds, duration and defaults and retained in commit `c73806b` (source fingerprint `214932dedb5419bf5cdb0e00abae5af10eeba2c785fbdbac8464d51d78620139`). This compares complete evolving systems, including communication changes; it does not isolate danger memory as the sole cause. Reduced immediate flee/rest reversals can coexist with worse thirst or food access.',
+			'',
+			'| Seed | Rapid switches before → now | Rapid flee↔rest before → now | Hunger ≥.95 creature-s before → now | Thirst ≥.95 creature-s before → now |',
+			'| --- | ---: | ---: | ---: | ---: |'
+		);
+		for (const row of results) {
+			const old = physicalBaseline[row.seed];
+			const fleeRest =
+				(row.rapidTransitionPairs['flee → rest'] ?? 0) +
+				(row.rapidTransitionPairs['rest → flee'] ?? 0);
+			lines.push(
+				`| ${row.seed} | ${old.rapid} → ${row.rapidIntentionSwitches} | ${old.fleeRest} → ${fleeRest} | ${old.hunger} → ${row.highHungerCreatureSeconds} | ${old.thirst} → ${row.highThirstCreatureSeconds} |`
+			);
+		}
+	}
 	lines.push(
 		'',
 		'## Determinism and interpretation',

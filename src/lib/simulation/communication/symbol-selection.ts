@@ -15,7 +15,7 @@
 
 import { createSeededRng, deriveSeed } from '$lib/determinism';
 import type {
-	ResourceDiscoveryDetail,
+	SignalContextDetail,
 	SymbolId,
 	SymbolSelectionCandidateEvidence,
 	SymbolSelectionEvidence,
@@ -26,13 +26,14 @@ import type {
 export type LexiconAssignmentRow = {
 	food: SymbolId | null;
 	water: SymbolId | null;
+	danger: SymbolId | null;
 };
 
 export type SelectContextSymbolInput = {
 	simulationSeed: string;
 	creatureId: string;
 	emissionCount: number;
-	contextDetail: ResourceDiscoveryDetail;
+	contextDetail: SignalContextDetail;
 	inventory: readonly SymbolId[];
 	lexicon: LexiconAssignmentRow;
 	preferredSymbolId: SymbolId;
@@ -53,6 +54,7 @@ function assignedSymbols(lexicon: LexiconAssignmentRow): Set<SymbolId> {
 	if (lexicon.water !== null) {
 		set.add(lexicon.water);
 	}
+	if (lexicon.danger !== null) set.add(lexicon.danger);
 	return set;
 }
 
@@ -68,15 +70,14 @@ function formatReasonText(evidence: SymbolSelectionEvidence): string {
 
 function buildCandidateNotes(
 	inventory: readonly SymbolId[],
-	contextDetail: ResourceDiscoveryDetail,
+	contextDetail: SignalContextDetail,
 	lexicon: LexiconAssignmentRow,
 	selectedSymbolId: SymbolId,
 	pool: readonly SymbolId[],
 	mode: SymbolSelectionMode
 ): SymbolSelectionCandidateEvidence[] {
-	const otherMeaning: ResourceDiscoveryDetail = contextDetail === 'food' ? 'water' : 'food';
 	const assignedHere = lexicon[contextDetail];
-	const assignedOther = lexicon[otherMeaning];
+	const assignedOther = assignedSymbols(lexicon);
 	const poolSet = new Set(pool);
 
 	return inventory.map((symbolId) => {
@@ -85,7 +86,7 @@ function buildCandidateNotes(
 			note = mode === 'learned_lexicon' ? 'selected_learned' : 'selected_exploratory';
 		} else if (symbolId === assignedHere) {
 			note = 'assigned_context';
-		} else if (symbolId === assignedOther) {
+		} else if (assignedOther.has(symbolId)) {
 			note = 'assigned_other_meaning';
 		} else if (poolSet.has(symbolId)) {
 			note = 'exploratory_eligible';

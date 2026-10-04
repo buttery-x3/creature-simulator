@@ -46,6 +46,7 @@ describe('physical ecology through actual arbitration and execution', () => {
 				energy: 0.35,
 				hunger: 0.6,
 				thirst: 0.6,
+				verbosity: 0,
 				nextReconsiderAt: 1000
 			});
 			const threat = animal({ position: { x: feature.position.x + 0.5, y: feature.position.y } });

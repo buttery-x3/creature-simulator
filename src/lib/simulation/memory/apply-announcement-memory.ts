@@ -50,7 +50,7 @@ export function applySuccessfulAnnouncementMemories(
 		let memory = creature.memory;
 		for (const emission of mine) {
 			const provenance = emission.provenance;
-			if (!provenance) {
+			if (!provenance || emission.contextDetail === 'danger') {
 				continue;
 			}
 			memory = rememberResourceAnnouncement(memory, {

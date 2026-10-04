@@ -20,7 +20,9 @@ function evaluateSignal(
 			? 'food'
 			: lexicon.water === memory.symbolId
 				? 'water'
-				: 'unknown';
+				: lexicon.danger === memory.symbolId
+					? 'danger'
+					: 'unknown';
 	const hungerUnresolved = input.hunger >= config.seekFoodThreshold && foodKnowledge === 'none';
 	const thirstUnresolved = input.thirst >= config.seekWaterThreshold && waterKnowledge === 'none';
 	const recency = Math.min(
@@ -72,7 +74,8 @@ export function buildSignalCandidate(
 				b.sequence - a.sequence ||
 				(a.emissionId < b.emissionId ? -1 : a.emissionId > b.emissionId ? 1 : 0)
 		);
-	const best = signalEvaluations[0];
+	// A learned warning is uncertain hazard evidence, never a request to approach its origin.
+	const best = signalEvaluations.find((e) => e.interpretation !== 'danger');
 	if (best) best.selected = true;
 	return {
 		intention: 'investigate_signal',
@@ -108,7 +111,13 @@ export function buildSignalCandidate(
 					...(best.semanticContribution > 0 ? ['semantic_relevance' as const] : [])
 				]
 			: ['no_heard_signal'],
-		...(best ? {} : { rejectionReason: 'no_heard_signal' as const }),
+		...(best
+			? {}
+			: {
+					rejectionReason: signalEvaluations.length
+						? ('danger_requires_avoidance' as const)
+						: ('no_heard_signal' as const)
+				}),
 		signalEvaluations
 	};
 }

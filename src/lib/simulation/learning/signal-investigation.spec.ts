@@ -90,7 +90,9 @@ describe('signal investigation helpers', () => {
 			foodStrengthBefore: 0,
 			foodStrengthAfter: 0,
 			waterStrengthBefore: 0,
-			waterStrengthAfter: 0
+			waterStrengthAfter: 0,
+			dangerStrengthBefore: 0,
+			dangerStrengthAfter: 0
 		};
 		const history = appendLearningHistory(
 			[

@@ -6,7 +6,10 @@
  */
 
 import type { Creature, SimulationConfig, SimulationState } from './types';
-import type { HeardSignal, SignalEmission } from './communication/types';
+import {
+	formatCommunicationInspection,
+	formatEmissionLine
+} from './diagnostics/communication-inspection';
 import { formatArbitrationDiagnostics, formatDiagnosticTarget } from './arbitration-diagnostics';
 import {
 	buildExplorationDiagnostics,
@@ -40,27 +43,6 @@ function formatCreature(creature: Creature): string {
 		`needs=[h=${hunger.toFixed(2)} t=${thirst.toFixed(2)} e=${energy.toFixed(2)}] ` +
 		`intention=${intention} action=${action} target=${formatDiagnosticTarget(target)} ` +
 		`reconsider@${nextReconsiderAt.toFixed(2)}`
-	);
-}
-
-function formatEmissionLine(emission: SignalEmission): string {
-	const evidence = emission.selectionEvidence;
-	const candidateSummary = evidence.candidates.map((c) => `${c.symbolId}:${c.note}`).join(' ');
-	return (
-		`${emission.id} symbol=${emission.symbolId} sender=${emission.senderId} ` +
-		`origin=(${emission.origin.x.toFixed(3)}, ${emission.origin.y.toFixed(3)}) ` +
-		`emitted@${emission.emittedAt.toFixed(3)} expires@${emission.expiresAt.toFixed(3)} ` +
-		`context=${emission.context}/${emission.contextDetail} ` +
-		`mode=${evidence.mode} symbolReason=${emission.symbolSelectionReason} ` +
-		`fallback=${evidence.usedFallback} candidates=[${candidateSummary}]`
-	);
-}
-
-function formatHeardLine(heard: HeardSignal): string {
-	return (
-		`emission=${heard.emissionId} symbol=${heard.symbolId} sender=${heard.senderId} ` +
-		`origin=(${heard.origin.x.toFixed(3)}, ${heard.origin.y.toFixed(3)}) ` +
-		`emitted@${heard.emittedAt.toFixed(3)} heard@${heard.heardAt.toFixed(3)}`
 	);
 }
 
@@ -210,107 +192,7 @@ export function formatCreatureInspection(
 		}
 	}
 
-	const hearingRadius = config?.hearingRadius;
-	lines.push('', 'communication:');
-	lines.push(
-		`  preferred symbol: ${creature.preferredSymbolId} (cold-start fallback / initial arbitrary preference)`
-	);
-	if (hearingRadius !== undefined) {
-		lines.push(`  hearing radius: ${hearingRadius.toFixed(3)}`);
-	}
-	lines.push(
-		`  emission count: ${creature.emissionCount}`,
-		`  last emission: ${creature.lastEmissionAt >= 0 ? `${creature.lastEmissionAt.toFixed(3)} s` : 'never'}`
-	);
-
-	lines.push(
-		'  exclusive lexicon (one symbol per meaning; not a global dictionary):',
-		`    food → ${creature.lexicon.food ?? 'unassigned'}`,
-		`    water → ${creature.lexicon.water ?? 'unassigned'}`
-	);
-	if (creature.recentLexiconChanges.length > 0) {
-		lines.push('  recent lexicon changes:');
-		for (const change of creature.recentLexiconChanges) {
-			lines.push(
-				`    t=${change.timeSeconds.toFixed(3)} ${change.meaning}: ` +
-					`${change.previousSymbolId ?? 'null'}→${change.newSymbolId ?? 'null'}` +
-					` score=${change.assignmentScore.toFixed(3)} — ${change.reason}`
-			);
-		}
-	}
-
-	if (creature.recentEmitted.length === 0) {
-		lines.push('  recent emitted: (none)');
-	} else {
-		lines.push('  recent emitted:');
-		for (const emission of creature.recentEmitted) {
-			lines.push(`    ${formatEmissionLine(emission)}`);
-		}
-		const last = creature.recentEmitted[creature.recentEmitted.length - 1]!;
-		lines.push(
-			`  last selection: context=${last.selectionEvidence.emissionContext}` +
-				` symbol=${last.selectionEvidence.selectedSymbolId}` +
-				` mode=${last.selectionEvidence.mode}` +
-				` reason=${last.selectionEvidence.reason}` +
-				` fallback=${last.selectionEvidence.usedFallback}`
-		);
-	}
-	if (creature.recentHeard.length === 0) {
-		lines.push('  recent heard: (none)');
-	} else {
-		lines.push('  recent heard:');
-		for (const heard of creature.recentHeard) {
-			lines.push(`    ${formatHeardLine(heard)}`);
-		}
-	}
-
-	lines.push('', 'learning (raw evidence; no global symbol meaning):');
-	if (creature.symbolAssociations.length === 0) {
-		lines.push('  evidence: (none)');
-	} else {
-		for (const assoc of creature.symbolAssociations) {
-			lines.push(
-				`  ${assoc.symbolId}: food=${assoc.foodStrength.toFixed(3)} (n=${assoc.foodEvidenceCount})` +
-					` water=${assoc.waterStrength.toFixed(3)} (n=${assoc.waterEvidenceCount})` +
-					` bias=${(assoc.foodStrength * creature.hunger + assoc.waterStrength * creature.thirst).toFixed(3)}`
-			);
-		}
-	}
-
-	if (creature.activeInvestigation) {
-		const inv = creature.activeInvestigation;
-		lines.push(
-			`  active investigation: emission=${inv.emissionId} symbol=${inv.symbolId}` +
-				` origin=(${inv.origin.x.toFixed(3)}, ${inv.origin.y.toFixed(3)})` +
-				` started@${inv.startedAt.toFixed(3)}` +
-				` (execution context; not a lock)`
-		);
-	} else {
-		lines.push('  active investigation: (none)');
-	}
-
-	const investigateCandidate = (creature.lastArbitration?.candidates ?? []).find(
-		(c) => c.intention === 'investigate_signal'
-	);
-	if (investigateCandidate) {
-		lines.push(
-			`  investigation candidate: score=${investigateCandidate.score.toFixed(3)} ` +
-				`valid=${investigateCandidate.valid} codes=[${investigateCandidate.reasonCodes.join(',')}]` +
-				(investigateCandidate.rejectionReason ? ` | ${investigateCandidate.rejectionReason}` : '')
-		);
-	}
-
-	if (creature.recentLearning.length === 0) {
-		lines.push('  recent learning: (none)');
-	} else {
-		lines.push('  recent learning:');
-		for (const entry of creature.recentLearning) {
-			lines.push(
-				`    t=${entry.timeSeconds.toFixed(3)} ${entry.outcome} symbol=${entry.symbolId}` +
-					` emission=${entry.emissionId} — ${entry.reason}`
-			);
-		}
-	}
+	lines.push(...formatCommunicationInspection(creature, config?.hearingRadius));
 
 	const mem = creature.memory;
 	lines.push('', `memory: ${mem.entries.length}/${mem.capacity} (nextSeq=${mem.nextSequence})`);
@@ -327,6 +209,10 @@ export function formatCreatureInspection(
 				lines.push(
 					`  #${entry.sequence} observation ${entry.resourceKind}:${entry.featureId}` +
 						` empty=${entry.empty} @${entry.rememberedAt.toFixed(2)}`
+				);
+			} else if (entry.kind === 'danger_observation') {
+				lines.push(
+					`  #${entry.sequence} danger observation ${entry.wildlifeId} position=(${entry.position.x.toFixed(2)}, ${entry.position.y.toFixed(2)}) @${entry.rememberedAt.toFixed(2)}`
 				);
 			} else {
 				lines.push(

@@ -6,6 +6,8 @@
  */
 
 export type {
+	DangerObservationMemory,
+	DangerObservationMemoryDraft,
 	CreatureMemory,
 	CreatureMemoryEntry,
 	CreatureMemoryEntryKind,
@@ -28,6 +30,8 @@ export {
 
 export {
 	countMemoryEntries,
+	DANGER_MEMORY_LIFETIME_SECONDS,
+	listDangerObservations,
 	findHeardSignalMemory,
 	findNewestUsableResourceObservation,
 	findResourceAnnouncementMemory,
@@ -42,6 +46,8 @@ export {
 
 export {
 	evictToCapacity,
+	markHeardSignalEvidenceApplied,
+	rememberDangerObservation,
 	forgetEntries,
 	forgetHeardSignal,
 	rememberHeardSignal,

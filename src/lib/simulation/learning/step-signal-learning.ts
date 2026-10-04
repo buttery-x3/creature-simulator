@@ -19,7 +19,12 @@ import {
 	findAssociation,
 	reinforceAssociation
 } from './signal-associations';
-import { appendLearningHistory, outcomeFromEvidenceFlags } from './signal-investigation';
+import {
+	appendLearningHistory,
+	outcomeFromEvidenceFlags,
+	qualifyLocalDanger,
+	localDangerEpisodes
+} from './signal-investigation';
 import type { LearningHistoryEntry, LearningOutcome } from './types';
 
 export type LearningStepConfig = Pick<
@@ -70,11 +75,12 @@ function inspectEvidenceNearOrigin(
 function snapshotStrengths(
 	creature: Creature,
 	symbolId: Creature['symbolAssociations'][number]['symbolId']
-): { food: number; water: number } {
+): { food: number; water: number; danger: number } {
 	const assoc = findAssociation(creature.symbolAssociations, symbolId);
 	return {
 		food: assoc?.foodStrength ?? 0,
-		water: assoc?.waterStrength ?? 0
+		water: assoc?.waterStrength ?? 0,
+		danger: assoc?.dangerStrength ?? 0
 	};
 }
 
@@ -97,21 +103,41 @@ export function resolveInvestigationAtSite(
 		return creature;
 	}
 
+	if (
+		creature.memory.entries.some(
+			(entry) =>
+				entry.kind === 'heard_signal' &&
+				entry.emissionId === active.emissionId &&
+				entry.evidenceApplied
+		)
+	) {
+		return {
+			...creature,
+			activeInvestigation: null,
+			memory: forgetHeardSignal(creature.memory, active.emissionId)
+		};
+	}
+
+	const dangerIds = qualifyLocalDanger(creature, active.origin, timeSeconds, config);
+	const danger = dangerIds.length > 0;
 	const evidence = inspectEvidenceNearOrigin(habitat, active.origin, config.learningEvidenceRadius);
 
 	const before = snapshotStrengths(creature, active.symbolId);
 	let associations = creature.symbolAssociations;
 	let foodAfter = before.food;
 	let waterAfter = before.water;
+	let dangerAfter = before.danger;
 	let reason: string;
 
-	if (evidence.food || evidence.water) {
+	if (evidence.food || evidence.water || danger) {
 		const reinforced = reinforceAssociation(
 			associations,
 			active.symbolId,
 			{
 				reinforceFood: evidence.food,
 				reinforceWater: evidence.water,
+				reinforceDanger: danger,
+				dangerEpisodes: localDangerEpisodes(creature, dangerIds),
 				amount: config.associationReinforcement
 			},
 			config
@@ -119,7 +145,9 @@ export function resolveInvestigationAtSite(
 		associations = reinforced.associations;
 		foodAfter = reinforced.foodStrengthAfter;
 		waterAfter = reinforced.waterStrengthAfter;
+		dangerAfter = reinforced.dangerStrengthAfter;
 		const bits: string[] = [];
+		if (danger) bits.push(`danger[${dangerIds.join(',')}]`);
 		if (evidence.food) {
 			bits.push(`food[${evidence.foodFeatureIds.join(',')}]`);
 		}
@@ -138,12 +166,13 @@ export function resolveInvestigationAtSite(
 			associations = reduced.associations;
 			foodAfter = reduced.foodStrengthAfter;
 			waterAfter = reduced.waterStrengthAfter;
+			dangerAfter = reduced.dangerStrengthAfter;
 		}
 		reason =
-			'arrival inspection: no qualifying resource within evidence radius (associations unchanged unless reduction configured)';
+			'arrival inspection: no qualifying resource or locally observed danger within evidence radius (associations unchanged unless reduction configured)';
 	}
 
-	const outcome: LearningOutcome = outcomeFromEvidenceFlags(evidence.food, evidence.water);
+	const outcome: LearningOutcome = outcomeFromEvidenceFlags(evidence.food, evidence.water, danger);
 	const entry: LearningHistoryEntry = {
 		timeSeconds,
 		outcome,
@@ -153,7 +182,9 @@ export function resolveInvestigationAtSite(
 		foodStrengthBefore: before.food,
 		foodStrengthAfter: foodAfter,
 		waterStrengthBefore: before.water,
-		waterStrengthAfter: waterAfter
+		waterStrengthAfter: waterAfter,
+		dangerStrengthBefore: before.danger,
+		dangerStrengthAfter: dangerAfter
 	};
 
 	const lexiconApplied = applyLexiconResolution(
@@ -214,7 +245,9 @@ export function interruptInvestigation(
 		foodStrengthBefore: before.food,
 		foodStrengthAfter: before.food,
 		waterStrengthBefore: before.water,
-		waterStrengthAfter: before.water
+		waterStrengthAfter: before.water,
+		dangerStrengthBefore: before.danger,
+		dangerStrengthAfter: before.danger
 	};
 
 	return {

@@ -8,7 +8,9 @@
 
 import type { Vec2 } from '$lib/habitat';
 import { distanceSquared } from '../creature-movement';
-import type { CreaturePerception, SimulationConfig } from '../types';
+import { bodyAbility } from '../ecology/body';
+import type { Creature, CreaturePerception, SimulationConfig } from '../types';
+import { DANGER_EPISODE_HISTORY_LIMIT } from './signal-associations';
 import type { ActiveSignalInvestigation, LearningHistoryEntry, LearningOutcome } from './types';
 
 export type EvidenceConfig = Pick<SimulationConfig, 'learningEvidenceRadius'>;
@@ -86,9 +88,13 @@ export function qualifyEvidenceNearOrigin(
 
 export function outcomeFromEvidenceFlags(
 	food: boolean,
-	water: boolean
-): Extract<LearningOutcome, 'food_evidence' | 'water_evidence' | 'mixed_evidence' | 'no_evidence'> {
-	if (food && water) {
+	water: boolean,
+	danger = false
+): Extract<
+	LearningOutcome,
+	'food_evidence' | 'water_evidence' | 'danger_evidence' | 'mixed_evidence' | 'no_evidence'
+> {
+	if (Number(food) + Number(water) + Number(danger) > 1) {
 		return 'mixed_evidence';
 	}
 	if (food) {
@@ -97,6 +103,7 @@ export function outcomeFromEvidenceFlags(
 	if (water) {
 		return 'water_evidence';
 	}
+	if (danger) return 'danger_evidence';
 	return 'no_evidence';
 }
 
@@ -114,4 +121,42 @@ export function appendLearningHistory(
 
 export function isNearOrigin(position: Vec2, origin: Vec2, arrivalDistance: number): boolean {
 	return distanceSquared(position, origin) <= arrivalDistance * arrivalDistance;
+}
+
+/** Fresh listener-local threats near a signal origin; no wildlife-world lookup. */
+export function qualifyLocalDanger(
+	creature: Creature,
+	origin: Vec2,
+	timeSeconds: number,
+	config: Pick<
+		SimulationConfig,
+		'learningEvidenceRadius' | 'perceptionIntervalSeconds' | 'sensingRadius'
+	>
+): string[] {
+	const ability = bodyAbility(creature.body, creature.energy);
+	return creature.perceivedWildlife
+		.filter(
+			(animal) =>
+				animal.health > 0 &&
+				timeSeconds >= animal.observedAt &&
+				timeSeconds - animal.observedAt <= config.perceptionIntervalSeconds + 1e-9 &&
+				distanceSquared(animal.position, origin) <= config.learningEvidenceRadius ** 2 &&
+				distanceSquared(animal.position, creature.position) <= config.sensingRadius ** 2 &&
+				bodyAbility({ ...animal, nextAttackAt: 0 }, animal.energy) > ability * 0.65
+		)
+		.map((animal) => animal.id)
+		.sort();
+}
+
+/** Episode provenance survives shared-memory eviction while the animal stays in local sight. */
+export function localDangerEpisodes(creature: Creature, wildlifeIds: readonly string[]): string[] {
+	return wildlifeIds.slice(0, DANGER_EPISODE_HISTORY_LIMIT).map((id) => {
+		const current = creature.perceivedWildlife.find((animal) => animal.id === id);
+		if (current) return `${id}:${current.firstObservedAt}`;
+		const observed = creature.memory.entries.find(
+			(entry) => entry.kind === 'danger_observation' && entry.wildlifeId === id
+		);
+		// Missing retained provenance is conservative: an animal can count only once.
+		return observed?.kind === 'danger_observation' ? `${id}:${observed.firstObservedAt}` : id;
+	});
 }

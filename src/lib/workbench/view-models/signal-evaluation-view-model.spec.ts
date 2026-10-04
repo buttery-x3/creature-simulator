@@ -43,7 +43,7 @@ function listener(overrides: Partial<ArbitrationInput> = {}): Creature {
 		availableFood: [],
 		availableWater: [],
 		memory,
-		lexicon: { food: 'glyph-0', water: 'glyph-1' },
+		lexicon: { food: 'glyph-0', water: 'glyph-1', danger: null },
 		currentIntention: null,
 		currentTarget: null,
 		homeFeatureId: 'home-0',
@@ -102,7 +102,7 @@ describe('signal evaluation presentation', () => {
 		const creature = listener({
 			availableFood: [{ featureId: 'food-0', resourceKind: 'food', position: { x: 0, y: 0 } }]
 		});
-		creature.lexicon = { food: null, water: 'glyph-0' };
+		creature.lexicon = { food: null, water: 'glyph-0', danger: null };
 		creature.memory = createEmptyMemory(1);
 		const rows = buildSignalEvaluationViews(creature);
 		expect(rows).toHaveLength(2);
@@ -143,4 +143,13 @@ describe('signal evaluation presentation', () => {
 		expect(body).toContain('actionable food knowledge: none');
 		expect(body).toContain('emission ID ascending');
 	});
+});
+
+it('labels learned danger as excluded from investigation using the saved interpretation', () => {
+	const creature = listener({ lexicon: { food: null, water: null, danger: 'glyph-0' } });
+	creature.lexicon = { food: 'glyph-0', water: null, danger: null };
+	const warning = buildSignalEvaluationViews(creature).find((s) => s.emissionId === 'older-food')!;
+	expect(warning.interpretationLabel).toBe('danger in this listener’s lexicon');
+	expect(warning.selectionLabel).toContain('excluded from investigation');
+	expect(warning.selected).toBe(false);
 });

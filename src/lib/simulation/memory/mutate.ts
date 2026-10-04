@@ -11,6 +11,7 @@
  */
 
 import type {
+	DangerObservationMemoryDraft,
 	CreatureMemory,
 	CreatureMemoryEntry,
 	HeardSignalMemory,
@@ -20,6 +21,33 @@ import type {
 	ResourceObservationMemory,
 	ResourceObservationMemoryDraft
 } from './types';
+import { DANGER_MEMORY_LIFETIME_SECONDS } from './query';
+
+/** A local sensing refresh shares the same capacity and eviction order as all memory. */
+export function rememberDangerObservation(
+	memory: CreatureMemory,
+	draft: DangerObservationMemoryDraft
+): CreatureMemory {
+	const prior = memory.entries.find(
+		(entry) => entry.kind === 'danger_observation' && entry.wildlifeId === draft.wildlifeId
+	);
+	const firstObservedAt =
+		prior?.kind === 'danger_observation' &&
+		draft.rememberedAt - prior.rememberedAt < DANGER_MEMORY_LIFETIME_SECONDS
+			? prior.firstObservedAt
+			: (draft.firstObservedAt ?? draft.rememberedAt);
+	const withoutPrior = forgetEntries(
+		memory,
+		(entry) => entry.kind === 'danger_observation' && entry.wildlifeId === draft.wildlifeId
+	);
+	return insertEntry(withoutPrior, {
+		...draft,
+		firstObservedAt,
+		position: { ...draft.position },
+		kind: 'danger_observation',
+		sequence: withoutPrior.nextSequence
+	});
+}
 
 /**
  * Insert a resource-announcement memory after a successful emission.
@@ -98,10 +126,32 @@ export function rememberHeardSignal(
 		rememberedAt: draft.rememberedAt,
 		emissionId: draft.emissionId,
 		symbolId: draft.symbolId,
-		origin: { x: draft.origin.x, y: draft.origin.y }
+		origin: { x: draft.origin.x, y: draft.origin.y },
+		evidenceApplied: draft.evidenceApplied ?? false
 	};
 
 	return insertEntry(memory, entry);
+}
+
+export function markHeardSignalEvidenceApplied(
+	memory: CreatureMemory,
+	emissionId: string
+): CreatureMemory {
+	if (
+		!memory.entries.some(
+			(entry) =>
+				entry.kind === 'heard_signal' && entry.emissionId === emissionId && !entry.evidenceApplied
+		)
+	)
+		return memory;
+	return {
+		...memory,
+		entries: memory.entries.map((entry) =>
+			entry.kind === 'heard_signal' && entry.emissionId === emissionId
+				? { ...entry, evidenceApplied: true }
+				: entry
+		)
+	};
 }
 
 /**

@@ -6,6 +6,9 @@
 import type { SymbolId } from '../communication/types';
 import type { SymbolAssociation } from './types';
 
+/** Bounded independent danger-confirmation provenance per symbol. */
+export const DANGER_EPISODE_HISTORY_LIMIT = 8;
+
 export type AssociationClampConfig = {
 	associationStrengthMin: number;
 	associationStrengthMax: number;
@@ -24,8 +27,11 @@ export function emptyAssociation(symbolId: SymbolId): SymbolAssociation {
 		symbolId,
 		foodStrength: 0,
 		waterStrength: 0,
+		dangerStrength: 0,
 		foodEvidenceCount: 0,
-		waterEvidenceCount: 0
+		waterEvidenceCount: 0,
+		dangerEvidenceCount: 0,
+		dangerEvidenceEpisodes: []
 	};
 }
 
@@ -67,6 +73,8 @@ export type ReinforceResult = {
 	foodStrengthAfter: number;
 	waterStrengthBefore: number;
 	waterStrengthAfter: number;
+	dangerStrengthBefore: number;
+	dangerStrengthAfter: number;
 };
 
 /**
@@ -79,6 +87,8 @@ export function reinforceAssociation(
 	options: {
 		reinforceFood: boolean;
 		reinforceWater: boolean;
+		reinforceDanger?: boolean;
+		dangerEpisodes?: readonly string[];
 		amount: number;
 	},
 	config: AssociationClampConfig
@@ -86,6 +96,7 @@ export function reinforceAssociation(
 	const { associations: next, association, index } = getOrCreateAssociation(associations, symbolId);
 	const foodStrengthBefore = association.foodStrength;
 	const waterStrengthBefore = association.waterStrength;
+	const dangerStrengthBefore = association.dangerStrength;
 
 	if (options.reinforceFood) {
 		association.foodStrength = clampStrength(association.foodStrength + options.amount, config);
@@ -96,13 +107,27 @@ export function reinforceAssociation(
 		association.waterEvidenceCount += 1;
 	}
 
+	const newEpisodes = (options.dangerEpisodes ?? [])
+		.slice(0, DANGER_EPISODE_HISTORY_LIMIT)
+		.filter((episode) => !association.dangerEvidenceEpisodes.includes(episode));
+	if (options.reinforceDanger && newEpisodes.length > 0) {
+		association.dangerStrength = clampStrength(association.dangerStrength + options.amount, config);
+		association.dangerEvidenceCount += 1;
+		association.dangerEvidenceEpisodes = [
+			...association.dangerEvidenceEpisodes,
+			...newEpisodes
+		].slice(-DANGER_EPISODE_HISTORY_LIMIT);
+	}
+
 	next[index] = association;
 	return {
 		associations: next,
 		foodStrengthBefore,
 		foodStrengthAfter: association.foodStrength,
 		waterStrengthBefore,
-		waterStrengthAfter: association.waterStrength
+		waterStrengthAfter: association.waterStrength,
+		dangerStrengthBefore,
+		dangerStrengthAfter: association.dangerStrength
 	};
 }
 
@@ -119,10 +144,12 @@ export function applyNoEvidenceReduction(
 	const { associations: next, association, index } = getOrCreateAssociation(associations, symbolId);
 	const foodStrengthBefore = association.foodStrength;
 	const waterStrengthBefore = association.waterStrength;
+	const dangerStrengthBefore = association.dangerStrength;
 
 	if (amount > 0) {
 		association.foodStrength = clampStrength(association.foodStrength - amount, config);
 		association.waterStrength = clampStrength(association.waterStrength - amount, config);
+		association.dangerStrength = clampStrength(association.dangerStrength - amount, config);
 	}
 
 	next[index] = association;
@@ -131,6 +158,8 @@ export function applyNoEvidenceReduction(
 		foodStrengthBefore,
 		foodStrengthAfter: association.foodStrength,
 		waterStrengthBefore,
-		waterStrengthAfter: association.waterStrength
+		waterStrengthAfter: association.waterStrength,
+		dangerStrengthBefore,
+		dangerStrengthAfter: association.dangerStrength
 	};
 }

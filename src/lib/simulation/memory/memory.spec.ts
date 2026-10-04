@@ -292,6 +292,7 @@ describe('rememberHeardSignal', () => {
 		});
 		expect(memory.entries[0]).toEqual({
 			kind: 'heard_signal',
+			evidenceApplied: false,
 			sequence: 0,
 			rememberedAt: 7,
 			emissionId: 'em-9',

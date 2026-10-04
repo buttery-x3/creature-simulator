@@ -17,9 +17,11 @@ export const DEFAULT_SYMBOL_INVENTORY: readonly SymbolId[] = [
 ] as const;
 
 /** Why an emission was requested (developer context — not symbol meaning). */
-export type EmissionContext = 'resource_discovered';
+export type EmissionContext = 'resource_discovered' | 'danger_observed';
 
 export type ResourceDiscoveryDetail = 'food' | 'water';
+
+export type SignalContextDetail = ResourceDiscoveryDetail | 'danger';
 
 /** How the emitter chose its symbol (developer diagnostics only). */
 export type SymbolSelectionMode =
@@ -43,7 +45,7 @@ export type SymbolSelectionCandidateEvidence = {
  */
 export type SymbolSelectionEvidence = {
 	/** Resource context that drove selection (food vs water lexicon slot). */
-	emissionContext: ResourceDiscoveryDetail;
+	emissionContext: SignalContextDetail;
 	selectedSymbolId: SymbolId;
 	/** Learned lexicon assignment for this context at emit time (null if unassigned). */
 	assignedSymbolId: SymbolId | null;
@@ -69,7 +71,7 @@ export type SignalEmission = {
 	expiresAt: number;
 	/** Developer inspection context; must not be treated as symbol semantics. */
 	context: EmissionContext;
-	contextDetail: ResourceDiscoveryDetail;
+	contextDetail: SignalContextDetail;
 	/** Concise human-readable selection summary for lists/diagnostics. */
 	symbolSelectionReason: string;
 	/** Full selection evidence for inspection; never heard by listeners. */
@@ -101,7 +103,7 @@ export type EmissionRequest = {
 	senderId: string;
 	origin: Vec2;
 	context: EmissionContext;
-	contextDetail: ResourceDiscoveryDetail;
+	contextDetail: SignalContextDetail;
 	/** Feature that was announced; required for resource_announcement memory. */
 	triggerFeatureId?: string;
 	triggerFeaturePosition?: Vec2;

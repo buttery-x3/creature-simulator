@@ -2,14 +2,15 @@
  * Pure population-level symbol evidence, lexicon assignment and emission diagnostics.
  *
  * Observational only: never mutates creature evidence or lexicons, never influences
- * symbol selection, never declares a global or “correct” food/water symbol.
+ * symbol selection, never declares a global or “correct” food/water/danger symbol.
  *
  * Concentration: for each context, max emission share among symbols in the
  * recent window, plus normalised Shannon entropy of emission shares
  * (0 = single-symbol concentration when total>0, 1 = uniform over inventory).
  */
 
-import type { ResourceDiscoveryDetail, SignalEmission, SymbolId } from './communication/types';
+import type { SignalEmission, SymbolId } from './communication/types';
+import type { LexiconMeaning } from './learning/types';
 import type { Creature, SimulationConfig, SimulationState, SymbolAssociation } from './types';
 
 export type SymbolContextAssociationSummary = {
@@ -34,7 +35,7 @@ export type SymbolContextEmissionSummary = {
 };
 
 export type ContextPopulationSummary = {
-	context: ResourceDiscoveryDetail;
+	context: LexiconMeaning;
 	associations: SymbolContextAssociationSummary[];
 	emissions: SymbolContextEmissionSummary[];
 	/** Symbol with highest mean raw evidence (observational; not canonical meaning). */
@@ -73,6 +74,7 @@ export type PopulationSymbolDiagnostics = {
 	inventory: readonly SymbolId[];
 	food: ContextPopulationSummary;
 	water: ContextPopulationSummary;
+	danger: ContextPopulationSummary;
 };
 
 export type PopulationDiagnosticsConfig = Pick<
@@ -92,34 +94,28 @@ function medianOf(values: number[]): number {
 	return sorted[mid]!;
 }
 
-function strengthOf(
-	assoc: SymbolAssociation | undefined,
-	context: ResourceDiscoveryDetail
-): number {
+function strengthOf(assoc: SymbolAssociation | undefined, context: LexiconMeaning): number {
 	if (!assoc) {
 		return 0;
 	}
-	return context === 'food' ? assoc.foodStrength : assoc.waterStrength;
+	return assoc[`${context}Strength`];
 }
 
-function evidenceCountOf(
-	assoc: SymbolAssociation | undefined,
-	context: ResourceDiscoveryDetail
-): number {
+function evidenceCountOf(assoc: SymbolAssociation | undefined, context: LexiconMeaning): number {
 	if (!assoc) {
 		return 0;
 	}
-	return context === 'food' ? assoc.foodEvidenceCount : assoc.waterEvidenceCount;
+	return assoc[`${context}EvidenceCount`];
 }
 
-function lexiconAssignment(creature: Creature, context: ResourceDiscoveryDetail): SymbolId | null {
+function lexiconAssignment(creature: Creature, context: LexiconMeaning): SymbolId | null {
 	return creature.lexicon[context];
 }
 
 function buildAssociationSummaries(
 	creatures: readonly Creature[],
 	inventory: readonly SymbolId[],
-	context: ResourceDiscoveryDetail
+	context: LexiconMeaning
 ): {
 	associations: SymbolContextAssociationSummary[];
 	highestMeanAssociationSymbolId: SymbolId | null;
@@ -237,7 +233,7 @@ function buildAssociationSummaries(
 function buildEmissionSummaries(
 	emissions: readonly SignalEmission[],
 	inventory: readonly SymbolId[],
-	context: ResourceDiscoveryDetail,
+	context: LexiconMeaning,
 	timeSeconds: number,
 	windowSeconds: number
 ): {
@@ -331,7 +327,7 @@ function buildContextSummary(
 	creatures: readonly Creature[],
 	emissions: readonly SignalEmission[],
 	inventory: readonly SymbolId[],
-	context: ResourceDiscoveryDetail,
+	context: LexiconMeaning,
 	timeSeconds: number,
 	windowSeconds: number
 ): ContextPopulationSummary {
@@ -378,6 +374,14 @@ export function buildPopulationSymbolDiagnostics(
 			state.timeSeconds,
 			windowSeconds
 		),
+		danger: buildContextSummary(
+			state.creatures,
+			state.recentEmissions,
+			inventory,
+			'danger',
+			state.timeSeconds,
+			windowSeconds
+		),
 		water: buildContextSummary(
 			state.creatures,
 			state.recentEmissions,
@@ -400,7 +404,7 @@ export function formatPopulationSymbolDiagnostics(
 		`  t=${diagnostics.timeSeconds.toFixed(3)}s window=${diagnostics.windowSeconds.toFixed(1)}s creatures=${diagnostics.creatureCount}`
 	];
 
-	for (const ctx of [diagnostics.food, diagnostics.water] as const) {
+	for (const ctx of [diagnostics.food, diagnostics.water, diagnostics.danger] as const) {
 		lines.push(
 			`  ${ctx.context}: highest mean evidence=${ctx.highestMeanAssociationSymbolId ?? 'none'}` +
 				` most assigned in lexicon=${ctx.mostAssignedSymbolId ?? 'none'}` +

@@ -37,7 +37,7 @@ export function buildEventRows(state: SimulationState): EventRow[] {
 			creatureId: emission.senderId,
 			event: 'Active emission',
 			subject: emission.symbolId,
-			result: `${emission.context}/${emission.contextDetail}`,
+			result: `sender context (observer only): ${emission.context}/${emission.contextDetail}`,
 			symbolId: emission.symbolId,
 			featureId: null,
 			senderId: emission.senderId,
@@ -87,7 +87,7 @@ function appendCreatureEvents(rows: EventRow[], creature: Creature): void {
 			creatureId: creature.id,
 			event: 'Emitted',
 			subject: emission.symbolId,
-			result: `${emission.selectionEvidence.mode} · ${emission.contextDetail}`,
+			result: `${emission.selectionEvidence.mode} · sender context (observer only): ${emission.contextDetail}`,
 			symbolId: emission.symbolId,
 			featureId: null,
 			senderId: creature.id,
@@ -108,7 +108,7 @@ function appendCreatureEvents(rows: EventRow[], creature: Creature): void {
 			creatureId: creature.id,
 			event: 'Heard',
 			subject: heard.symbolId,
-			result: `from ${heard.senderId}`,
+			result: `sender ${heard.senderId} (observer only)`,
 			symbolId: heard.symbolId,
 			featureId: null,
 			senderId: heard.senderId,
@@ -152,6 +152,7 @@ function appendCreatureEvents(rows: EventRow[], creature: Creature): void {
 				reason: entry.reason,
 				food: `${entry.foodStrengthBefore}→${entry.foodStrengthAfter}`,
 				water: `${entry.waterStrengthBefore}→${entry.waterStrengthAfter}`,
+				danger: `${entry.dangerStrengthBefore}→${entry.dangerStrengthAfter}`,
 				emissionId: entry.emissionId
 			}
 		});

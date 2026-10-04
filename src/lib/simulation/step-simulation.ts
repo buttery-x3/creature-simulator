@@ -24,6 +24,7 @@ import {
 	applyHeardSignalMemories,
 	applyResourceObservationMemories
 } from './memory/apply-sensory-memory';
+import { learnFromLocalDangerReception } from './learning';
 import { emptyGrant, stepResources } from './resources';
 import type { Creature, SimulationConfig, SimulationState } from './types';
 
@@ -94,32 +95,28 @@ export type StepSimulationConfig = Pick<
  * After heard_signal memory writes, request next-step arbitration for affected listeners.
  * Does not select investigate — cognition decides on the next behaviour step.
  */
-function countHeardSignals(creature: Creature): number {
-	let n = 0;
-	for (const entry of creature.memory.entries) {
-		if (entry.kind === 'heard_signal') {
-			n += 1;
-		}
-	}
-	return n;
-}
-
 function requestArbitrationForNewHeardSignals(
 	before: readonly Creature[],
 	after: readonly Creature[]
 ): Creature[] {
-	const beforeCounts = new Map(before.map((c) => [c.id, countHeardSignals(c)] as const));
+	const oldIds = new Map(
+		before.map((c) => [
+			c.id,
+			new Set(c.memory.entries.filter((e) => e.kind === 'heard_signal').map((e) => e.emissionId))
+		])
+	);
 	return after.map((creature) => {
-		const prev = beforeCounts.get(creature.id) ?? 0;
-		if (countHeardSignals(creature) <= prev) {
-			return creature;
-		}
-		return {
-			...creature,
-			pendingArbitrationTrigger: 'new_heard_signal_memory' as const,
-			// Ensure next behaviour step runs arbitration promptly.
-			nextReconsiderAt: 0
-		};
+		const previous = oldIds.get(creature.id);
+		const gained = creature.memory.entries.some(
+			(e) => e.kind === 'heard_signal' && !previous?.has(e.emissionId)
+		);
+		return gained
+			? {
+					...creature,
+					pendingArbitrationTrigger: 'new_heard_signal_memory' as const,
+					nextReconsiderAt: 0
+				}
+			: creature;
 	});
 }
 
@@ -207,7 +204,11 @@ export function stepSimulation(
 	);
 
 	// Heard-signal retained memory.
-	const afterHeardMemory = applyHeardSignalMemories(afterAnnouncementMemory, timeSeconds);
+	const afterHeardMemory = learnFromLocalDangerReception(
+		applyHeardSignalMemories(afterAnnouncementMemory, timeSeconds),
+		timeSeconds,
+		config
+	);
 
 	// Request reconsideration for listeners that gained heard_signal this step.
 	const withReconsider = requestArbitrationForNewHeardSignals(

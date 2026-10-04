@@ -10,7 +10,7 @@ import {
 	updateInvestigationOverlay,
 	updateSignalBillboards
 } from '../signal-presentation';
-import { frameHabitatPerspectiveCamera } from '../habitat-camera';
+import { frameViewportCamera } from './camera';
 import { daylightAppearance } from '$lib/ecology-presentation';
 import { createViewportResources } from './resources';
 
@@ -23,6 +23,7 @@ export type ViewportSnapshot = {
 	weather: WeatherPhase;
 	daylight: number;
 	selectedCreatureId: string | null;
+	followSelected: boolean;
 	sensingRadius: number;
 	hearingRadius: number;
 	investigationDistanceScale: number;
@@ -48,14 +49,19 @@ export function createViewportScene(host: HTMLDivElement, onSelect: (id: string 
 	function render() {
 		if (!current || !host.clientWidth || !host.clientHeight) return;
 		renderer.setSize(host.clientWidth, host.clientHeight, false);
-		const report = frameHabitatPerspectiveCamera(
+		const selectedId = current.selectedCreatureId;
+		const followed = current.followSelected
+			? current.creatures.find((c) => c.id === selectedId)
+			: undefined;
+		const report = frameViewportCamera(
 			camera,
 			current.habitat.bounds,
-			host.clientWidth / host.clientHeight
+			host.clientWidth / host.clientHeight,
+			followed?.position ?? null
 		);
 		Object.assign(renderer.domElement.dataset, {
 			habitatFullyVisible: String(report.fullyVisible),
-			habitatCameraMode: 'perspective-near-top-down',
+			habitatCameraMode: followed ? 'follow-creature' : 'perspective-near-top-down',
 			habitatCornersVisible: String(report.corners.filter((c) => c.visible).length),
 			habitatCornerCount: String(report.corners.length)
 		});

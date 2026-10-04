@@ -29,6 +29,7 @@ export type LexiconMatrixRow = {
 	creatureId: string;
 	foodSymbolId: SymbolId | null;
 	waterSymbolId: SymbolId | null;
+	dangerSymbolId: SymbolId | null;
 	evidenceCount: number;
 };
 
@@ -65,6 +66,7 @@ export type HeardSignalMemoryRow = {
 export type CompletedOutcomeCounts = {
 	food_evidence: number;
 	water_evidence: number;
+	danger_evidence: number;
 	mixed_evidence: number;
 	no_evidence: number;
 	interrupted: number;
@@ -106,6 +108,7 @@ export function buildCommunicationViewModel(
 		creatureId: c.id,
 		foodSymbolId: c.lexicon.food,
 		waterSymbolId: c.lexicon.water,
+		dangerSymbolId: c.lexicon.danger,
 		evidenceCount: evidenceRowCount(c)
 	}));
 
@@ -116,6 +119,7 @@ export function buildCommunicationViewModel(
 	const completedOutcomes: CompletedOutcomeCounts = {
 		food_evidence: 0,
 		water_evidence: 0,
+		danger_evidence: 0,
 		mixed_evidence: 0,
 		no_evidence: 0,
 		interrupted: 0,
@@ -181,7 +185,8 @@ function buildFunnel(
 ): FunnelStage[] {
 	const recentEmissions =
 		population.food.emissions.reduce((s, e) => s + e.recentCount, 0) +
-		population.water.emissions.reduce((s, e) => s + e.recentCount, 0);
+		population.water.emissions.reduce((s, e) => s + e.recentCount, 0) +
+		population.danger.emissions.reduce((s, e) => s + e.recentCount, 0);
 
 	let recentHeard = 0;
 	let recentLexiconChanges = 0;
@@ -199,7 +204,11 @@ function buildFunnel(
 			activeInvestigations += 1;
 		}
 		for (const entry of creature.recentLearning) {
-			if (entry.outcome === 'food_evidence' || entry.outcome === 'water_evidence') {
+			if (
+				entry.outcome === 'food_evidence' ||
+				entry.outcome === 'water_evidence' ||
+				entry.outcome === 'danger_evidence'
+			) {
 				clearEvidence += 1;
 			} else if (entry.outcome === 'no_evidence' || entry.outcome === 'interrupted') {
 				noEvidence += 1;
@@ -256,7 +265,7 @@ function buildFunnel(
 		},
 		{
 			id: 'investigations_completed',
-			label: 'Investigations completed',
+			label: 'Learning outcomes',
 			availability: 'recent_window',
 			value: recentLearning,
 			note: 'Bounded recentLearning entries (not lifetime)'
@@ -266,7 +275,7 @@ function buildFunnel(
 			label: 'Clear evidence',
 			availability: 'recent_window',
 			value: clearEvidence,
-			note: 'food_evidence + water_evidence in recent history'
+			note: 'food, water or danger evidence in recent history'
 		},
 		{
 			id: 'no_evidence',
@@ -301,7 +310,7 @@ function buildLiveFeed(state: SimulationState): LiveFeedItem[] {
 				id: `feed-emit-${emission.id}`,
 				timeSeconds: emission.emittedAt,
 				kind: 'emitted',
-				summary: `${creature.id} emitted ${emission.symbolId} (${emission.selectionEvidence.mode})`,
+				summary: `${creature.id} emitted ${emission.symbolId} (${emission.selectionEvidence.mode}; sender context ${emission.contextDetail}, observer only)`,
 				creatureId: creature.id,
 				symbolId: emission.symbolId
 			});

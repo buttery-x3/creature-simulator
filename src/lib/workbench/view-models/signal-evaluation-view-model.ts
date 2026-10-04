@@ -25,6 +25,11 @@ export function buildSignalEvaluationViews(creature: Creature): SignalEvaluation
 			signal.interpretation === 'unknown'
 				? 'unknown to this listener'
 				: `${signal.interpretation} in this listener’s lexicon`,
-		selectionLabel: signal.selected ? 'selected signal' : 'alternative signal'
+		selectionLabel:
+			signal.interpretation === 'danger'
+				? 'learned warning; excluded from investigation'
+				: signal.selected
+					? 'selected signal'
+					: 'alternative signal'
 	}));
 }

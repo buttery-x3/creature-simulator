@@ -17,7 +17,7 @@
  */
 
 import type { Vec2 } from '$lib/habitat';
-import type { CreatureLexicon } from '../learning/types';
+import type { CreatureLexicon, SymbolAssociation } from '../learning/types';
 import type { CreatureMemory } from '../memory/types';
 import type { BodyState, EcologyConfig } from '../ecology/types';
 import type { WorldBounds } from '$lib/habitat';
@@ -25,6 +25,8 @@ import type { CreatureTarget, WildlifeObservation } from '../types';
 
 /** What the creature is trying to accomplish (distinct from low-level action). */
 export type IntentionKind =
+	| 'warn_danger'
+	| 'avoid_danger'
 	| 'flee'
 	| 'hunt'
 	| 'satisfy_hunger'
@@ -64,6 +66,12 @@ export type CandidateFactor = {
 
 /** Stable reason codes for candidate validity, scoring and selection. */
 export type CandidateReasonCode =
+	| 'danger_aware_route'
+	| 'remembered_danger'
+	| 'learned_danger'
+	| 'warning_opportunity'
+	| 'no_warning_evidence'
+	| 'danger_requires_avoidance'
 	| 'local_danger'
 	| 'night_rest'
 	| 'hunting_payoff'
@@ -109,7 +117,7 @@ export type SignalEvaluation = {
 	symbolId: string;
 	origin: Vec2;
 	sequence: number;
-	interpretation: 'food' | 'water' | 'unknown';
+	interpretation: 'food' | 'water' | 'danger' | 'unknown';
 	hungerPressure: number;
 	thirstPressure: number;
 	foodKnowledge: 'visible' | 'remembered' | 'none';
@@ -173,11 +181,14 @@ export type CognitionConfig = {
  * no opportunity lifecycle objects.
  */
 export type ArbitrationInput = {
+	speechReady?: boolean;
+	symbolAssociations?: readonly SymbolAssociation[];
 	/** Optional only for resource-only pure consumers; runtime always supplies this snapshot. */
 	physical?: {
 		body: BodyState;
 		wildlife: readonly WildlifeObservation[];
 		bounds: WorldBounds;
+		homePosition?: Vec2;
 		ecology: EcologyConfig;
 	};
 	timeSeconds: number;
@@ -217,6 +228,8 @@ export type ArbitrationInput = {
  */
 export const INTENTION_TIE_BREAK_ORDER: readonly IntentionKind[] = [
 	'flee',
+	'avoid_danger',
+	'warn_danger',
 	'hunt',
 	'satisfy_hunger',
 	'satisfy_thirst',

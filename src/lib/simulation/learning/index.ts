@@ -52,3 +52,5 @@ export {
 	resolveInvestigationAtSite,
 	type LearningStepConfig
 } from './step-signal-learning';
+
+export { learnFromLocalDangerReception } from './reception-learning';

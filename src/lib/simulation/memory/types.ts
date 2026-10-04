@@ -15,7 +15,27 @@ import type { SymbolId } from '../communication/types';
 
 /** Discriminator for memory entry kinds (extensible). */
 export type CreatureMemoryEntryKind =
-	'resource_announcement' | 'resource_observation' | 'heard_signal';
+	'resource_announcement' | 'resource_observation' | 'heard_signal' | 'danger_observation';
+
+/** Last directly observed body and location; never tracks an unseen animal. */
+export type DangerObservationMemory = {
+	kind: 'danger_observation';
+	sequence: number;
+	rememberedAt: number;
+	/** Beginning of this bounded remembered encounter, preserved by local refreshes. */
+	firstObservedAt: number;
+	wildlifeId: string;
+	position: Vec2;
+	size: number;
+	physicality: number;
+	health: number;
+	energy: number;
+};
+
+export type DangerObservationMemoryDraft = Omit<
+	DangerObservationMemory,
+	'kind' | 'sequence' | 'firstObservedAt'
+> & { firstObservedAt?: number };
 
 /**
  * Successful resource announcement: “I have announced this feature.”
@@ -59,6 +79,8 @@ export type HeardSignalMemory = {
 	emissionId: string;
 	symbolId: SymbolId;
 	origin: Vec2;
+	/** One grounded receptive update per retained emission, including immediate co-occurrence. */
+	evidenceApplied: boolean;
 };
 
 /**
@@ -66,7 +88,10 @@ export type HeardSignalMemory = {
  * Future kinds extend this union without replacing the container.
  */
 export type CreatureMemoryEntry =
-	ResourceAnnouncementMemory | ResourceObservationMemory | HeardSignalMemory;
+	| ResourceAnnouncementMemory
+	| ResourceObservationMemory
+	| HeardSignalMemory
+	| DangerObservationMemory;
 
 /**
  * Authoritative per-creature memory container.
@@ -104,4 +129,5 @@ export type HeardSignalMemoryDraft = {
 	emissionId: string;
 	symbolId: SymbolId;
 	origin: Vec2;
+	evidenceApplied?: boolean;
 };

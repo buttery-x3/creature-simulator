@@ -22,6 +22,7 @@
 				<th scope="col">Intention</th>
 				<th scope="col">Food</th>
 				<th scope="col">Water</th>
+				<th scope="col">Danger</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -58,6 +59,13 @@
 							—
 						{/if}
 					</td>
+					<td
+						>{#if row.dangerSymbolId}<SymbolGlyph
+								symbolId={row.dangerSymbolId}
+								showId={false}
+								size={11}
+							/>{:else}—{/if}</td
+					>
 				</tr>
 			{/each}
 		</tbody>

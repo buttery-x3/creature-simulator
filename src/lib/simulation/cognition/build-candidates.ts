@@ -15,6 +15,9 @@ import type {
 	IntentionCandidate,
 	IntentionKind
 } from './types';
+import { INTENTION_RANK } from './types';
+import { buildWarningCandidates } from './danger/warning-candidates';
+import { applyDangerRouteRisk } from './ecology/danger-policy';
 import { buildPhysicalCandidates, nightRestWeight } from './ecology/physical-candidates';
 import { buildSignalCandidate } from './investigation/signal-candidate';
 import { verbosityToSpeechWeight } from './speech-weight';
@@ -163,8 +166,10 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 				}
 			: null;
 
-	return [
-		...buildPhysicalCandidates(input),
+	const physicalCandidates = buildPhysicalCandidates(input);
+	return applyDangerRouteRisk(input, [
+		...physicalCandidates,
+		...buildWarningCandidates(input, physicalCandidates),
 		candidate({
 			intention: 'satisfy_hunger',
 			valid: foodValid,
@@ -231,5 +236,5 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 			factors: [{ code: 'explore_baseline', value: config.exploreBaseline }],
 			reasonCodes: ['explore_baseline', 'always_valid']
 		})
-	];
+	]).sort((a, b) => INTENTION_RANK[a.intention] - INTENTION_RANK[b.intention]);
 }

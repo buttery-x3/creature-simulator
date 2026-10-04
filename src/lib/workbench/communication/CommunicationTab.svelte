@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SymbolGlyph from '$lib/SymbolGlyph.svelte';
+	import PopulationMeaningSummary from './PopulationMeaningSummary.svelte';
 	import { SYMBOL_PRESENTATIONS } from '$lib/symbol-presentation';
 	import type { SimulationConfig, SimulationState } from '$lib/simulation';
 	import { buildCommunicationViewModel } from '../view-models/communication-view-model';
@@ -34,7 +35,8 @@
 		<h3>Symbol legend</h3>
 		<p class="hint" data-testid="population-communication-hint">
 			Observational summaries only — exclusive lexicons and raw evidence are personal, not a global
-			dictionary or “correct” food/water symbol.
+			dictionary or “correct” food/water/danger symbol. Sender contexts shown in histories are
+			observer information, not messages decoded by a listener.
 		</p>
 		<div class="legend" data-testid="symbol-presentation-legend" aria-label="Symbol legend">
 			<span class="legend-title">Glyphs</span>
@@ -89,6 +91,7 @@
 						<th scope="col">Creature</th>
 						<th scope="col">Food</th>
 						<th scope="col">Water</th>
+						<th scope="col">Danger</th>
 						<th scope="col">Evidence</th>
 					</tr>
 				</thead>
@@ -119,6 +122,12 @@
 									—
 								{/if}
 							</td>
+							<td
+								>{#if row.dangerSymbolId}<SymbolGlyph
+										symbolId={row.dangerSymbolId}
+										showId={false}
+									/>{:else}—{/if}</td
+							>
 							<td>{row.evidenceCount}</td>
 						</tr>
 					{/each}
@@ -127,83 +136,8 @@
 		</div>
 	</section>
 
-	{#each [vm.population.food, vm.population.water] as ctx (ctx.context)}
-		<section
-			class="block"
-			data-testid={`population-context-${ctx.context}`}
-			aria-label={`${ctx.context} symbol summary`}
-		>
-			<h3>{ctx.context} symbol summary</h3>
-			<dl class="meta">
-				<div>
-					<dt>Most assigned (lexicon)</dt>
-					<dd data-testid={`population-${ctx.context}-most-assigned`}>
-						{#if ctx.mostAssignedSymbolId}
-							<SymbolGlyph symbolId={ctx.mostAssignedSymbolId} />
-						{:else}
-							none
-						{/if}
-					</dd>
-				</div>
-				<div>
-					<dt>Unassigned creatures</dt>
-					<dd data-testid={`population-${ctx.context}-unassigned`}>
-						{ctx.creaturesUnassigned}/{vm.population.creatureCount}
-					</dd>
-				</div>
-				<div>
-					<dt>Highest mean evidence</dt>
-					<dd data-testid={`population-${ctx.context}-highest-mean`}>
-						{#if ctx.highestMeanAssociationSymbolId}
-							<SymbolGlyph symbolId={ctx.highestMeanAssociationSymbolId} />
-						{:else}
-							none
-						{/if}
-					</dd>
-				</div>
-				<div>
-					<dt>Most emitted in window</dt>
-					<dd data-testid={`population-${ctx.context}-most-emitted`}>
-						{#if ctx.mostEmittedSymbolId}
-							<SymbolGlyph symbolId={ctx.mostEmittedSymbolId} />
-						{:else}
-							none
-						{/if}
-					</dd>
-				</div>
-				<div>
-					<dt>Learned vs exploratory</dt>
-					<dd data-testid={`population-${ctx.context}-emission-modes`}>
-						learned={ctx.recentLearnedEmissions} · exploratory={ctx.recentExploratoryEmissions}
-					</dd>
-				</div>
-			</dl>
-			<div class="table-wrap">
-				<table class="table" data-testid={`population-${ctx.context}-symbol-rows`}>
-					<thead>
-						<tr>
-							<th scope="col">Symbol</th>
-							<th scope="col">Assigned</th>
-							<th scope="col">Evidence</th>
-							<th scope="col">Recent emit</th>
-							<th scope="col">Share</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each ctx.associations as assoc (assoc.symbolId)}
-							{@const emit = ctx.emissions.find((e) => e.symbolId === assoc.symbolId)}
-							<tr data-testid={`population-${ctx.context}-row-${assoc.symbolId}`}>
-								<td><SymbolGlyph symbolId={assoc.symbolId} /></td>
-								<td>{assoc.creaturesAssigned}</td>
-								<td>{assoc.creaturesWithEvidence}</td>
-								<td>{emit?.recentCount ?? 0}</td>
-								<td>{(emit?.recentShare ?? 0).toFixed(3)}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		</section>
+	{#each [vm.population.food, vm.population.water, vm.population.danger] as ctx (ctx.context)}
+		<PopulationMeaningSummary {ctx} creatureCount={vm.population.creatureCount} />
 	{/each}
 
 	<section
@@ -335,9 +269,10 @@
 			</table>
 		{/if}
 		<p class="hint">
-			Completed outcomes (recent history): food={vm.completedOutcomes.food_evidence}, water={vm
-				.completedOutcomes.water_evidence}, mixed={vm.completedOutcomes.mixed_evidence}, none={vm
-				.completedOutcomes.no_evidence}, interrupted={vm.completedOutcomes.interrupted}
+			Learning outcomes (recent history): danger={vm.completedOutcomes.danger_evidence}, food={vm
+				.completedOutcomes.food_evidence}, water={vm.completedOutcomes.water_evidence}, mixed={vm
+				.completedOutcomes.mixed_evidence}, none={vm.completedOutcomes.no_evidence}, interrupted={vm
+				.completedOutcomes.interrupted}
 		</p>
 	</section>
 </div>
@@ -414,29 +349,6 @@
 	.table th {
 		color: #94a3b8;
 		font-weight: 600;
-	}
-
-	.meta {
-		display: grid;
-		gap: 0.28rem;
-		margin: 0 0 0.45rem;
-		font-size: 0.75rem;
-	}
-
-	.meta div {
-		display: grid;
-		grid-template-columns: 9.5rem 1fr;
-		gap: 0.35rem;
-	}
-
-	.meta dt {
-		margin: 0;
-		color: #94a3b8;
-	}
-
-	.meta dd {
-		margin: 0;
-		color: #e5e7eb;
 	}
 
 	.muted {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SYMBOL_INVENTORY } from '../communication/types';
 import type { SymbolAssociation } from './types';
+import { emptyAssociation } from './signal-associations';
 import {
 	diffLexiconChanges,
 	emptyLexicon,
@@ -24,8 +25,11 @@ function row(
 		symbolId,
 		foodStrength: food,
 		waterStrength: water,
+		dangerStrength: 0,
 		foodEvidenceCount: foodN,
-		waterEvidenceCount: waterN
+		waterEvidenceCount: waterN,
+		dangerEvidenceCount: 0,
+		dangerEvidenceEpisodes: []
 	};
 }
 
@@ -153,7 +157,7 @@ describe('resolveCreatureLexicon', () => {
 			DEFAULT_SYMBOL_INVENTORY,
 			config
 		);
-		expect(before.lexicon).toEqual({ food: 'glyph-2', water: 'glyph-1' });
+		expect(before.lexicon).toEqual({ food: 'glyph-2', water: 'glyph-1', danger: null });
 
 		const after = resolveCreatureLexicon(
 			evidence({
@@ -173,8 +177,11 @@ describe('resolveCreatureLexicon', () => {
 			symbolId: 'glyph-0',
 			foodStrength: Number.NaN,
 			waterStrength: Number.POSITIVE_INFINITY,
+			dangerStrength: 0,
 			foodEvidenceCount: 5,
-			waterEvidenceCount: 5
+			waterEvidenceCount: 5,
+			dangerEvidenceCount: 0,
+			dangerEvidenceEpisodes: []
 		};
 		const result = resolveCreatureLexicon(rows, DEFAULT_SYMBOL_INVENTORY, config);
 		expect(result.lexicon).toEqual(emptyLexicon());
@@ -184,8 +191,8 @@ describe('resolveCreatureLexicon', () => {
 describe('diffLexiconChanges', () => {
 	it('records only meanings that changed', () => {
 		const entries = diffLexiconChanges(
-			{ food: 'glyph-0', water: null },
-			{ food: 'glyph-1', water: 'glyph-2' },
+			{ food: 'glyph-0', water: null, danger: null },
+			{ food: 'glyph-1', water: 'glyph-2', danger: null },
 			{
 				timeSeconds: 3,
 				assignmentScore: 1.2,
@@ -203,6 +210,51 @@ describe('diffLexiconChanges', () => {
 			meaning: 'water',
 			previousSymbolId: null,
 			newSymbolId: 'glyph-2'
+		});
+	});
+});
+
+describe('three-meaning exclusivity', () => {
+	it('optimises all three meanings together while preserving overlapping evidence', () => {
+		const rows = [
+			{
+				...emptyAssociation('glyph-0'),
+				foodStrength: 0.9,
+				foodEvidenceCount: 1,
+				dangerStrength: 1,
+				dangerEvidenceCount: 1
+			},
+			{
+				...emptyAssociation('glyph-1'),
+				waterStrength: 0.8,
+				waterEvidenceCount: 1,
+				dangerStrength: 0.6,
+				dangerEvidenceCount: 1
+			},
+			{ ...emptyAssociation('glyph-2'), dangerStrength: 0.8, dangerEvidenceCount: 1 }
+		];
+		const resolved = resolveCreatureLexicon(rows, DEFAULT_SYMBOL_INVENTORY, config);
+		expect(resolved.lexicon).toEqual({ food: 'glyph-0', water: 'glyph-1', danger: 'glyph-2' });
+		expect(resolved.score).toBeCloseTo(2.5);
+		expect(rows[0]!.dangerStrength).toBe(1);
+	});
+
+	it('never uses a single ambiguous symbol for multiple meanings', () => {
+		const rows = [
+			{
+				...emptyAssociation('glyph-0'),
+				foodStrength: 0.4,
+				waterStrength: 0.6,
+				dangerStrength: 0.9,
+				foodEvidenceCount: 1,
+				waterEvidenceCount: 1,
+				dangerEvidenceCount: 1
+			}
+		];
+		expect(resolveCreatureLexicon(rows, DEFAULT_SYMBOL_INVENTORY, config).lexicon).toEqual({
+			food: null,
+			water: null,
+			danger: 'glyph-0'
 		});
 	});
 });

@@ -418,3 +418,19 @@ language detail panels; future social/lifecycle panels belong beside these,
 not embedded as new algorithms inside the tab. Existing public simulation barrel
 size remains a review concern; added exports are deliberate ecology capabilities.
 No hard thresholds, capacity limits or dependency directions were raised.
+
+### Danger learning and observation headroom
+
+The third learned meaning extends existing evidence, symbol selection and
+exclusive assignment ownership. Reception coincidence is a separate learning
+module because it has a distinct trigger and evidence window from arrival.
+Danger scoring and route-risk geometry are separate cognition policies; physical
+action execution remains below behaviour/execution. Memory uses its existing
+bounded union, with no parallel unlimited danger history.
+
+The growing raw creature formatter now delegates communication/learning text to
+diagnostics/communication-inspection. Population-symbol-diagnostics remains a
+review-trigger file (~365 code lines): danger adds another instance of its one
+per-context observational aggregation responsibility, not another policy.
+CommunicationTab delegates its population-meaning section, and follow camera
+framing has a pure tested owner. No threshold exceptions or rule changes.

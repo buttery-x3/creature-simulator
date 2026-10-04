@@ -88,8 +88,9 @@
 	<div class="score-box" data-testid="inspector-signal-evaluations">
 		<h4>Retained signals at last arbitration ({signals.length})</h4>
 		<p class="hint">
-			Personal listener interpretations; unknown symbols remain eligible. Scores exclude intention
-			continuity.
+			Personal listener interpretations; unknown symbols remain eligible for investigation. Learned
+			danger signals instead contribute to the separate avoidance candidate. Scores exclude
+			intention continuity.
 		</p>
 		<p class="hint">{SIGNAL_RANKING_EXPLANATION}</p>
 		{#if signals.length === 0}
@@ -120,7 +121,13 @@
 								3
 							)}
 						</div>
-						<div>Score = max(optional, floor) + semantic = {signal.score.toFixed(3)}</div>
+						<div>
+							Investigation score = max(optional, floor) + semantic = {signal.score.toFixed(3)}
+						</div>
+						{#if signal.interpretation === 'danger'}<div>
+								This learned warning is excluded from approach. See the recorded avoid_danger
+								candidate below for avoidance evidence.
+							</div>{/if}
 					</li>
 				{/each}
 			</ol>

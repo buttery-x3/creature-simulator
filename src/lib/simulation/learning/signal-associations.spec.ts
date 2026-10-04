@@ -65,8 +65,11 @@ describe('symbol associations', () => {
 				symbolId: 'glyph-0' as const,
 				foodStrength: 0.4,
 				waterStrength: 0.2,
+				dangerStrength: 0,
 				foodEvidenceCount: 1,
-				waterEvidenceCount: 1
+				waterEvidenceCount: 1,
+				dangerEvidenceCount: 0,
+				dangerEvidenceEpisodes: []
 			}
 		];
 		const unchanged = applyNoEvidenceReduction(associations, 'glyph-0', 0, clamp);
@@ -77,4 +80,49 @@ describe('symbol associations', () => {
 		expect(reduced.foodStrengthAfter).toBeCloseTo(0.3);
 		expect(reduced.waterStrengthAfter).toBeCloseTo(0.1);
 	});
+});
+
+it('bounds independent danger episode provenance and ignores repeated confirmation', () => {
+	let associations = [emptyAssociation('glyph-0')];
+	for (let episode = 0; episode < 20; episode++) {
+		associations = reinforceAssociation(
+			associations,
+			'glyph-0',
+			{
+				reinforceFood: false,
+				reinforceWater: false,
+				reinforceDanger: true,
+				dangerEpisodes: [`animal:${episode}`],
+				amount: 0.1
+			},
+			clamp
+		).associations;
+	}
+	const repeated = reinforceAssociation(
+		associations,
+		'glyph-0',
+		{
+			reinforceFood: false,
+			reinforceWater: false,
+			reinforceDanger: true,
+			dangerEpisodes: ['animal:19'],
+			amount: 0.1
+		},
+		clamp
+	);
+	expect(repeated.associations[0]).toMatchObject({ dangerStrength: 1, dangerEvidenceCount: 20 });
+	expect(repeated.associations[0]!.dangerEvidenceEpisodes).toHaveLength(8);
+});
+
+it('does not repeatedly learn when simultaneous episode candidates exceed provenance capacity', () => {
+	const options = {
+		reinforceFood: false,
+		reinforceWater: false,
+		reinforceDanger: true,
+		dangerEpisodes: Array.from({ length: 12 }, (_, index) => `animal-${index}:1`),
+		amount: 0.25
+	};
+	const first = reinforceAssociation([emptyAssociation('glyph-0')], 'glyph-0', options, clamp);
+	const second = reinforceAssociation(first.associations, 'glyph-0', options, clamp);
+	expect(second.associations[0]!.dangerEvidenceCount).toBe(1);
 });

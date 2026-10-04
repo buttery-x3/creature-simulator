@@ -124,7 +124,7 @@ export type CreaturePerception = {
 export type WildlifeObservation = Pick<
 	Wildlife,
 	'id' | 'position' | 'size' | 'physicality' | 'health' | 'energy' | 'foodAmount'
-> & { observedAt: number };
+> & { observedAt: number; firstObservedAt: number };
 
 export type CreatureTarget =
 	| {

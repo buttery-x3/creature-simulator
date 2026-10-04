@@ -45,6 +45,14 @@
 			</dd>
 		</div>
 		<div>
+			<dt>Danger assignment</dt>
+			<dd data-testid="inspector-lexicon-danger">
+				{#if selectedCreature.lexicon.danger}<SymbolGlyph
+						symbolId={selectedCreature.lexicon.danger}
+					/>{:else}unassigned{/if}
+			</dd>
+		</div>
+		<div>
 			<dt>Preferred symbol</dt>
 			<dd data-testid="inspector-preferred-symbol">
 				<SymbolGlyph symbolId={selectedCreature.preferredSymbolId} />
@@ -107,7 +115,7 @@
 			<p data-testid="inspector-last-selection-detail">
 				{#if selectedCreature.recentEmitted.length > 0}
 					{@const last = selectedCreature.recentEmitted[selectedCreature.recentEmitted.length - 1]!}
-					context={last.selectionEvidence.emissionContext}
+					Sender context (observer only)={last.selectionEvidence.emissionContext}
 					mode={last.selectionEvidence.mode}
 					reason={last.selectionEvidence.reason}
 				{:else}
@@ -119,7 +127,9 @@
 			{#each selectedCreature.symbolAssociations as assoc (assoc.symbolId)}
 				<li data-testid={`inspector-assoc-${assoc.symbolId}`}>
 					<SymbolGlyph symbolId={assoc.symbolId} />: food={assoc.foodStrength.toFixed(3)} (n={assoc.foodEvidenceCount}),
-					water={assoc.waterStrength.toFixed(3)} (n={assoc.waterEvidenceCount})
+					water={assoc.waterStrength.toFixed(3)} (n={assoc.waterEvidenceCount}), danger={assoc.dangerStrength.toFixed(
+						3
+					)} (n={assoc.dangerEvidenceCount})
 				</li>
 			{/each}
 		</ul>

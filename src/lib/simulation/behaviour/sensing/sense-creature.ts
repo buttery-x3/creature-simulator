@@ -11,6 +11,11 @@ import type { Creature, WildlifeObservation } from '../../types';
 import type { BehaviourStepConfig } from '../step-creature-behaviour';
 import { updatePerception } from '../perception';
 import { pointTarget } from '../resource-awareness';
+import {
+	DANGER_MEMORY_LIFETIME_SECONDS,
+	forgetEntries,
+	rememberDangerObservation
+} from '../../memory';
 
 /** Resource and animal sensing share one local clock; exploration remains separate memory. */
 export function senseCreature(
@@ -20,7 +25,15 @@ export function senseCreature(
 	config: BehaviourStepConfig,
 	wildlife: readonly Wildlife[]
 ) {
-	let next = creature;
+	let next = {
+		...creature,
+		memory: forgetEntries(
+			creature.memory,
+			(entry) =>
+				entry.kind === 'danger_observation' &&
+				timeSeconds - entry.rememberedAt >= DANGER_MEMORY_LIFETIME_SECONDS
+		)
+	};
 	// 1. Perception always runs (no investigation freeze).
 	const previousFood = new Set(next.perception.perceivedFoodIds);
 	const previousWater = new Set(next.perception.perceivedWaterIds);
@@ -31,6 +44,7 @@ export function senseCreature(
 	let dangerChanged = false;
 	let wildlifeChanged = false;
 	if (perceived.sensed) {
+		const previousWildlife = new Map(next.perceivedWildlife.map((animal) => [animal.id, animal]));
 		const observed = wildlife
 			.filter(
 				(w) =>
@@ -45,7 +59,13 @@ export function senseCreature(
 				health: w.health,
 				energy: w.energy,
 				foodAmount: w.foodAmount,
-				observedAt: timeSeconds
+				observedAt: timeSeconds,
+				firstObservedAt: observationEpisodeStart(
+					next,
+					previousWildlife.get(w.id),
+					w.id,
+					timeSeconds
+				)
 			}));
 		const isThreat = (w: WildlifeObservation) =>
 			w.health > 0 &&
@@ -53,7 +73,28 @@ export function senseCreature(
 		wildlifeChanged =
 			observed.map((w) => w.id).join() !== next.perceivedWildlife.map((w) => w.id).join();
 		dangerChanged = observed.some(isThreat) || next.perceivedWildlife.some(isThreat);
-		next = { ...next, perceivedWildlife: observed };
+		let memory = next.memory;
+		for (const animal of observed) {
+			if (isThreat(animal)) {
+				memory = rememberDangerObservation(memory, {
+					wildlifeId: animal.id,
+					position: animal.position,
+					size: animal.size,
+					physicality: animal.physicality,
+					health: animal.health,
+					energy: animal.energy,
+					rememberedAt: timeSeconds,
+					firstObservedAt: animal.firstObservedAt
+				});
+			} else {
+				// New local evidence can disconfirm danger, including a visible carcass.
+				memory = forgetEntries(
+					memory,
+					(entry) => entry.kind === 'danger_observation' && entry.wildlifeId === animal.id
+				);
+			}
+		}
+		next = { ...next, perceivedWildlife: observed, memory };
 		const foodNow = next.perception.perceivedFoodIds;
 		const waterNow = next.perception.perceivedWaterIds;
 		const foodChanged =
@@ -106,4 +147,23 @@ export function senseCreature(
 	}
 
 	return { creature: next, perceptionChanged, dangerChanged, wildlifeChanged };
+}
+
+/** Continuous local sight survives shared-memory eviction; unseen episodes still expire. */
+function observationEpisodeStart(
+	creature: Creature,
+	previous: WildlifeObservation | undefined,
+	wildlifeId: string,
+	timeSeconds: number
+): number {
+	if (previous && timeSeconds - previous.observedAt < DANGER_MEMORY_LIFETIME_SECONDS) {
+		return previous.firstObservedAt;
+	}
+	const retained = creature.memory.entries.find(
+		(entry) =>
+			entry.kind === 'danger_observation' &&
+			entry.wildlifeId === wildlifeId &&
+			timeSeconds - entry.rememberedAt < DANGER_MEMORY_LIFETIME_SECONDS
+	);
+	return retained?.kind === 'danger_observation' ? retained.firstObservedAt : timeSeconds;
 }

@@ -9,6 +9,7 @@ export type {
 	HeardSignal,
 	ResourceDiscoveryDetail,
 	SignalEmission,
+	SignalContextDetail,
 	SymbolId,
 	SymbolSelectionCandidateEvidence,
 	SymbolSelectionEvidence,

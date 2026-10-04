@@ -522,3 +522,27 @@ Defaults and validation evidence live in overnight-expansion.md. Creature
 health currently models injury with a floor of 0.05; mortality is pending the
 complete lifecycle slice. Wildlife can die and yields finite decaying food.
 No animal regeneration or population rescue is implemented.
+
+## Grounded danger communication
+
+Danger extends the existing exclusive personal lexicon alongside food and water.
+A selected warn_danger intention can retreat while emitting an arbitrary symbol;
+communication selects the sender's learned assignment or an exploratory form.
+The listener receives symbol and origin only. Local fresh coincidence evidence,
+not sender context, can reinforce danger and concurrent resource associations.
+Learning after reception follows heard-memory writes; arrival learning remains
+available. A per-event evidenceApplied marker and bounded danger episode credits
+prevent counting one observation repeatedly.
+
+Known warning forms are excluded from approach-to-origin investigation. A separate
+avoid_danger candidate uses that listener's association strength, condition,
+origin proximity and warning age. Its maximum score is bounded below urgent
+actionable needs. Warnings expire for decision purposes after 12 seconds; no
+hidden animal identity or live position is inferred from a warning. Raw retained
+symbols are interpreted afresh, so a future lexicon change can alter their use.
+
+Direct danger observations share CreatureMemory capacity and retain identity and
+last-seen physical evidence for at most 12 seconds. Physical flee and soft route
+risk can consult those fading snapshots; hunt still requires current perception.
+Routes toward a recently observed hazard lose utility, with bounded urgency and
+ability modifiers. No hard behavioral lock or global danger map is introduced.

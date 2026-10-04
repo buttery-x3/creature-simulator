@@ -29,14 +29,14 @@ export type LexiconResolveResult = {
 };
 
 export function emptyLexicon(): CreatureLexicon {
-	return { food: null, water: null };
+	return { food: null, water: null, danger: null };
 }
 
 function strengthFor(row: SymbolAssociation | undefined, meaning: LexiconMeaning): number {
 	if (!row) {
 		return 0;
 	}
-	const raw = meaning === 'food' ? row.foodStrength : row.waterStrength;
+	const raw = row[`${meaning}Strength`];
 	return Number.isFinite(raw) && raw > 0 ? raw : 0;
 }
 
@@ -44,7 +44,7 @@ function countFor(row: SymbolAssociation | undefined, meaning: LexiconMeaning): 
 	if (!row) {
 		return 0;
 	}
-	const raw = meaning === 'food' ? row.foodEvidenceCount : row.waterEvidenceCount;
+	const raw = row[`${meaning}EvidenceCount`];
 	return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
 }
 
@@ -137,7 +137,8 @@ export function resolveCreatureLexicon(
 
 	const eligible: Record<LexiconMeaning, (SymbolId | null)[]> = {
 		food: [null],
-		water: [null]
+		water: [null],
+		danger: [null]
 	};
 	for (const symbolId of inventory) {
 		const row = byId.get(symbolId);
@@ -151,15 +152,19 @@ export function resolveCreatureLexicon(
 	type Candidate = { lexicon: CreatureLexicon; score: number };
 	const candidates: Candidate[] = [];
 
-	for (const food of eligible.food) {
-		for (const water of eligible.water) {
-			const lexicon: CreatureLexicon = { food, water };
-			if (!isValidExclusive(lexicon)) {
-				continue;
-			}
-			candidates.push({ lexicon, score: scoreAssignment(lexicon, byId) });
+	function enumerate(index: number, lexicon: CreatureLexicon): void {
+		const meaning = LEXICON_MEANINGS[index];
+		if (!meaning) {
+			candidates.push({ lexicon: { ...lexicon }, score: scoreAssignment(lexicon, byId) });
+			return;
 		}
+		for (const symbol of eligible[meaning]) {
+			lexicon[meaning] = symbol;
+			if (isValidExclusive(lexicon)) enumerate(index + 1, lexicon);
+		}
+		lexicon[meaning] = null;
 	}
+	enumerate(0, emptyLexicon());
 
 	// Always at least the all-null assignment.
 	if (candidates.length === 0) {
@@ -178,8 +183,8 @@ export function resolveCreatureLexicon(
 	});
 
 	const best = candidates[0]!;
-	const runnerUp = candidates.find(
-		(c) => c.lexicon.food !== best.lexicon.food || c.lexicon.water !== best.lexicon.water
+	const runnerUp = candidates.find((c) =>
+		LEXICON_MEANINGS.some((meaning) => c.lexicon[meaning] !== best.lexicon[meaning])
 	);
 
 	const parts: string[] = [];

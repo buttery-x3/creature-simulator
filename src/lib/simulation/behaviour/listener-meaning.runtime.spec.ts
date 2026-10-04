@@ -29,8 +29,8 @@ const newerSignal = {
 	symbolId: 'glyph-2' as const,
 	origin: { x: 5, y: 0 }
 };
-const foodLexicon: CreatureLexicon = { food: 'glyph-1', water: 'glyph-2' };
-const swappedLexicon: CreatureLexicon = { food: 'glyph-2', water: 'glyph-1' };
+const foodLexicon: CreatureLexicon = { food: 'glyph-1', water: 'glyph-2', danger: null };
+const swappedLexicon: CreatureLexicon = { food: 'glyph-2', water: 'glyph-1', danger: null };
 
 function fixture(overrides: Partial<Creature> = {}) {
 	const config = {
@@ -104,7 +104,7 @@ describe('listener meaning through runtime arbitration', () => {
 
 		const assigned = first(foodLexicon);
 		const swapped = first(swappedLexicon);
-		const cleared = first({ food: null, water: null });
+		const cleared = first({ food: null, water: null, danger: null });
 		expectSignalAligned(assigned, olderSignal);
 		expectSignalAligned(swapped, newerSignal);
 		expectSignalAligned(cleared, newerSignal);

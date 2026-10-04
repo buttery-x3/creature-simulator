@@ -11,7 +11,7 @@ import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 
 function emptySelectionEvidence(
 	symbolId: SignalEmission['symbolId'],
-	context: 'food' | 'water',
+	context: 'food' | 'water' | 'danger',
 	mode: SignalEmission['selectionEvidence']['mode'] = 'exploratory'
 ): SignalEmission['selectionEvidence'] {
 	return {
@@ -40,7 +40,7 @@ function emission(
 		origin: { x: 0, y: 0 },
 		emittedAt: partial.emittedAt,
 		expiresAt: partial.emittedAt + 1,
-		context: 'resource_discovered',
+		context: partial.contextDetail === 'danger' ? 'danger_observed' : 'resource_discovered',
 		contextDetail: partial.contextDetail,
 		symbolSelectionReason: 'test',
 		selectionEvidence: emptySelectionEvidence(partial.symbolId, partial.contextDetail),
@@ -59,6 +59,9 @@ function assoc(
 		symbolId,
 		foodStrength: food,
 		waterStrength: water,
+		dangerStrength: 0,
+		dangerEvidenceCount: 0,
+		dangerEvidenceEpisodes: [],
 		foodEvidenceCount: foodN,
 		waterEvidenceCount: waterN
 	};
@@ -73,19 +76,19 @@ describe('buildPopulationSymbolDiagnostics', () => {
 				symbolAssociations: inventory.map((id) =>
 					id === 'glyph-1' ? assoc(id, 0.8, 0) : assoc(id, 0, 0)
 				),
-				lexicon: { food: 'glyph-1', water: null }
+				lexicon: { food: 'glyph-1', water: null, danger: null }
 			}),
 			testCreature({
 				id: 'b',
 				symbolAssociations: inventory.map((id) =>
 					id === 'glyph-1' ? assoc(id, 0.4, 0) : assoc(id, 0, 0)
 				),
-				lexicon: { food: 'glyph-1', water: null }
+				lexicon: { food: 'glyph-1', water: null, danger: null }
 			}),
 			testCreature({
 				id: 'c',
 				symbolAssociations: inventory.map((id) => assoc(id, 0, 0)),
-				lexicon: { food: null, water: null }
+				lexicon: { food: null, water: null, danger: null }
 			})
 		];
 		const base = createSimulation({ ...defaultSimulationConfig('pop-fix'), creatureCount: 0 });
@@ -239,4 +242,35 @@ describe('buildPopulationSymbolDiagnostics', () => {
 		expect(diag.food.recentLearnedEmissions).toBe(1);
 		expect(diag.food.recentExploratoryEmissions).toBe(1);
 	});
+});
+
+it('separates personal danger assignments and evidence from observer-only sender context', () => {
+	const config = defaultSimulationConfig('danger-summary');
+	const state = createSimulation(config);
+	state.creatures = [
+		testCreature({
+			lexicon: { food: null, water: null, danger: 'glyph-2' },
+			symbolAssociations: [
+				{
+					...assoc('glyph-2', 0, 0),
+					dangerStrength: 0.6,
+					dangerEvidenceCount: 2,
+					dangerEvidenceEpisodes: ['a', 'b']
+				}
+			]
+		})
+	];
+	state.timeSeconds = 5;
+	state.recentEmissions = [
+		emission({ id: 'danger-emission', symbolId: 'glyph-1', contextDetail: 'danger', emittedAt: 4 })
+	];
+	const before = JSON.stringify(state);
+	const result = buildPopulationSymbolDiagnostics(state, config);
+	expect(result.danger.mostAssignedSymbolId).toBe('glyph-2');
+	expect(result.danger.mostEmittedSymbolId).toBe('glyph-1');
+	expect(result.danger.creaturesContributingEvidence).toBe(1);
+	expect(result.danger.associations.find((a) => a.symbolId === 'glyph-2')?.meanStrength).toBe(0.6);
+	expect(result.food.creaturesContributingEvidence).toBe(0);
+	expect(formatPopulationSymbolDiagnostics(result)).toContain('danger:');
+	expect(JSON.stringify(state)).toBe(before);
 });

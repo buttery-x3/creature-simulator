@@ -426,3 +426,24 @@ types. CreatureTarget gains an explicit wildlife identity variant. Existing
 creation exports remain intact. No dependency-direction or threshold exceptions
 are introduced. New unit tests are co-located; ecology.e2e.ts uses the route test
 convention.
+
+### Grounded danger additions
+
+- cognition/danger/warning-candidates.ts owns warning emission utility, learned
+  avoidance utility and freshness policy.
+- cognition/ecology/danger-policy.ts owns shared retreat geometry and local or
+  remembered route-risk evidence.
+- behaviour/execution/danger-expression.ts constructs a selected warning request;
+  it never assigns symbol meanings or selects an intention.
+- learning/reception-learning.ts owns listener-local coincident evidence and calls
+  existing evidence/lexicon resolution.
+- memory types/mutate/query extend the existing bounded container with local
+  danger observations and per-heard-event evidence bookkeeping.
+- diagnostics/communication-inspection.ts owns raw communication and learning
+  text extracted from the larger selected-creature formatter.
+- workbench/communication/PopulationMeaningSummary.svelte presents the per-meaning
+  population summary; viewport/camera.ts owns overview/follow camera framing.
+
+No new top-level domain or dependency reversal is introduced. Cognition reads
+plain personal association snapshots; communication continues to read lexicon
+values without importing learning algorithms.

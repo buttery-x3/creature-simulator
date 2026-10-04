@@ -56,7 +56,9 @@ const INTENTIONS: readonly IntentionKind[] = [
 	'investigate_signal',
 	'announce_resource',
 	'flee',
-	'hunt'
+	'hunt',
+	'warn_danger',
+	'avoid_danger'
 ] as const;
 
 function emptyIntentionCounts(): Record<IntentionKind, number> {
@@ -68,7 +70,9 @@ function emptyIntentionCounts(): Record<IntentionKind, number> {
 		investigate_signal: 0,
 		announce_resource: 0,
 		flee: 0,
-		hunt: 0
+		hunt: 0,
+		warn_danger: 0,
+		avoid_danger: 0
 	};
 }
 

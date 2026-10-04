@@ -14,10 +14,9 @@
 
 ## Current work
 
-First slice in progress: physical ecology, bounded local wildlife perception,
-utility-driven flee/hunt decisions, injury and encounter costs, day/night rest
-weight, visible wildlife/condition, and step/speed controls. This checkpoint is
-the clean pre-feature baseline; no completed feature is claimed yet.
+Physical ecology and grounded danger language are implemented and checked.
+The next increment corrects an observed acute-need utility trap before adding
+relationships and innate expression. See the completed checkpoints below.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -28,7 +27,7 @@ later opportunities only after the earlier sequence is complete.
 ## Verification and review backlog
 
 - Baseline hashes and listener-meaning sources verified.
-- No full quality gate run yet in the isolated checkout.
+- Full quality gates are recorded per checkpoint below.
 - Each completed slice must record focused tests, full `npm run check`, actual
   browser observations, tunable defaults, and remaining work here.
 - No implementation approval pause is required by this run's explicit user
@@ -76,3 +75,53 @@ Browser observation: demo reached 131.667 simulated seconds at 8x (17.4s wall),
 with legible nighttime habitat, 12 creatures and 6 living wildlife. World
 encounter history and selected local observation panels rendered and scrolled;
 no page errors or apparent movement stalls were observed in that run.
+
+## Checkpoint 2: grounded danger language
+
+Implemented: danger joins exclusive personal food/water
+lexicons, locally grounded reception learning, mixed evidence, episode/event
+deduplication, warning emission while retreating, voluntary learned avoidance,
+and fading warning/direct danger knowledge. Known warnings never automatically
+invite approach to their origin. The same heard form can be unknown or learned
+as food by another creature. Fresh known warnings can interrupt sleep; urgent
+known water can still win. A full-memory replacement hearing bug is fixed so
+newly heard evidence triggers reconsideration even when memory count is unchanged.
+
+Observation extends personal/population evidence to danger and adds a follow
+selected creature camera option. The optional feature addendum was read as
+guidance: keep one starting group and small semantics, deepen local interactions,
+and pursue safety/help only once available actions can ground them.
+
+Defaults: both warning decision lifetime and direct hazard memory lifetime are
+12 seconds. Episode provenance is bounded; sender intent remains observer-only.
+Short matched runtime tests learn from actual reception/arrival before comparing
+known, unknown, conflicting and stale cases; no successful translation is preset.
+Longer-run comparisons currently show fewer rapid flee/rest reversals but worse
+thirst pressure in some seeds. This is an observed tradeoff, not a causal claim
+that communication improves survival.
+
+Validation: full `npm run check` passed (470 unit tests, server test, build,
+10 browser tests; Linux-only deployment fixture skipped). Continuous sightings
+retain their episode onset independently of bounded memory eviction; capacities
+1 and 2 and expired/reacquired encounters have regression coverage.
+Three updated 600-second runs and duplicate 60-second full-state traces remained
+bounded and deterministic. Thirst pressure in river/drought increased; targeted
+traces found full-energy nighttime rest and generic investigation outranking
+maximal blind thirst search. The next checkpoint addresses this utility defect.
+
+Structure: reception learning owns its distinct evidence window; bounded danger
+memories and cognition risk policies extend existing domains. Communication
+formatting and follow-camera geometry have extracted owners. No threshold or
+dependency-direction changes. Population-symbol diagnostics remains a reviewed
+aggregation responsibility at about 365 code lines; future independent evidence
+formats should use the diagnostics subdomain.
+
+Next frontier: acute-need scoring and recovery reconsideration, then relationships
+and innate expression. Off-home rest remains a measured follow-up.
+
+Browser observation: Chromium demo reached 149.033 simulated seconds at 8x.
+The population panel showed five creatures with assigned danger forms and seven
+unassigned; creature 0 had distinct food/water/danger forms. Sender context was
+explicitly labeled observer-only. Follow mode centered the selected creature
+without advancing paused simulation time; disabling it restored full framing.
+Screenshots were inspected; no page errors or apparent stalls were observed.

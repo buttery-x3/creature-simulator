@@ -4,12 +4,30 @@
  */
 
 import type {
+	DangerObservationMemory,
 	CreatureMemory,
 	CreatureMemoryEntry,
 	HeardSignalMemory,
 	ResourceAnnouncementMemory,
 	ResourceObservationMemory
 } from './types';
+
+/** Brief danger evidence expires; ordinary resource and signal retention is unchanged. */
+export const DANGER_MEMORY_LIFETIME_SECONDS = 12;
+
+export function listDangerObservations(
+	memory: CreatureMemory,
+	timeSeconds: number
+): DangerObservationMemory[] {
+	return memory.entries
+		.filter(
+			(entry): entry is DangerObservationMemory =>
+				entry.kind === 'danger_observation' &&
+				timeSeconds >= entry.rememberedAt &&
+				timeSeconds - entry.rememberedAt < DANGER_MEMORY_LIFETIME_SECONDS
+		)
+		.sort((a, b) => b.sequence - a.sequence);
+}
 
 /** True when a resource_announcement entry exists for the exact feature id. */
 export function hasResourceAnnouncementMemory(memory: CreatureMemory, featureId: string): boolean {

@@ -11,6 +11,7 @@ import { resolveFeature } from './resource-awareness';
 export type ArbitrationConfig = Pick<
 	SimulationConfig,
 	| 'ecology'
+	| 'emissionCooldownSeconds'
 	| 'seekFoodThreshold'
 	| 'seekWaterThreshold'
 	| 'restThreshold'
@@ -91,6 +92,7 @@ export function buildArbitrationInput(
 		position: creature.position,
 		physical: {
 			body: creature.body,
+			homePosition: habitat.home.position,
 			wildlife: creature.perceivedWildlife,
 			bounds: habitat.bounds,
 			ecology: config.ecology
@@ -104,6 +106,10 @@ export function buildArbitrationInput(
 		availableWater,
 		memory: creature.memory,
 		lexicon: { ...creature.lexicon },
+		symbolAssociations: creature.symbolAssociations,
+		speechReady:
+			creature.lastEmissionAt < 0 ||
+			timeSeconds - creature.lastEmissionAt >= config.emissionCooldownSeconds,
 		currentIntention: creature.intention,
 		currentTarget: creature.target,
 		homeFeatureId: habitat.home.id,

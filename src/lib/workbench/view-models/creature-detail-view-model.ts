@@ -29,6 +29,7 @@ export type RosterRow = {
 	intention: IntentionKind;
 	foodSymbolId: SymbolId | null;
 	waterSymbolId: SymbolId | null;
+	dangerSymbolId: SymbolId | null;
 };
 
 export type LabelledScoreTerm = {
@@ -67,7 +68,8 @@ export function buildRosterRows(creatures: readonly Creature[]): RosterRow[] {
 		energy: c.energy,
 		intention: c.intention,
 		foodSymbolId: c.lexicon.food,
-		waterSymbolId: c.lexicon.water
+		waterSymbolId: c.lexicon.water,
+		dangerSymbolId: c.lexicon.danger
 	}));
 }
 
@@ -244,7 +246,7 @@ export function lastLearningSummary(creature: Creature): string | null {
 
 export function evidenceRowCount(creature: Creature): number {
 	return creature.symbolAssociations.reduce(
-		(sum, row) => sum + row.foodEvidenceCount + row.waterEvidenceCount,
+		(sum, row) => sum + row.foodEvidenceCount + row.waterEvidenceCount + row.dangerEvidenceCount,
 		0
 	);
 }
@@ -316,6 +318,19 @@ export function buildMemorySectionView(creature: Creature): MemorySectionView {
 					sequence: entry.sequence,
 					emissionId: null,
 					empty: entry.resourceKind === 'water' ? entry.empty : null,
+					positionLabel: formatPositionLabel(entry.position)
+				};
+			}
+			if (entry.kind === 'danger_observation') {
+				return {
+					kind: 'danger observation',
+					subjectId: entry.wildlifeId,
+					resourceKind: null,
+					symbolId: null,
+					timeSeconds: entry.rememberedAt,
+					sequence: entry.sequence,
+					emissionId: null,
+					empty: null,
 					positionLabel: formatPositionLabel(entry.position)
 				};
 			}

@@ -11,6 +11,7 @@
 
 import type { Habitat } from '$lib/habitat';
 import { stepAnnouncement, type AnnouncementStepConfig } from '../announcement/step-announcement';
+import { hasFreshDangerSignal } from '../cognition/danger/warning-candidates';
 import type { ArbitrationTrigger } from '../cognition/types';
 import type { EmissionRequest } from '../communication/types';
 import { resolveInvestigationAtSite } from '../learning/step-signal-learning';
@@ -18,6 +19,7 @@ import type { Creature, SimulationConfig } from '../types';
 import { appendTransition } from './actions';
 import { replanFromArbitration, type ReplanConfig } from './apply-arbitration';
 import { advanceNeeds, recoveryComplete, type ConsumptionGrants } from './needs';
+import { requestDangerWarning } from './execution/danger-expression';
 import { senseCreature } from './sensing/sense-creature';
 import { pursueAction, applyAnnouncementEnd } from './execution/pursue-action';
 import type { Wildlife } from '../ecology/types';
@@ -123,9 +125,20 @@ export function stepCreatureBehaviour(
 	const sensed = senseCreature(next, habitat, timeSeconds, config, wildlife);
 	next = sensed.creature;
 	const { perceptionChanged, dangerChanged, wildlifeChanged } = sensed;
-	const dangerReplanned = dangerChanged || incomingPendingTrigger === 'danger_perception_change';
+	const heardWarning =
+		incomingPendingTrigger === 'new_heard_signal_memory' &&
+		hasFreshDangerSignal(next.memory, next.lexicon, timeSeconds);
+	const dangerReplanned =
+		dangerChanged || incomingPendingTrigger === 'danger_perception_change' || heardWarning;
 	if (dangerReplanned) {
-		next = replan(next, habitat, timeSeconds, 'danger_perception_change', config, simulationSeed);
+		next = replan(
+			next,
+			habitat,
+			timeSeconds,
+			heardWarning ? 'new_heard_signal_memory' : 'danger_perception_change',
+			config,
+			simulationSeed
+		);
 	}
 
 	// 2. Announcement executor (only advances when intention is announce_resource).
@@ -228,7 +241,20 @@ export function stepCreatureBehaviour(
 		}
 	}
 
-	return pursueAction(next, dt, timeSeconds, simulationSeed, habitat, config, emissionRequest);
+	const pursued = pursueAction(
+		next,
+		dt,
+		timeSeconds,
+		simulationSeed,
+		habitat,
+		config,
+		emissionRequest
+	);
+	return {
+		creature: pursued.creature,
+		emissionRequest:
+			pursued.emissionRequest ?? requestDangerWarning(pursued.creature, timeSeconds, config)
+	};
 }
 
 // Re-export appendTransition for tests that import from step module historically.

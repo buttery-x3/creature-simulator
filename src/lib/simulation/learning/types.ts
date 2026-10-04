@@ -10,9 +10,9 @@ import type { Vec2 } from '$lib/habitat';
 import type { SymbolId } from '../communication/types';
 
 /** Controlled semantic meanings currently resolved into the personal lexicon. */
-export type LexiconMeaning = 'food' | 'water';
+export type LexiconMeaning = 'food' | 'water' | 'danger';
 
-export const LEXICON_MEANINGS: readonly LexiconMeaning[] = ['food', 'water'] as const;
+export const LEXICON_MEANINGS: readonly LexiconMeaning[] = ['food', 'water', 'danger'] as const;
 
 /**
  * Per-symbol raw food/water evidence for one creature.
@@ -24,8 +24,12 @@ export type SymbolAssociation = {
 	symbolId: SymbolId;
 	foodStrength: number;
 	waterStrength: number;
+	dangerStrength: number;
 	foodEvidenceCount: number;
 	waterEvidenceCount: number;
+	dangerEvidenceCount: number;
+	/** Bounded listener-local observation episodes already credited for danger. */
+	dangerEvidenceEpisodes: string[];
 };
 
 /**
@@ -35,6 +39,7 @@ export type SymbolAssociation = {
 export type CreatureLexicon = {
 	food: SymbolId | null;
 	water: SymbolId | null;
+	danger: SymbolId | null;
 };
 
 /** Bounded diagnostic history of exclusive lexicon reassignments (newest last). */
@@ -62,7 +67,12 @@ export type ActiveSignalInvestigation = {
 };
 
 export type LearningOutcome =
-	'food_evidence' | 'water_evidence' | 'mixed_evidence' | 'no_evidence' | 'interrupted';
+	| 'food_evidence'
+	| 'water_evidence'
+	| 'danger_evidence'
+	| 'mixed_evidence'
+	| 'no_evidence'
+	| 'interrupted';
 
 /** Bounded diagnostic history of learning outcomes (newest last). */
 export type LearningHistoryEntry = {
@@ -75,4 +85,6 @@ export type LearningHistoryEntry = {
 	foodStrengthAfter: number;
 	waterStrengthBefore: number;
 	waterStrengthAfter: number;
+	dangerStrengthBefore: number;
+	dangerStrengthAfter: number;
 };

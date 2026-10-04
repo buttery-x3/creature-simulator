@@ -30,7 +30,7 @@ function input(overrides: Partial<ArbitrationInput> = {}): ArbitrationInput {
 		availableFood: [],
 		availableWater: [],
 		memory,
-		lexicon: { food: 'glyph-0', water: 'glyph-1' },
+		lexicon: { food: 'glyph-0', water: 'glyph-1', danger: null },
 		currentIntention: null,
 		currentTarget: null,
 		homeFeatureId: 'home',
@@ -71,7 +71,7 @@ describe('listener-local meaning and unresolved needs', () => {
 			hunger: 0.1,
 			thirst: 0.8,
 			curiosity,
-			lexicon: { food: 'glyph-1', water: 'glyph-0' }
+			lexicon: { food: 'glyph-1', water: 'glyph-0', danger: null }
 		});
 		expect(arbitrate(i).selectedIntention).toBe('investigate_signal');
 		expect(investigation(i).reference).toMatchObject({ emissionId: 'old-food' });
@@ -81,9 +81,9 @@ describe('listener-local meaning and unresolved needs', () => {
 		const before = structuredClone(original);
 		const swapped = {
 			...original,
-			lexicon: { food: 'glyph-1' as const, water: 'glyph-0' as const }
+			lexicon: { food: 'glyph-1' as const, water: 'glyph-0' as const, danger: null }
 		};
-		const cleared = { ...original, lexicon: { food: null, water: null } };
+		const cleared = { ...original, lexicon: { food: null, water: null, danger: null } };
 		expect(investigation(original).target).toEqual({ kind: 'point', position: { x: -8, y: 0 } });
 		expect(investigation(swapped).target).toEqual({ kind: 'point', position: { x: 8, y: 0 } });
 		expect(investigation(cleared).reference).toMatchObject({ emissionId: 'new-water' });
@@ -95,8 +95,10 @@ describe('listener-local meaning and unresolved needs', () => {
 		expect(original).toEqual(before);
 	});
 	it('keeps unknown and known mismatched signals eligible with generic information value', () => {
-		const unknown = investigation(input({ lexicon: { food: null, water: null } }));
-		const mismatch = investigation(input({ lexicon: { food: null, water: 'glyph-1' } }));
+		const unknown = investigation(input({ lexicon: { food: null, water: null, danger: null } }));
+		const mismatch = investigation(
+			input({ lexicon: { food: null, water: 'glyph-1', danger: null } })
+		);
 		expect(mismatch.valid).toBe(true);
 		expect(mismatch.baseScore).toBe(unknown.baseScore);
 		expect(mismatch.signalEvaluations?.[0]).toMatchObject({
@@ -106,7 +108,7 @@ describe('listener-local meaning and unresolved needs', () => {
 		expect(mismatch.signalEvaluations?.[0].informationFloor).toBeGreaterThan(0);
 	});
 	it('preserves optional unknown curiosity for sated creatures', () => {
-		const i = input({ hunger: 0.1, lexicon: { food: null, water: null } });
+		const i = input({ hunger: 0.1, lexicon: { food: null, water: null, danger: null } });
 		expect(arbitrate(i).selectedIntention).toBe('explore');
 		expect(arbitrate({ ...i, curiosity: 1 }).selectedIntention).toBe('investigate_signal');
 	});
@@ -202,7 +204,7 @@ describe('listener-local meaning and unresolved needs', () => {
 	});
 	it('breaks equal scores by newer sequence then emission ID, independent of array storage', () => {
 		const i = input({
-			lexicon: { food: null, water: null },
+			lexicon: { food: null, water: null, danger: null },
 			config: { ...DEFAULT_COGNITION_CONFIG, signalRecencyBoostMax: 0 }
 		});
 		expect(investigation(i).reference).toMatchObject({ emissionId: 'new-water' });

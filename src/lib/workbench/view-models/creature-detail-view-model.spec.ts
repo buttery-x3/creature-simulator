@@ -148,6 +148,7 @@ describe('creature-detail-view-model', () => {
 					},
 					{
 						kind: 'heard_signal' as const,
+						evidenceApplied: false,
 						sequence: 1,
 						rememberedAt: 5,
 						emissionId: 'em-7',

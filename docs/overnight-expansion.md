@@ -19,7 +19,8 @@ bounded relationships and innate expression are implemented and checked. Lifecyc
 and population turnover are implemented and observed, including natural births
 and eventual extinction. Grounded approach learning and reproducible scenario presets
 are implemented and observed, including voluntary visible companionship/following.
-Next is clearer observation of personal meanings across living generations.
+Personal meanings are now observable by living generation. Next is the measured
+empty-hearing fast path for larger populations.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -519,3 +520,38 @@ check, build and 13 browser tests. The Linux deployment fixture remains skipped
 on this Windows host. Three scenario batches and natural browser observation
 passed as recorded above. Next: show current personal glyph variation grouped
 by living generation, without mistaking a survivor snapshot for transmission history.
+
+## Checkpoint 11: living-generation language view
+
+The Language panel now shows living cohorts in numeric generation order, with all
+personal glyph assignment counts and explicit unassigned counts for every meaning.
+The individual matrix includes generation and retains creature navigation/filtering.
+Filtering one individual does not change the clearly labelled population cohorts.
+Dead creatures and absent cohorts leave this current snapshot; it is not a record
+of teaching, inheritance or lifetime transmission success.
+
+The original matrix is extracted into communication/PopulationLexicons.svelte
+alongside cohort presentation. Pure population-lexicon-view-model owns grouping,
+ordering and independent matrix snapshots; communication-view-model composes it.
+CommunicationTab falls to 306 code lines, the new component is 181 and builder 67.
+Existing communication aggregation is 329. The view-model directory reaches six
+implementation files, with coherent distinct adapters and two slots before its
+hard capacity. Future independent language adaptations should form a communication
+view-model subdomain. No simulation state/API, dependency or threshold change.
+
+Tests cover conflicting glyphs, repeated counts, unassigned denominators, all four
+meanings, numeric generation order, deterministic symbol order, input immutability,
+independent snapshots, removal of dead members/cohorts, empty populations and
+filtered individual rows alongside full cohort counts.
+
+Browser verification used the rich/demo preset through 900s. At 300/600s living
+cohorts were generations 0/1/2; at 900s only generations 1/2 remained, three members
+each. Every displayed glyph and unassigned count matched current debug state,
+and matrix links selected the correct creature. Four screenshots at 600/900s
+were inspected without page errors. This browser trajectory did not reach the
+Node run's generation 4; cross-engine long-run equivalence is not claimed.
+
+Validation: full npm run check passed 657 unit tests in 81 files, server check,
+build and 13 browser tests. Next is the measured empty-hearing fast path: the
+64-founder profile found that most movement-learning calls have no current signal,
+but still scan/sort peers. Its behavior must match complete per-step trajectories.

@@ -761,3 +761,20 @@ prove the absence of an unseen chain, so finite continuation remains essential.
 The existing social inspector exposes contact/departure evidence, active duration,
 travel and release reason. These fields describe the individual's observation and
 choice, rather than a translated command or inferred knowledge of its destination.
+
+## Living-generation language observation
+
+The workbench can group living creatures' personal exclusive assignments by
+`lifecycle.generation`. Each cohort shows all assigned glyph counts and unassigned
+counts for every supported meaning. This is a snapshot of survivors, not a record
+of inheritance, teaching or causal transmission. Different glyphs in one cohort
+and the same glyph with different personal meanings remain visible. Removed
+creatures leave the snapshot naturally; lifecycle event history stays a separate
+bounded observation.
+
+`view-models/population-lexicon-view-model.ts` owns deterministic cohort/matrix
+adaptation from authoritative creatures, without mutating simulation state.
+`communication/PopulationLexicons.svelte` owns both cohort and individual assignment
+presentation. CommunicationTab composes it, preserving existing creature navigation
+and filtering. Numeric generation ordering and explicit unassigned counts avoid
+presenting a single prevailing form as the group's correct language.

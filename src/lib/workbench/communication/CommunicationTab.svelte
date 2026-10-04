@@ -2,6 +2,7 @@
 	import SymbolGlyph from '$lib/SymbolGlyph.svelte';
 	import { LEXICON_MEANINGS } from '$lib/simulation';
 	import PopulationMeaningSummary from './PopulationMeaningSummary.svelte';
+	import PopulationLexicons from './PopulationLexicons.svelte';
 	import { SYMBOL_PRESENTATIONS } from '$lib/symbol-presentation';
 	import type { SimulationConfig, SimulationState } from '$lib/simulation';
 	import { buildCommunicationViewModel } from '../view-models/communication-view-model';
@@ -21,12 +22,6 @@
 			symbolInventory: config.symbolInventory,
 			recentEmissionDiagnosticsWindowSeconds: config.recentEmissionDiagnosticsWindowSeconds
 		})
-	);
-
-	const matrixRows = $derived(
-		filterCreatureId
-			? vm.lexiconMatrix.filter((r) => r.creatureId === filterCreatureId)
-			: vm.lexiconMatrix
 	);
 </script>
 
@@ -80,50 +75,12 @@
 		</table>
 	</section>
 
-	<section class="block" data-testid="population-lexicon-matrix" aria-label="Population lexicons">
-		<h3>Population lexicons</h3>
-		{#if filterCreatureId}
-			<p class="hint">Filtered to {filterCreatureId}</p>
-		{/if}
-		<div class="table-wrap">
-			<table class="table">
-				<thead>
-					<tr>
-						<th scope="col">Creature</th>
-						{#each LEXICON_MEANINGS as meaning (meaning)}<th scope="col"
-								>{meaning[0].toUpperCase() + meaning.slice(1)}</th
-							>{/each}
-						<th scope="col">Evidence</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each matrixRows as row (row.creatureId)}
-						<tr>
-							<td>
-								<button
-									type="button"
-									class="linkish"
-									data-testid={`lexicon-matrix-${row.creatureId}`}
-									onclick={() => onNavigate({ kind: 'creatures', creatureId: row.creatureId })}
-								>
-									{row.creatureId}
-								</button>
-							</td>
-							{#each LEXICON_MEANINGS as meaning (meaning)}
-								<td
-									>{#if row.lexicon[meaning]}<SymbolGlyph
-											symbolId={row.lexicon[meaning]!}
-											showId={false}
-										/>{:else}—{/if}</td
-								>
-							{/each}
-							<td>{row.evidenceCount}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	</section>
+	<PopulationLexicons
+		rows={vm.lexiconMatrix}
+		generations={vm.livingGenerationLexicons}
+		{filterCreatureId}
+		{onNavigate}
+	/>
 
 	{#each LEXICON_MEANINGS as meaning (meaning)}
 		{@const ctx = vm.population[meaning]}

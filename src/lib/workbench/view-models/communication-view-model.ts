@@ -8,13 +8,17 @@ import {
 	buildPopulationSymbolDiagnostics,
 	ensureCreatureMemory,
 	listHeardSignalMemories,
-	type CreatureLexicon,
 	type PopulationSymbolDiagnostics,
 	type SimulationConfig,
 	type SimulationState,
 	type SymbolId
 } from '$lib/simulation';
-import { evidenceRowCount } from './creature-detail-view-model';
+import {
+	buildPopulationLexiconViewModel,
+	type LexiconMatrixRow,
+	type LivingGenerationLexicons
+} from './population-lexicon-view-model';
+export type { LexiconMatrixRow } from './population-lexicon-view-model';
 
 export type FunnelStageAvailability = 'available' | 'unavailable' | 'recent_window';
 
@@ -25,12 +29,6 @@ export type FunnelStage = {
 	/** Present when availability is available or recent_window. */
 	value: number | null;
 	note: string | null;
-};
-
-export type LexiconMatrixRow = {
-	creatureId: string;
-	lexicon: CreatureLexicon;
-	evidenceCount: number;
 };
 
 export type LiveFeedItem = {
@@ -89,6 +87,7 @@ export type CommunicationViewModel = {
 	population: PopulationSymbolDiagnostics;
 	funnel: FunnelStage[];
 	lexiconMatrix: LexiconMatrixRow[];
+	livingGenerationLexicons: LivingGenerationLexicons[];
 	liveFeed: LiveFeedItem[];
 	activeInvestigations: ActiveInvestigationRow[];
 	heardSignalMemories: HeardSignalMemoryRow[];
@@ -107,11 +106,9 @@ export function buildCommunicationViewModel(
 ): CommunicationViewModel {
 	const population = buildPopulationSymbolDiagnostics(state, config);
 	const funnel = buildFunnel(state, population);
-	const lexiconMatrix = state.creatures.map((c) => ({
-		creatureId: c.id,
-		lexicon: { ...c.lexicon },
-		evidenceCount: evidenceRowCount(c)
-	}));
+	const { lexiconMatrix, generations: livingGenerationLexicons } = buildPopulationLexiconViewModel(
+		state.creatures
+	);
 
 	const liveFeed = buildLiveFeed(state);
 	const activeInvestigations: ActiveInvestigationRow[] = [];
@@ -175,6 +172,7 @@ export function buildCommunicationViewModel(
 		population,
 		funnel,
 		lexiconMatrix,
+		livingGenerationLexicons,
 		liveFeed,
 		activeInvestigations,
 		heardSignalMemories,

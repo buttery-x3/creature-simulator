@@ -137,6 +137,7 @@ src/
                 creature-detail-view-model.ts
                 signal-evaluation-view-model.ts
                 communication-view-model.ts
+                population-lexicon-view-model.ts
                 events-view-model.ts
                 *.spec.ts
             overview/
@@ -145,6 +146,9 @@ src/
                 CreatureRoster.svelte
                 CreatureBehaviour.svelte
             communication/
+                CommunicationTab.svelte
+                PopulationMeaningSummary.svelte
+                PopulationLexicons.svelte
             world/
             events/
             debug/
@@ -570,3 +574,19 @@ sensing/arbitration/behaviour coordinators invoke these operations. CreatureSoci
 extends its existing social-state inspector; no eighth creature component is added.
 Tests remain colocated and cross-subsystem consumers use the simulation barrel.
 No subsystem dependency direction, repository rule or threshold exception changes.
+
+### Living-generation lexicon observation
+
+The workbench communication presentation adds PopulationLexicons.svelte, extracting
+its existing individual matrix from CommunicationTab before adding cohort summaries.
+The pure population-lexicon-view-model.ts owns matrix and generation adaptation;
+communication-view-model.ts composes it while preserving existing view contracts.
+No simulation entry point, authoritative state or learning policy changes.
+
+The view-models directory reaches its six-implementation-file review trigger.
+These are six explicit domain-view adaptations, and this change extracts a coherent
+population-lexicon responsibility instead of growing the communication aggregate.
+There is capacity before the eight-file hard limit. Further independent language
+adaptations would justify a communication view-model subdomain; no speculative
+layer or threshold exception is introduced now. Communication presentation has
+three modules. Unit and rendering tests remain colocated.

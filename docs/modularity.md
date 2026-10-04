@@ -491,3 +491,14 @@ function is now 102 code lines, behaviour step 125, simulation step 85 and
 candidate assembly 120. No limits or dependency rules changed. The existing
 large public simulation barrel remains an advisory pressure point; new exports
 are limited to actual social observation consumers.
+
+### Living-generation observation headroom
+
+The personal lexicon matrix and cohort presentation move out of the substantial
+CommunicationTab into PopulationLexicons, preserving navigation/filter behavior.
+Their pure adaptation is owned by population-lexicon-view-model rather than adding
+another aggregation algorithm to communication-view-model. The six-file view-model
+directory now reaches its review trigger: each file still owns one domain's
+presentation adaptation, with two remaining slots. Additional independently growing
+language adaptations should establish a communication view-model subdomain before
+exhausting that capacity. No threshold or dependency-rule change is required.

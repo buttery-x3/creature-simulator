@@ -12,6 +12,7 @@ import { transitionToConsumptive } from '../actions';
 import { replanFromArbitration as replan } from '../apply-arbitration';
 import { isAtTarget, movementPoint, pointTarget } from '../resource-awareness';
 import type { BehaviourStepConfig, CreatureBehaviourStepResult } from '../step-creature-behaviour';
+import { pursueFollow } from './follow-action';
 /**
  * Handle announcement executor completion.
  * Successful emission: defer action_complete to next step (memory not yet written).
@@ -54,6 +55,9 @@ export function pursueAction(
 ): CreatureBehaviourStepResult {
 	let next = executeExpression(creature, timeSeconds);
 	let emissionRequest = request;
+	if (next.intention === 'follow_peer') {
+		return { creature: pursueFollow(next, dt, timeSeconds, habitat, config), emissionRequest };
+	}
 	const announcementConfig = config as AnnouncementStepConfig;
 	// 7. Pursue action — no movement while eating/drinking/sleeping/investigating
 	if (

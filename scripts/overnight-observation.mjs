@@ -87,6 +87,12 @@ function run(api, seed, seconds, hashTrajectory = false) {
 		learnedApproachCalls: 0,
 		saturatedEmissionSteps: 0,
 		maximumApproachCarriers: 0,
+		followStarts: 0,
+		followBoundViolations: 0,
+		followCreatureSeconds: 0,
+		followOutcomes: {},
+		maximumFollowDuration: 0,
+		maximumFollowTravel: 0,
 		saturatedLearningSteps: 0,
 		expressionStarts: {},
 		highHungerCreatureSeconds: 0,
@@ -182,6 +188,41 @@ function run(api, seed, seconds, hashTrajectory = false) {
 				previous.set(creature.id, prior);
 			}
 			stats.maximumGeneration = Math.max(stats.maximumGeneration, creature.lifecycle.generation);
+			const companionship = creature.social.companionship;
+			if (companionship.active) {
+				const episode = companionship.active;
+				if (
+					!Number.isFinite(episode.travelDistance) ||
+					episode.travelDistance < 0 ||
+					episode.travelDistance > api.FOLLOW_DEFAULTS.maximumTravel + 1e-9 ||
+					state.timeSeconds >= episode.expiresAt ||
+					episode.startedAt > state.timeSeconds ||
+					creature.intention !== 'follow_peer' ||
+					creature.target?.kind !== 'creature' ||
+					creature.target.creatureId !== episode.peerId
+				)
+					stats.followBoundViolations += 1;
+				if (episode.startedAt === state.timeSeconds) stats.followStarts += 1;
+				stats.followCreatureSeconds += config.fixedDt;
+				stats.maximumFollowDuration = Math.max(
+					stats.maximumFollowDuration,
+					state.timeSeconds - episode.startedAt
+				);
+				stats.maximumFollowTravel = Math.max(stats.maximumFollowTravel, episode.travelDistance);
+			}
+			const followOutcome = companionship.lastOutcome;
+			if (followOutcome?.timeSeconds === state.timeSeconds) {
+				increment(stats.followOutcomes, followOutcome.reason);
+				stats.maximumFollowDuration = Math.max(
+					stats.maximumFollowDuration,
+					followOutcome.durationSeconds
+				);
+				stats.maximumFollowTravel = Math.max(
+					stats.maximumFollowTravel,
+					followOutcome.travelDistance
+				);
+			}
+
 			for (const field of fields) {
 				const value = field === 'health' ? creature.body.health : creature[field];
 				assert.ok(Number.isFinite(value) && value >= 0 && value <= 1, `${seed}: invalid ${field}`);
@@ -437,6 +478,21 @@ function report(results, repeat, metadata) {
 		lines.push(
 			`| ${row.seed} | ${row.approachCalls} / ${row.learnedApproachCalls} | ${row.movementOutcomes.approach_evidence ?? 0} / ${row.movementOutcomes.approach_contradicted ?? 0} / ${row.movementOutcomes.approach_unobserved ?? 0} | ${row.final.approachCarriers} / ${row.maximumApproachCarriers} | ${row.maxMovementEncounters} / ${row.maxPendingMovementTraces} | ${row.movementBoundViolations} |`
 		);
+	lines.push(
+		'',
+		'| Seed | Follow starts / creature-s | Longest duration / path | Bound violations | Retained episode outcomes |',
+		'| --- | ---: | ---: | ---: | --- |',
+		...results.map(
+			(row) =>
+				`| ${row.seed} | ${row.followStarts} / ${rounded(row.followCreatureSeconds)} | ${rounded(row.maximumFollowDuration)}s / ${rounded(row.maximumFollowTravel)} | ${row.followBoundViolations} | ${
+					Object.entries(row.followOutcomes)
+						.map(([reason, count]) => reason + ': ' + count)
+						.join('; ') || 'none'
+				} |`
+		),
+		'',
+		'Following is physical companionship, not a learned translation. Starts and outcomes sample surviving creatures at step end; an episode beginning and ending or a creature dying within that step can be absent. Duration includes spacing pauses. The resource_found outcome means a visible resource won arbitration; it does not prove a new discovery or that the companion caused it. Following does not itself credit a speaker with helpfulness or transfer resource knowledge.'
+	);
 	for (const row of results)
 		lines.push(
 			'',

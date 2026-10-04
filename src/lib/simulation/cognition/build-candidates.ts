@@ -15,6 +15,7 @@ import type {
 	IntentionKind
 } from './types';
 import { buildCourtshipCandidate } from './lifecycle/courtship-candidate';
+import { buildFollowCandidate } from './social/follow-candidate';
 import { buildSocialCandidates } from './social/candidates';
 import { INTENTION_RANK } from './types';
 import { buildRestCandidate } from './ecology/rest-candidate';
@@ -124,6 +125,7 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 	const candidates = applyDangerRouteRisk(input, [
 		...physicalCandidates,
 		...buildSocialCandidates(input),
+		buildFollowCandidate(input),
 		buildCourtshipCandidate(input),
 		...buildWarningCandidates(input, physicalCandidates),
 		candidate({

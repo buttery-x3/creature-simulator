@@ -558,3 +558,15 @@ and display choices. The observation script consumes the same simulation entry p
 No new subsystem, dependency direction or threshold exception is needed. Creation
 has room before its six-file review trigger. Route replacement removes duplicated
 creation paths; UI files retain their established control/composition responsibilities.
+
+### Visible companionship extension
+
+`simulation/social/companionship` owns the bounded contact/departure observation
+and selected follow episode. This named internal domain separates sensory history
+and episode lifetime from relationship accumulation and innate expression.
+`cognition/social/follow-candidate.ts` owns follow utility and eligibility, while
+`behaviour/execution/follow-action.ts` owns selected movement spacing. Existing
+sensing/arbitration/behaviour coordinators invoke these operations. CreatureSocial
+extends its existing social-state inspector; no eighth creature component is added.
+Tests remain colocated and cross-subsystem consumers use the simulation barrel.
+No subsystem dependency direction, repository rule or threshold exception changes.

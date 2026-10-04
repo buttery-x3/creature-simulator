@@ -215,3 +215,11 @@ export {
 	SIMULATION_SCENARIOS,
 	type SimulationScenarioId
 } from './creation/scenarios';
+
+export { FOLLOW_DEFAULTS } from './social/companionship';
+export type {
+	CompanionshipState,
+	CompanionContact,
+	FollowEpisode,
+	CompanionOutcome
+} from './social/companionship';

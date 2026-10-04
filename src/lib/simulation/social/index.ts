@@ -16,3 +16,21 @@ export {
 	executeExpression,
 	type MoodInput
 } from './expressions';
+
+export {
+	FOLLOW_DEFAULTS,
+	emptyCompanionshipState,
+	hasCompanionDeparture,
+	applyCompanionshipSelection,
+	advanceCompanionship,
+	finishCompanionship,
+	observeCompanionship,
+	hasVisiblePredecessor
+} from './companionship';
+export type {
+	CompanionshipState,
+	CompanionContact,
+	FollowEpisode,
+	CompanionOutcome,
+	CompanionEndReason
+} from './companionship';

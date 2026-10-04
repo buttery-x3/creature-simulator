@@ -92,3 +92,13 @@ describe('population lifecycle observations', () => {
 		});
 	});
 });
+
+it('counts physical follow intentions separately from approach and learned meanings', () => {
+	const state = createSimulation(defaultSimulationConfig('follow-overview'));
+	state.creatures[0].intention = 'follow_peer';
+	const vm = buildOverviewViewModel(state);
+	expect(vm.behaviour.byIntention.follow_peer).toBe(1);
+	expect(Object.values(vm.behaviour.byIntention).reduce((sum, count) => sum + count, 0)).toBe(
+		state.creatures.length
+	);
+});

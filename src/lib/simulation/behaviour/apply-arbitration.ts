@@ -2,7 +2,7 @@
  * Apply unified cognition arbitration onto creature execution state.
  */
 
-import { SOCIAL_DEFAULTS } from '../social';
+import { SOCIAL_DEFAULTS, applyCompanionshipSelection } from '../social';
 import type { Habitat } from '$lib/habitat';
 import { arbitrate } from '../cognition/arbitrate';
 import type { ArbitrationTrigger } from '../cognition/types';
@@ -206,16 +206,20 @@ export function replanFromArbitration(
 		target = search.target;
 	}
 
-	return {
-		...creature,
-		...applied,
-		target,
-		exploration,
-		searchTarget,
-		searchDecisionIndex,
-		activeInvestigation,
-		symbolAssociations,
-		recentLearning,
-		activeAnnouncementExecution
-	};
+	return applyCompanionshipSelection(
+		{
+			...creature,
+			...applied,
+			target,
+			exploration,
+			searchTarget,
+			searchDecisionIndex,
+			activeInvestigation,
+			symbolAssociations,
+			recentLearning,
+			activeAnnouncementExecution
+		},
+		creature.intention,
+		timeSeconds
+	);
 }

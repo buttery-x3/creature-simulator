@@ -1,3 +1,4 @@
+import type { CompanionshipState } from './companionship';
 import type { Vec2 } from '$lib/habitat';
 
 /** Innate visible display; never a learned symbol or a command. */
@@ -29,6 +30,7 @@ export type Relationship = {
 };
 
 export type SocialState = {
+	companionship: CompanionshipState;
 	/** Last executed selected call plan; one per approach episode plus a cooldown. */
 	movementCall: {
 		peerId: string;

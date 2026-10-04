@@ -11,6 +11,7 @@
 
 import { requestMovementCall } from './execution/movement-expression';
 import { advanceSocial } from '../social';
+import { advanceFollow } from './execution/follow-action';
 import type { Habitat } from '$lib/habitat';
 import { stepAnnouncement, type AnnouncementStepConfig } from '../announcement/step-announcement';
 import { hasFreshDangerSignal } from '../cognition/danger/warning-candidates';
@@ -133,6 +134,7 @@ export function stepCreatureBehaviour(
 	);
 	let next: Creature = advanceBody({ ...creature, ...needs }, dt, config.ecology);
 	next = { ...next, social: advanceSocial(next.social, dt, timeSeconds) };
+	next = advanceFollow(next, timeSeconds);
 	if (
 		creature.social.expression &&
 		!next.social.expression &&

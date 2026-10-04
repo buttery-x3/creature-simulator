@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { deriveMood, type Creature } from '$lib/simulation';
+	import { deriveMood, FOLLOW_DEFAULTS, type Creature } from '$lib/simulation';
 	let { creature, timeSeconds }: { creature: Creature; timeSeconds: number } = $props();
 	const mood = $derived(deriveMood(creature));
+	const companionship = $derived(creature.social.companionship);
 </script>
 
 <section data-testid="creature-social" aria-label="Social experience and expression">
@@ -39,6 +40,119 @@
 			</dd>
 		</div>
 	</dl>
+
+	<h4>Physical companionship</h4>
+	<p>
+		Following uses personally observed contact and departure. It is a bounded physical episode; no
+		glyph is interpreted as a follow command. Scores and rejection reasons appear in Current
+		behaviour. Episodes are limited to {FOLLOW_DEFAULTS.followSeconds}s and end after {FOLLOW_DEFAULTS.noProgressSeconds}s
+		without peer progress.
+	</p>
+	<dl data-testid="inspector-companionship">
+		<div>
+			<dt>Episode status</dt>
+			<dd data-testid="companion-status">
+				{companionship.active
+					? 'following'
+					: timeSeconds < companionship.nextEligibleAt
+						? 'cooldown'
+						: 'inactive'}
+			</dd>
+		</div>
+		<div>
+			<dt>Next eligible</dt>
+			<dd>
+				{companionship.nextEligibleAt.toFixed(2)}s · {Math.max(
+					0,
+					companionship.nextEligibleAt - timeSeconds
+				).toFixed(2)}s cooldown remaining
+			</dd>
+		</div>
+	</dl>
+	{#if companionship.contact}
+		{@const contact = companionship.contact}
+		<dl data-testid="companion-contact">
+			<div>
+				<dt>Observed contact</dt>
+				<dd>{contact.peerId} · last seen {contact.lastObservedAt.toFixed(2)}s</dd>
+			</div>
+			<div>
+				<dt>Current stationary contact</dt>
+				<dd>
+					{contact.stationarySeconds.toFixed(2)}s · qualified {contact.qualifiedAt === null
+						? 'not yet'
+						: contact.qualifiedAt.toFixed(2) + 's'}
+				</dd>
+			</div>
+			<div>
+				<dt>Qualified contact retained</dt>
+				<dd>{contact.qualifiedContactSeconds.toFixed(2)}s</dd>
+			</div>
+			<div>
+				<dt>Departure distance</dt>
+				<dd>{contact.departureDistance.toFixed(3)}</dd>
+			</div>
+			<div>
+				<dt>Observed heading</dt>
+				<dd>
+					{#if contact.heading}({contact.heading.x.toFixed(3)}, {contact.heading.y.toFixed(
+							3
+						)}){:else}none{/if}
+				</dd>
+			</div>
+		</dl>
+	{:else}<p>No retained direct contact.</p>{/if}
+	{#if companionship.active}
+		{@const episode = companionship.active}
+		<dl data-testid="companion-active">
+			<div>
+				<dt>Followed peer</dt>
+				<dd>{episode.peerId}</dd>
+			</div>
+			<div>
+				<dt>Episode clock</dt>
+				<dd>
+					started {episode.startedAt.toFixed(2)}s · expires {episode.expiresAt.toFixed(2)}s · {Math.max(
+						0,
+						episode.expiresAt - timeSeconds
+					).toFixed(2)}s remaining
+				</dd>
+			</div>
+			<div>
+				<dt>Path travelled</dt>
+				<dd>
+					{episode.travelDistance.toFixed(3)} / {FOLLOW_DEFAULTS.maximumTravel.toFixed(3)} limit
+				</dd>
+			</div>
+			<div>
+				<dt>Last progress</dt>
+				<dd>
+					{episode.lastProgressAt.toFixed(2)}s · {Math.max(
+						0,
+						timeSeconds - episode.lastProgressAt
+					).toFixed(2)}s ago
+				</dd>
+			</div>
+		</dl>
+	{/if}
+	{#if companionship.lastOutcome}
+		{@const outcome = companionship.lastOutcome}
+		<dl data-testid="companion-last-outcome">
+			<div>
+				<dt>Last episode ended</dt>
+				<dd>{outcome.peerId} · {outcome.reason} at {outcome.timeSeconds.toFixed(2)}s</dd>
+			</div>
+			<div>
+				<dt>Duration / path</dt>
+				<dd>{outcome.durationSeconds.toFixed(2)}s / {outcome.travelDistance.toFixed(3)}</dd>
+			</div>
+		</dl>
+	{:else}<p>No completed follow episode retained.</p>{/if}
+	<p>
+		<code>resource_found</code> records a visible resource winning arbitration; it does not establish
+		who led to it.
+	</p>
+
 	<h4>Observed peers</h4>
 	<p>
 		Local snapshots show position, visible maturity and expression; other creatures’ needs are not

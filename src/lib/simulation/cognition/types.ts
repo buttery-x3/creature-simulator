@@ -28,6 +28,7 @@ import type { CreatureTarget, WildlifeObservation } from '../types';
 
 /** What the creature is trying to accomplish (distinct from low-level action). */
 export type IntentionKind =
+	| 'follow_peer'
 	| 'court_peer'
 	| 'approach_peer'
 	| 'dance'
@@ -74,6 +75,12 @@ export type CandidateFactor = {
 
 /** Stable reason codes for candidate validity, scoring and selection. */
 export type CandidateReasonCode =
+	| 'companion_departure'
+	| 'follow_active'
+	| 'no_companion_departure'
+	| 'follow_cooldown'
+	| 'follow_visible_chain'
+	| 'follow_limit'
 	| 'reproductive_opportunity'
 	| 'no_reproductive_opportunity'
 	| 'reproductive_ineligible'
@@ -267,6 +274,7 @@ export const INTENTION_TIE_BREAK_ORDER: readonly IntentionKind[] = [
 	'rest',
 	'investigate_signal',
 	'announce_resource',
+	'follow_peer',
 	'court_peer',
 	'approach_peer',
 	'dance',

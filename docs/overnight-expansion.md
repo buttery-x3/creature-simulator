@@ -18,8 +18,8 @@ Physical ecology, grounded danger language, acute-need scoring, local rest,
 bounded relationships and innate expression are implemented and checked. Lifecycle
 and population turnover are implemented and observed, including natural births
 and eventual extinction. Grounded approach learning and reproducible scenario presets
-are implemented and observed. Next is voluntary visible companionship/following
-and clearer observation of personal meanings across generations.
+are implemented and observed, including voluntary visible companionship/following.
+Next is clearer observation of personal meanings across living generations.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -453,3 +453,69 @@ rule, threshold or topology exception. Route creation paths were consolidated;
 its implementation shrank. Simulation behavior is unchanged apart from explicit
 starting configuration. Next: voluntary visible companionship/following grounded
 in recent encounters, plus clearer observation of personal meanings across generations.
+
+## Checkpoint 10: bounded physical following
+
+Added follow_peer as an optional physical intention after a familiar, liked
+companion is directly observed in comfortable stationary contact and then departing.
+It uses no new symbol meaning, hidden target, private needs or shared resource map.
+One recent contact, one active episode and one last outcome bound retention.
+Following participates in ordinary utility and danger-route scoring. A selected
+visible resource action or urgent competing need can interrupt immediately.
+
+Defaults: contact within 1 unit for at least 0.5s with both creatures moving at
+most 0.2 units/s, own comfort >=0.65 at both observation endpoints, acquired
+familiarity >=0.2 and liking >=0.04. A peer must move outward at least 0.35 within
+4s of qualified contact. Crossing that departure threshold requests one event-based
+reconsideration. Following keeps 1.5 units separation and requires visible peer
+distance <=3. It ends after 8s, 6 units of own travel, sight loss, visible turn-back,
+a visible predecessor ahead of the peer, or no 0.2-unit peer progress for 1.5s.
+A 12s cooldown prevents immediate restart. The 0.44 utility ceiling includes
+continuity. These are reversible design defaults, not scripted successful cooperation.
+Local geometry cannot detect an unseen global chain; finite duration/path and
+cooldown prevent indefinite continuation regardless. Repeated contact cannot
+refresh an active episode's deadline.
+
+Natural observations: rich 900s runs produced 7/3/2 follow episodes, with final
+populations 6/6/1 and highest generations 4/2/2. Four episodes ended when a visible
+resource won arbitration. That outcome code (resource_found) does not establish
+new discovery or causal help. Baseline 600s produced 1/0/6 episodes; crowded 600s
+produced none. All nine runs had zero follow, movement-memory and general memory
+bound violations, and each scenario's 60s complete-state repeat matched. Reports
+are overnight-follow-rich-observations.md, overnight-follow-baseline-observations.md
+and overnight-follow-crowded-observations.md. Population declines and extinctions
+remain possible; the mechanism is not tuned to guarantee survival.
+
+Browser: rich/demo creature 5 followed creature 4 at 35s, with a selected score
+of 0.315 over exploration 0.300. The episode started at 34.7s and ended at 37.9s
+on visible turn-back, after 0.831 units; cooldown lasted until 49.9s. Four screenshots
+(contact, active, ended, arbitration) were inspected with no page errors. The
+social inspector shows acquired contact/departure, actual score factors, episode
+clock/path and end reason. No follow glyph is presented as learned.
+
+Tests include actual acquisition of familiarity through local encounters; own
+movement and first sight of a moving group cannot fabricate qualified departure.
+A fixed-water runtime case first lets only the peer sense the basin. After a local
+encounter, the peer selects its own remembered water location, the follower with
+no water knowledge voluntarily follows its observed motion, enters sight range,
+and selects the now-visible basin. A matched no-qualified-contact control does
+not follow. This is a controlled mechanism test, distinct from natural-run evidence.
+Further tests cover needs/danger, hidden-position invariance after sight loss,
+spacing, expiry, path limits, no progress, visible chain/turn-back and cooldown.
+
+Structure: social/companionship has three behavior modules plus types and its
+barrel. Cognition adds one follow policy; behaviour adds one physical executor.
+Existing sensing/arbitration coordinators invoke these owners. The public simulation
+barrel exposes observation types/defaults; stepping signatures and learned lexicon
+remain unchanged. No threshold, dependency or repository-rule changes. The existing
+replanFromArbitration (157 code lines) and pursueAction (152) cross the 150-line review
+trigger but only add domain delegation, keeping independent policy in its owner.
+Further action/state lifecycles should split physical dispatch from announcement/
+arrival coordination before growing these functions. CreatureSocial remains a
+cohesive social inspector around 260 lines with no eighth directory component.
+
+Validation: full npm run check passed 650 unit tests in 79 files, the server
+check, build and 13 browser tests. The Linux deployment fixture remains skipped
+on this Windows host. Three scenario batches and natural browser observation
+passed as recorded above. Next: show current personal glyph variation grouped
+by living generation, without mistaking a survivor snapshot for transmission history.

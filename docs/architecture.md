@@ -738,3 +738,26 @@ staged scenario. Reset restores the active seed/scenario and discards drafts. Ne
 configuration and state are prepared before replacing the active pair, so invalid
 input leaves the running experiment intact. The animation callback reads the
 current active configuration instead of capturing the initial one.
+
+## Visible companionship
+
+A physical `follow_peer` intention extends a personally observed encounter. It
+uses recent direct contact, acquired familiarity/liking and the companion's own
+visible departure. The observer receives no private destination, resource
+knowledge, needs or intention from the companion. A creature travelling toward
+its own remembered resource can incidentally lead another within sensing range;
+the follower must then perceive that resource and choose its own need action.
+Following grants no automatic learned meaning, helpfulness credit or shared map.
+
+The social companionship subdomain owns one bounded contact/episode and its last
+outcome. Cognition owns the optional follow score under existing danger/need and
+continuity rules. Behaviour owns physical spacing and invokes episode updates;
+ordinary arbitration may interrupt at any time. Duration, travel and cooldown
+bounds prevent repeated contact from refreshing an indefinite pursuit. Loss of
+sight releases the target using the follower's observations. A visible predecessor
+in the companion's path makes following unattractive; local perception cannot
+prove the absence of an unseen chain, so finite continuation remains essential.
+
+The existing social inspector exposes contact/departure evidence, active duration,
+travel and release reason. These fields describe the individual's observation and
+choice, rather than a translated command or inferred knowledge of its destination.

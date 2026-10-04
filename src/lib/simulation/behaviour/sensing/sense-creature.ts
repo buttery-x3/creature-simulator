@@ -1,5 +1,11 @@
 import { observeMovementLearning } from '../../learning/movement';
-import { observePeers, updateRelationships, SOCIAL_DEFAULTS } from '../../social';
+import {
+	observePeers,
+	updateRelationships,
+	SOCIAL_DEFAULTS,
+	observeCompanionship,
+	hasCompanionDeparture
+} from '../../social';
 import type { Habitat } from '$lib/habitat';
 import type { Wildlife } from '../../ecology/types';
 import {
@@ -80,6 +86,13 @@ export function senseCreature(
 				next.hunger < 0.6 && next.thirst < 0.6 && next.energy > 0.4 && next.body.health > 0.6
 			)
 		};
+		next = observeCompanionship(next, timeSeconds, config);
+		peerChanged ||=
+			!hasCompanionDeparture(creature.social.companionship, timeSeconds) &&
+			hasCompanionDeparture(next.social.companionship, timeSeconds);
+		if (creature.social.companionship.active && !next.social.companionship.active) {
+			next = { ...next, pendingArbitrationTrigger: 'action_complete' };
+		}
 		next = observeMovementLearning(next, timeSeconds, config);
 		peerChanged ||=
 			next.movementLearning.response?.emissionId !== creature.movementLearning.response?.emissionId;

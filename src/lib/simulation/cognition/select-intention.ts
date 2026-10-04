@@ -5,6 +5,7 @@
  * not min-commitment, switch-margin gates, or explore exemptions.
  */
 
+import { FOLLOW_DEFAULTS } from '../social';
 import type {
 	ArbitrationRecord,
 	ArbitrationTrigger,
@@ -37,7 +38,15 @@ export function applyContinuity(
 			return { ...c, score: c.baseScore, continuityAdjustment: 0 };
 		}
 		// Zero continuity for explore — do not sticky-roam past announce.
-		const continuityAdjustment = currentIntention === 'explore' ? 0 : config.continuityBonus;
+		const continuityAdjustment =
+			currentIntention === 'explore'
+				? 0
+				: currentIntention === 'follow_peer'
+					? Math.min(
+							config.continuityBonus,
+							Math.max(0, FOLLOW_DEFAULTS.maximumUtility - c.baseScore)
+						)
+					: config.continuityBonus;
 		if (continuityAdjustment === 0) {
 			return { ...c, score: c.baseScore, continuityAdjustment: 0 };
 		}

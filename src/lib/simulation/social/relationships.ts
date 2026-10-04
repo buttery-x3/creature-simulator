@@ -1,9 +1,11 @@
+import { emptyCompanionshipState } from './companionship';
 import { SOCIAL_DEFAULTS } from './defaults';
 import type { PeerObservation, Relationship, SocialState } from './types';
 
 export function emptySocialState(): SocialState {
 	return {
 		relationships: [],
+		companionship: emptyCompanionshipState(),
 		movementCall: null,
 		expression: null,
 		expressionSequence: 0,

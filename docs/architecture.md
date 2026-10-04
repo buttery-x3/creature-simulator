@@ -258,7 +258,7 @@ It is the first communication substrate: physical emission and local hearing onl
 | **Initial trigger** | Cognition may select `announce_resource` for a currently perceived unannounced resource; the announcement **executor** then evaluates clarity, may reposition, and requests emission.                                        |
 | **Cooldown**        | Configurable per-sender cooldown may delay emission while execution is active; it does not create or retain a queue of deferred announcements.                                                                               |
 | **Symbol choice**   | Exact exclusive lexicon assignment for the announced kind when assigned; otherwise deterministic exploratory selection among unassigned symbols. No production floor or speaker feedback.                                    |
-| **Reception**       | Finite circular hearing radius (default **12** on the 20×20 habitat — practical population reach, not structural global); omnidirectional; sender excluded; receivers ordered by creature id.                                |
+| **Reception**       | Finite circular hearing radius (default **12** on the 20×14 habitat — practical population reach, not structural global); omnidirectional; sender excluded; receivers ordered by creature id.                                |
 | **Heard result**    | Current-step physical reception plus bounded diagnostic `HeardSignal` history — **no** intention/action change; never carries trigger feature or clarity. Writes `heard_signal` memory and may request reconsideration only. |
 | **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                                                                                                                           |
 
@@ -752,8 +752,17 @@ configuration. Its public `scenarioSimulationConfig(seed, scenario)` and
 observation harness. Baseline is unchanged. More food, fewer predators starts 12
 founders with 8 food sources, caps food at 12, attempts food spawn every 8 seconds,
 and starts 2 wildlife. Population stress starts 32 founders with baseline resources
-and wildlife. All retain the explicit 64-creature computational cap. Scenario names
-never enter cognition, and these presets add no runtime population correction.
+and wildlife. These three presets retain the explicit 64-creature computational cap.
+Larger world starts 48 founders in one doubled-width/doubled-height home on a 40×28
+habitat: 32 food sources, 8 water sources, 8 wildlife, food cap 48, food attempts every
+2 seconds, and an explicit computational population cap of 128. This scales the
+resource-rich world's area, starting population and resource supply fourfold;
+individual sensing/hearing, movement, memory and learning remain unchanged. The
+2-unit four-corner exploration grid has 280 cells per creature instead of 70.
+The cap provides headroom, not a tested performance guarantee at 128 creatures.
+Scenario names never enter cognition, and these presets add no runtime population
+correction. Measured seed outcomes and limits are in
+[the larger-world assessment](overnight-larger-world-observations.md).
 
 The route owns one active configuration alongside the simulation. Playback,
 single-step, viewport and inspector use that same configuration. Seed/scenario

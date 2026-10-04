@@ -2,7 +2,7 @@
 import type { SimulationConfig } from '../types';
 import { defaultSimulationConfig } from './config';
 
-export type SimulationScenarioId = 'baseline' | 'resource-rich' | 'crowded';
+export type SimulationScenarioId = 'baseline' | 'resource-rich' | 'crowded' | 'larger-world';
 
 export const SIMULATION_SCENARIOS: readonly {
 	readonly id: SimulationScenarioId;
@@ -25,6 +25,12 @@ export const SIMULATION_SCENARIOS: readonly {
 		label: 'Population stress (32)',
 		description:
 			'32 founders share the baseline habitat, resources and wildlife. The population cap remains 64.'
+	},
+	{
+		id: 'larger-world',
+		label: 'Larger world (48)',
+		description:
+			'48 founders in one home on a 40×28 habitat, 32 food sources, 8 water sources and 8 wildlife. Food attempts every 2 seconds, food cap 48 and computational population cap 128. Personal memory and sensing ranges stay unchanged.'
 	}
 ];
 
@@ -45,6 +51,28 @@ export function scenarioSimulationConfig(
 				maxActiveFoodSources: 12,
 				foodSpawnIntervalSeconds: 8,
 				ecology: { ...config.ecology, wildlifeCount: 2 }
+			};
+		case 'larger-world':
+			return {
+				...config,
+				creatureCount: 48,
+				habitat: {
+					...config.habitat,
+					worldWidth: 40,
+					worldHeight: 28,
+					foodCount: 32,
+					waterCount: 8,
+					homeSize: {
+						minWidth: config.habitat.homeSize.minWidth * 2,
+						maxWidth: config.habitat.homeSize.maxWidth * 2,
+						minHeight: config.habitat.homeSize.minHeight * 2,
+						maxHeight: config.habitat.homeSize.maxHeight * 2
+					}
+				},
+				maxActiveFoodSources: 48,
+				foodSpawnIntervalSeconds: 2,
+				ecology: { ...config.ecology, wildlifeCount: 8 },
+				lifecycle: { ...config.lifecycle, populationCap: 128 }
 			};
 		case 'crowded':
 			return { ...config, creatureCount: 32 };

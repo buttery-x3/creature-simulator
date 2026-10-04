@@ -91,3 +91,58 @@ test('uses active rich resource cadence in animation and single steps, and reset
 	await expect(page.getByTestId('habitat-active-seed')).not.toHaveText('demo');
 	await expect(page.getByTestId('simulation-creature-count')).toHaveText('32');
 });
+
+test('frames the larger single-home habitat and runs its active configuration', async ({
+	page
+}) => {
+	const errors: string[] = [];
+	page.on('pageerror', (error) => errors.push(error.message));
+	await page.setViewportSize({ width: 1440, height: 1000 });
+	await page.goto('/');
+	await page.getByTestId('simulation-pause-resume').click();
+	await page.getByTestId('simulation-scenario').selectOption('larger-world');
+	await page.getByTestId('habitat-regenerate').click();
+	await expect(page.getByTestId('simulation-active-scenario')).toHaveAttribute(
+		'data-scenario-id',
+		'larger-world'
+	);
+	const canvas = page.getByTestId('three-canvas');
+	await expect(canvas).toHaveAttribute('data-creature-count', '48');
+	await expect(canvas).toHaveAttribute('data-habitat-fully-visible', 'true');
+	const diagnostics = await openDebug(page);
+	expect(diagnostics.config.habitat).toMatchObject({
+		worldWidth: 40,
+		worldHeight: 28,
+		foodCount: 32,
+		waterCount: 8
+	});
+	expect(diagnostics.config.lifecycle.populationCap).toBe(128);
+	expect(diagnostics.config.memoryCapacityRange).toEqual({ min: 8, max: 16 });
+	expect(diagnostics.config.sensingRadius).toBe(3);
+	expect(diagnostics.config.hearingRadius).toBe(12);
+	expect(diagnostics.environment.nextFoodSpawnAt).toBe(2);
+	await page.getByTestId('debug-live-snapshot').locator('summary').click();
+	const initial = JSON.parse((await page.getByTestId('debug-simulation-snapshot').textContent())!);
+	expect(initial.habitat.bounds).toEqual({ width: 40, height: 28 });
+	expect(initial.habitat.water).toHaveLength(8);
+	expect(initial.wildlife).toHaveLength(8);
+	expect(initial.creatures[0].exploration.map).toMatchObject({
+		cellSize: 2,
+		columns: 20,
+		rows: 14
+	});
+	await page.getByTestId('workbench-tab-overview').click();
+	await page.getByTestId('simulation-step').evaluate((button: HTMLButtonElement) => {
+		for (let i = 0; i < 75; i++) button.click();
+	});
+	const advanced = await openDebug(page);
+	expect(advanced.environment.foodSpawnEventIndex).toBe(1);
+	expect(advanced.environment.nextFoodSpawnAt).toBeCloseTo(4, 1);
+	await page.getByTestId('workbench-tab-overview').click();
+	await page.getByTestId('simulation-scenario').selectOption('baseline');
+	await page.getByTestId('simulation-reset').click();
+	await expect(page.getByTestId('simulation-scenario')).toHaveValue('larger-world');
+	await expect(page.getByTestId('simulation-creature-count')).toHaveText('48');
+	await expect(canvas).toHaveAttribute('data-habitat-fully-visible', 'true');
+	expect(errors).toEqual([]);
+});

@@ -19,15 +19,18 @@ bounded relationships and innate expression are implemented and checked. Lifecyc
 and population turnover are implemented and observed, including natural births
 and eventual extinction. Grounded approach learning and reproducible scenario presets
 are implemented and observed, including voluntary visible companionship/following.
-Personal meanings are observable by living generation. The measured empty-hearing
-fast path is implemented with exact trajectory checks. Useful-companionship discovery credit is deferred: all four observed resource
-handoffs across three rich 900s runs led to already-known resources. Current work
-separates physical reception from bounded display history for crowded calls. The
-verified quiet-communication shortcut and on-demand diagnostic capture are
-implemented and checked. The need-search continuity correction is implemented and checked: ongoing search
-points survive same-need reconsideration without suppressing interrupts. Next is
-a measured larger-world scenario assessment with the existing local knowledge
-and computational limits explicit.
+Personal meanings are observable by living generation. Physical reception is
+independent of bounded display history, and measured quiet-communication fast
+paths preserve exact trajectories. On-demand diagnostic capture and the search
+continuity correction are implemented and checked: ongoing search points survive
+same-need reconsideration without suppressing interrupts. Four reproducible
+presets now include a measured larger world with 48 founders in one home.
+Useful-companionship discovery credit remains deferred: observed resource
+handoffs have not established the evidence needed for causal helpfulness credit.
+
+The owner requested completion of only the interrupted larger-world preset after
+the usage limit, followed by a project status report. That final slice is complete;
+sustained expansion stops here. No new feature is in progress.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -744,3 +747,51 @@ tests), including periodic/peer triggers, arrival, changed needs, resources,
 danger, invalid points and immutable inputs. Types and scoped lint passed.
 Full npm run check passed 682 unit tests in 85 files, server check, build and
 14 browser tests.
+
+## Checkpoint 17: larger single-home world preset
+
+The existing scenario factory now exposes Larger world (48): a 40×28 habitat,
+48 founders, one home with doubled width/height ranges, 32 initial food sources,
+8 water sources and 8 wildlife. Food attempts occur every 2 seconds with a
+48-source cap; population has an explicit computational cap of 128. Individual
+sensing, hearing, movement, personal memory, learning, needs, rain and lifecycle
+behavior are unchanged. The separate four-corner 2-unit exploration grid grows
+from 70 to 280 cells. The baseline and other presets retain their prior settings.
+
+The frozen candidate assessment ran demo, overnight-river and overnight-drought
+for 600 seconds each. Final populations were 33/24/36, births 6/2/10, and maximum
+generations 1/1/2. All 54,000 finite-value/world-bound checks passed, personal
+knowledge stayed bounded, and a 60-second complete-state repeat matched exactly.
+The final production factory matches all three assessed configurations and their
+complete initial-state hashes. Exact configuration, source fingerprint, local
+step timings, evidence limitations and outcomes are recorded in
+[the larger-world assessment](overnight-larger-world-observations.md).
+Observed peak population was 57, so performance at the configured cap of 128
+remains unvalidated. Ten-minute survival is not a long-term equilibrium claim.
+
+Structural pressure: creation/scenarios.ts extends its existing fixed-configuration
+responsibility and remains well below file/function review thresholds. Creation
+still has four implementation files, below its six-file review trigger. The public
+SimulationScenarioId union and metadata gain one option; function signatures,
+subsystem ownership, dependency direction, directory capacity, topology and
+threshold rules are unchanged. The route and workbench use their existing
+metadata-driven controls; no presentation production code changed. No new
+structural split is justified by this preset.
+
+Focused scenario tests passed (18). Full npm run check passed: 686 unit tests
+in 85 files, server check (one passed, one Linux-only fixture skipped on Windows),
+build and 15 browser tests. Browser coverage verifies the full 40×28 camera fit,
+48 rendered creatures, local sensing/memory limits, active 2-second cadence and
+reset behavior. Existing build chunk-size warning remains. The additional managed
+browser observation covers initial placement and 30 seconds of normal simulation;
+both screenshots were visually inspected, with the full habitat framed and controls
+readable. Population naturally reached 50 at 30 seconds, with two births and no
+page errors. Screenshots are saved under .svelte-kit/larger-world-observation-artifacts.
+
+Remaining development is intentionally unstarted: broader safety/help/movement
+semantics need distinguishable local evidence; helpfulness credit needs observed
+new discovery; long-term ecological balance and larger populations need further
+measurement. Multiple communities, construction, religious/idol communication
+and moral reasoning are not implemented. Existing architecture pressure in the
+behavior replan function and workbench adapters remains documented at earlier
+checkpoints; this preset does not enlarge those modules.

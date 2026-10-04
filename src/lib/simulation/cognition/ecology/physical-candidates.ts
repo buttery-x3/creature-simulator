@@ -6,6 +6,7 @@ import { perceivedDanger, retreatFrom } from './danger-policy';
 /** Reversible balance policy; all terms are exposed in arbitration factors. */
 export const PHYSICAL_UTILITY = {
 	nightRestBonus: 0.42,
+	nightRestDeficitScale: 0.3,
 	dangerWeight: 1.7,
 	huntReward: 1.5,
 	huntRiskCost: 0.3
@@ -14,7 +15,8 @@ export const PHYSICAL_UTILITY = {
 export function nightRestWeight(input: ArbitrationInput): number {
 	return input.physical
 		? Math.max(0, 1 - 2 * daylightAt(input.timeSeconds, input.physical.ecology)) *
-				PHYSICAL_UTILITY.nightRestBonus
+				PHYSICAL_UTILITY.nightRestBonus *
+				Math.min(1, Math.max(0, (1 - input.energy) / PHYSICAL_UTILITY.nightRestDeficitScale))
 		: 0;
 }
 

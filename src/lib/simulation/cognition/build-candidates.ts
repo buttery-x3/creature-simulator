@@ -2,7 +2,7 @@
  * Build the baseline intention candidate set from body, perception and memory.
  * Candidates are ephemeral — no opportunity lifecycle objects.
  *
- * Resource need scores (FLAME-82): pressure × target-quality multiplier so
+ * Resource need scores: pressure × quality with acute uncertainty relief, so
  * visible evidence outranks remembered locations, which outrank blind search.
  */
 
@@ -11,22 +11,17 @@ import type {
 	CandidateFactor,
 	CandidateReasonCode,
 	CandidateReference,
-	CognitionConfig,
 	IntentionCandidate,
 	IntentionKind
 } from './types';
 import { INTENTION_RANK } from './types';
+import { scoreResourceNeed } from './ecology/need-priority';
 import { buildWarningCandidates } from './danger/warning-candidates';
 import { applyDangerRouteRisk } from './ecology/danger-policy';
 import { buildPhysicalCandidates, nightRestWeight } from './ecology/physical-candidates';
 import { buildSignalCandidate } from './investigation/signal-candidate';
 import { verbosityToSpeechWeight } from './speech-weight';
-import {
-	homeTarget,
-	selectAnnounceTarget,
-	selectResourceNeedTarget,
-	type ResourceTargetResult
-} from './target-selection';
+import { homeTarget, selectAnnounceTarget, selectResourceNeedTarget } from './target-selection';
 
 function candidate(partial: {
 	intention: IntentionKind;
@@ -49,41 +44,6 @@ function candidate(partial: {
 		factors: partial.factors,
 		reasonCodes: partial.reasonCodes,
 		rejectionReason: partial.rejectionReason
-	};
-}
-
-function targetQualityFactor(
-	source: ResourceTargetResult['source'],
-	config: CognitionConfig
-): number {
-	if (source === 'visible') {
-		return config.targetQualityVisible;
-	}
-	if (source === 'remembered') {
-		return config.targetQualityRemembered;
-	}
-	return config.targetQualitySearch;
-}
-
-/**
- * Effective need score = pressure × target quality.
- * Factors always expose raw pressure and the quality multiplier used.
- */
-function scoreResourceNeed(
-	pressure: number,
-	source: ResourceTargetResult['source'],
-	config: CognitionConfig,
-	pressureCode: 'hunger_pressure' | 'thirst_pressure',
-	targetReasonCodes: readonly CandidateReasonCode[]
-): { baseScore: number; factors: CandidateFactor[]; reasonCodes: CandidateReasonCode[] } {
-	const quality = targetQualityFactor(source, config);
-	return {
-		baseScore: pressure * quality,
-		factors: [
-			{ code: pressureCode, value: pressure },
-			{ code: 'target_quality', value: quality }
-		],
-		reasonCodes: [pressureCode, 'target_quality', ...targetReasonCodes]
 	};
 }
 

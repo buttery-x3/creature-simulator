@@ -125,3 +125,43 @@ unassigned; creature 0 had distinct food/water/danger forms. Sender context was
 explicitly labeled observer-only. Follow mode centered the selected creature
 without advancing paused simulation time; disabling it restored full framing.
 Screenshots were inspected; no page errors or apparent stalls were observed.
+
+## Checkpoint 3: acute needs remain competitive
+
+Implemented: above 0.9 hunger/thirst, smooth urgency restores up to 80% of the
+uncertainty discount. Visible, remembered and unknown targets retain ordered
+quality; extreme blind search can now defeat high-curiosity generic information
+including continuation. Night rest preference tapers over the top 30% of energy.
+A different acute need can request periodic arbitration during recovery without
+forcing a switch or bypassing the existing timer.
+
+Focused tests cover both known and mistaken signal interpretations, severe
+danger competition, smooth scoring, recovery timing, continued useful drinking
+and interruption of sleeping/eating. Ordinary lower-pressure quality remains
+unchanged; an old maximum-hunger/visible-water assertion was intentionally
+narrowed to subcritical hunger because this is the policy being corrected.
+
+Observation: three 600-second runs remain deterministic with bounded memory and
+no movement stalls above 2 seconds. Results are mixed: longest drought thirst
+episode fell from 248 to 73 seconds, but river high-thirst time increased from
+1201 to 4217 creature-seconds and low-energy time increased from 106 to 1839.
+This is a known unfavorable interaction, not a claim of improved ecology.
+The next measured question is exhausted home travel and off-home rest.
+
+Structure: pure need-priority scoring and event-trigger selection have explicit
+internal owners; public entry points, dependency directions and limits remain
+unchanged. The behavior root stays at capacity; further execution policies
+belong below its existing execution domain.
+
+Validation: quality gate components passed (486 unit tests, server check, build,
+10 browser tests). One initial browser run missed the canvas at startup; the
+focused retry and entire browser suite subsequently passed. At 132.8 simulated
+seconds in the night browser observation, creature 0 selected hunger with raw
+quality 0.350, effective quality 0.870 and score 0.920 over investigation 0.660.
+A creature at energy 0.84 had an invalid rest candidate; literal full energy is
+covered by the focused test. Screenshots were inspected; no page errors.
+
+Targeted river trace: 744 low-energy rest/travel samples versus 18 rest/sleep
+samples. One exhausted creature spent 105 seconds without sleeping while home
+remained 2.86–15.9 units away. Movement worked and water was locally known;
+mandatory home recovery is the concrete next limitation.

@@ -6,6 +6,18 @@
  */
 
 import type { Creature, CreatureAction, SimulationConfig } from '../types';
+import { acuteNeedUrgency } from '../cognition/ecology/need-priority';
+
+/** A recovery action may reconsider another acute need; this never selects its replacement. */
+export function hasAcuteCompetingNeed(
+	creature: Pick<Creature, 'hunger' | 'thirst' | 'energy' | 'action'>
+): boolean {
+	return (
+		(creature.action !== 'eat' && acuteNeedUrgency(creature.hunger) > 0) ||
+		(creature.action !== 'drink' && acuteNeedUrgency(creature.thirst) > 0) ||
+		(creature.action !== 'sleep' && acuteNeedUrgency(1 - creature.energy) > 0)
+	);
+}
 
 export function clampNeed(value: number): number {
 	if (!Number.isFinite(value)) {

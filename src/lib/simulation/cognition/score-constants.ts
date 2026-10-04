@@ -10,7 +10,7 @@ import type { CognitionConfig } from './types';
  * Continuity is a modest soft bonus — not min-commitment or switch-margin gates.
  * Explore does not receive continuity (see applyContinuity).
  *
- * Need scores use pressure × target-quality multiplier:
+ * Ordinary need scores use pressure × target-quality multiplier:
  *   visible (1.0) > remembered (0.70) > search (0.35)
  *
  * Optional investigate_signal uses (baseline + recency) × curiosityWeight;
@@ -21,8 +21,9 @@ import type { CognitionConfig } from './types';
  *
  * Approximate relationships (relative, not locks):
  * - explore ≈ 0.30 (lowest-information fallback; no continuity stickiness)
- * - high-pressure blind search (1.0 × 0.35 = 0.35) still beats explore
- * - unweighted signal max (0.38 + 0.04) beats blind need search (need floor)
+ * - subcritical blind search is discounted; above 0.9 pressure its quality discount
+ *   progressively reduces under ecology/need-priority.ts (maximum search score 0.87)
+ * - unweighted signal max (0.38 + 0.04) beats subcritical blind search (need floor)
  * - mid curiosity optional signal often loses to explore; high curiosity can win
  * - announce above optional signal and explore so post-consumption sharing wins
  * - announce below bare-threshold *visible* need (0.45 × 1.0)

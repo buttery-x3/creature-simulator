@@ -589,10 +589,10 @@ describe('actionable resource weighting', () => {
 		return candidate?.factors.find((f) => f.code === code)?.value;
 	}
 
-	it('1. visible water beats blind food search at max hunger', () => {
+	it('1. visible water beats blind food search below acute hunger', () => {
 		const record = arbitrate(
 			baseInput({
-				hunger: 1,
+				hunger: 0.9,
 				thirst: 0.75,
 				availableWater: [waterPerceived('water-1')]
 			})

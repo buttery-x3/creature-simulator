@@ -546,3 +546,15 @@ last-seen physical evidence for at most 12 seconds. Physical flee and soft route
 risk can consult those fading snapshots; hunt still requires current perception.
 Routes toward a recently observed hazard lose utility, with bounded urgency and
 ability modifiers. No hard behavioral lock or global danger map is introduced.
+
+### Acute physiological priority
+
+Resource uncertainty continues to reduce need utility, but above 0.9 pressure a
+smooth bounded urgency term restores up to 80% of the missing target-quality
+weight. Search remains less informed than a visible resource; acute need can
+outweigh generic investigation including its continuity bonus. The score record
+shows raw and effective quality. Night rest preference tapers over the upper
+30% of energy, so full-energy creatures do not sleep solely from darkness.
+Recovery remains persistent under ordinary conditions; an acute different need
+can request arbitration on the existing reconsideration timer. No action is
+selected by this trigger, and local danger retains its immediate path.

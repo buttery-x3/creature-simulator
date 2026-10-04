@@ -19,6 +19,7 @@ import type { Creature, SimulationConfig } from '../types';
 import { appendTransition } from './actions';
 import { replanFromArbitration, type ReplanConfig } from './apply-arbitration';
 import { advanceNeeds, recoveryComplete, type ConsumptionGrants } from './needs';
+import { reconsiderationTrigger } from './execution/reconsideration';
 import { requestDangerWarning } from './execution/danger-expression';
 import { senseCreature } from './sensing/sense-creature';
 import { pursueAction, applyAnnouncementEnd } from './execution/pursue-action';
@@ -209,37 +210,15 @@ export function stepCreatureBehaviour(
 		return { creature: next, emissionRequest };
 	}
 
-	// 6. Event / periodic reconsideration — not after a successful same-step emit.
-	const isConsumptive = next.action === 'eat' || next.action === 'drink' || next.action === 'sleep';
-	if (!emissionRequest && !dangerReplanned && !isConsumptive) {
-		if (incomingPendingTrigger) {
-			next = replan(next, habitat, timeSeconds, incomingPendingTrigger, config, simulationSeed);
-		} else if (next.pendingArbitrationTrigger) {
-			// e.g. set mid-step by other paths without emit (should be rare).
-			const trigger = next.pendingArbitrationTrigger;
-			next = replan(next, habitat, timeSeconds, trigger, config, simulationSeed);
-		} else if (wildlifeChanged) {
-			next = replan(
-				next,
-				habitat,
-				timeSeconds,
-				'wildlife_perception_change',
-				config,
-				simulationSeed
-			);
-		} else if (perceptionChanged) {
-			next = replan(
-				next,
-				habitat,
-				timeSeconds,
-				'relevant_resource_perception_change',
-				config,
-				simulationSeed
-			);
-		} else if (timeSeconds >= next.nextReconsiderAt) {
-			next = replan(next, habitat, timeSeconds, 'periodic', config, simulationSeed);
-		}
-	}
+	// Event and recovery reconsideration share the existing clock and one arbitration path.
+	const trigger = reconsiderationTrigger(next, timeSeconds, {
+		incomingPendingTrigger,
+		wildlifeChanged,
+		perceptionChanged,
+		dangerReplanned,
+		emissionRequested: emissionRequest !== null
+	});
+	if (trigger) next = replan(next, habitat, timeSeconds, trigger, config, simulationSeed);
 
 	const pursued = pursueAction(
 		next,

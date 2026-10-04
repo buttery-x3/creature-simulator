@@ -447,3 +447,8 @@ convention.
 No new top-level domain or dependency reversal is introduced. Cognition reads
 plain personal association snapshots; communication continues to read lexicon
 values without importing learning algorithms.
+
+Acute physiological priority adds `cognition/ecology/need-priority.ts` for the
+pure urgency curve and resource-need scoring. `behaviour/execution/reconsideration.ts`
+owns event/periodic trigger selection, preserving `stepCreatureBehaviour` as the
+orchestrator and the existing public simulation API.

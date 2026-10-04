@@ -434,3 +434,12 @@ review-trigger file (~365 code lines): danger adds another instance of its one
 per-context observational aggregation responsibility, not another policy.
 CommunicationTab delegates its population-meaning section, and follow camera
 framing has a pure tested owner. No threshold exceptions or rule changes.
+
+### Acute-need follow-up
+
+Resource urgency policy is extracted from candidate assembly into
+`cognition/ecology/need-priority.ts`; this is an independently testable physiological
+scoring responsibility. Event/periodic trigger selection moves out of the growing
+behaviour step into `behaviour/execution/reconsideration.ts` before extending
+recovery reconsideration. Behaviour root remains at eight implementation files.
+There are no threshold, public-boundary or dependency-direction changes.

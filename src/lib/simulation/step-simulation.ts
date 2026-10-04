@@ -5,16 +5,18 @@
  * 1. Resources/weather: rain schedule/refill, food spawn, eat/drink consumption grants
  * 2. Behaviour for all creatures (needs apply grants; perception sees post-consumption world;
  *    unified cognition arbitration selects intention; actions execute)
- * 3. Memory: resource_observation writes/refreshes from sensing
- * 4. Communication: apply emission requests, reception, expire active emissions
- * 5. Memory: resource_announcement from successful announcement emissions
- * 6. Memory: heard_signal from this step's reception (no sender; no interpretation)
- * 7. Request reconsideration for listeners that gained heard_signal this step
+ * 3. Lifecycle physiology/death, physical encounters, then reciprocal reproduction/newborns
+ * 4. Memory: resource_observation writes/refreshes from sensing
+ * 5. Communication: apply emission requests, reception, expire active emissions
+ * 6. Memory: resource_announcement from successful announcement emissions
+ * 7. Memory: heard_signal from this step's reception (no sender; no interpretation)
+ * 8. Request reconsideration for listeners that gained heard_signal this step
  *
  * Eligibility: a signal heard in step N is remembered at end of N and is investigable from N+1
  * via ordinary arbitration (no pending opportunity / curiosity gate).
  */
 
+import { advancePopulationLife, finalizePopulation } from './lifecycle/population';
 import { recordInjury } from './social';
 import { stepWildlife, resolveEncounters } from './ecology';
 import { stepCreatureBehaviour } from './behaviour/step-creature-behaviour';
@@ -32,6 +34,13 @@ import type { Creature, SimulationConfig, SimulationState } from './types';
 export type StepSimulationConfig = Pick<
 	SimulationConfig,
 	| 'ecology'
+	| 'lifecycle'
+	| 'movementSpeed'
+	| 'memoryCapacityRange'
+	| 'explorationCellSize'
+	| 'initialHunger'
+	| 'initialThirst'
+	| 'initialEnergy'
 	| 'fixedDt'
 	| 'maxTurnRate'
 	| 'creatureRadius'
@@ -166,7 +175,8 @@ export function stepSimulation(
 		return result.creature;
 	});
 
-	const encountered = resolveEncounters(wildlife, creatures, timeSeconds, dt, config);
+	const aged = advancePopulationLife(creatures, dt, timeSeconds, config.lifecycle);
+	const encountered = resolveEncounters(wildlife, aged.creatures, timeSeconds, dt, config);
 	const beforeInjury = new Map(creatures.map((creature) => [creature.id, creature.body.health]));
 	const afterPain = encountered.creatures.map((creature) => ({
 		...creature,
@@ -176,12 +186,21 @@ export function stepSimulation(
 		)
 	}));
 
+	const population = finalizePopulation(
+		afterPain,
+		timeSeconds,
+		state.nextCreatureId,
+		habitat,
+		state.seed,
+		config
+	);
+
 	// Stable request order by sender id (not array iteration accidents).
 	emissionRequests.sort((a, b) => (a.senderId < b.senderId ? -1 : a.senderId > b.senderId ? 1 : 0));
 
 	// Resource observations from this step's sensing (available food + water geography).
 	const afterObservationMemory = applyResourceObservationMemories(
-		afterPain,
+		population.creatures,
 		habitat,
 		timeSeconds,
 		config
@@ -195,6 +214,10 @@ export function stepSimulation(
 		wildlife: encountered.wildlife,
 		recentEncounters: [...state.recentEncounters, ...encountered.encounters].slice(
 			-config.ecology.encounterHistoryLimit
+		),
+		nextCreatureId: population.nextCreatureId,
+		recentLifeEvents: [...state.recentLifeEvents, ...aged.events, ...population.events].slice(
+			-config.lifecycle.eventHistoryLimit
 		),
 		creatures: afterObservationMemory
 	};

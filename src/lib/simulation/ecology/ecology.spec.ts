@@ -166,6 +166,51 @@ describe('physical ecology', () => {
 		expect(result.creatures[0].pendingArbitrationTrigger).toBe('danger_perception_change');
 	});
 
+	it('allows lethal injury and stops later same-step attacks or eating by the dead creature', () => {
+		const { config, creature, animal } = fixture();
+		const killer: Wildlife = {
+			...animal,
+			id: 'a-killer',
+			mode: 'approach',
+			size: 2,
+			physicality: 2
+		};
+		for (const carcass of [false, true]) {
+			const target: Wildlife = {
+				...animal,
+				id: 'z-target',
+				health: carcass ? 0 : 1,
+				foodAmount: carcass ? 1 : 0,
+				mode: carcass ? 'carcass' : 'roam'
+			};
+			const dying = {
+				...creature,
+				body: { ...creature.body, health: 0.01 },
+				target: { kind: 'wildlife' as const, wildlifeId: target.id }
+			};
+			const result = resolveEncounters([target, killer], [dying], 0, 1, config);
+			expect(result.creatures[0].body.health).toBe(0);
+			expect(result.creatures[0].hunger).toBe(dying.hunger);
+			expect(result.encounters.map((event) => event.kind)).toEqual(['wildlife_attack']);
+			expect(result.encounters[0].amount).toBe(0.01);
+			expect(result.wildlife.find((animal) => animal.id === target.id)).toEqual(target);
+		}
+	});
+
+	it('never lets an already dead creature attack or withdraw carcass food', () => {
+		const { config, creature, animal } = fixture();
+		const dead = { ...creature, body: { ...creature.body, health: 0 } };
+		for (const target of [
+			animal,
+			{ ...animal, health: 0, foodAmount: 1, mode: 'carcass' as const }
+		]) {
+			const result = resolveEncounters([target], [dead], 0, 1, config);
+			expect(result.encounters).toEqual([]);
+			expect(result.wildlife).toEqual([target]);
+			expect(result.creatures).toEqual([dead]);
+		}
+	});
+
 	it('leaves distant carcasses unconsumed and removes naturally exhausted remains', () => {
 		const { config, state, creature, animal } = fixture();
 		const carcass: Wildlife = {

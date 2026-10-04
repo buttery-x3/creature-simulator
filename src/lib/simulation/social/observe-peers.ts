@@ -1,3 +1,4 @@
+import { isMature, DEFAULT_LIFECYCLE_CONFIG, type LifecycleConfig } from '../lifecycle';
 import { distanceSquared } from '../creature-movement';
 import type { Creature } from '../types';
 import { SOCIAL_DEFAULTS } from './defaults';
@@ -8,7 +9,8 @@ export function observePeers(
 	creature: Pick<Creature, 'id' | 'position'>,
 	population: readonly Creature[],
 	timeSeconds: number,
-	radius: number
+	radius: number,
+	lifecycleConfig: Pick<LifecycleConfig, 'maturitySeconds'> = DEFAULT_LIFECYCLE_CONFIG
 ): PeerObservation[] {
 	return population
 		.filter(
@@ -25,6 +27,7 @@ export function observePeers(
 			const expression = peer.social.expression;
 			return {
 				id: peer.id,
+				mature: isMature(peer.lifecycle, lifecycleConfig),
 				position: { ...peer.position },
 				observedAt: timeSeconds,
 				expression:

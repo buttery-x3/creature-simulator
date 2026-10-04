@@ -2,6 +2,7 @@
 	import type { SimulationState } from '$lib/simulation';
 	import { buildOverviewViewModel } from '../view-models/overview-view-model';
 	import RunControls from './RunControls.svelte';
+	import PopulationLifecycle from './PopulationLifecycle.svelte';
 
 	type Props = {
 		simulation: SimulationState;
@@ -126,6 +127,8 @@
 			{/if}
 		</ul>
 	</section>
+
+	<PopulationLifecycle population={overview.population} events={simulation.recentLifeEvents} />
 
 	<section class="block" data-testid="overview-behaviour" aria-label="Behaviour snapshot">
 		<h3>Behaviour snapshot</h3>

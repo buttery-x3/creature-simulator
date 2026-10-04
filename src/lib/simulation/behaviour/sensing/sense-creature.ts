@@ -45,7 +45,13 @@ export function senseCreature(
 	let wildlifeChanged = false;
 	let peerChanged = next.perceivedPeers.length !== creature.perceivedPeers.length;
 	if (perceived.sensed) {
-		const peers = observePeers(next, population, timeSeconds, config.sensingRadius);
+		const peers = observePeers(
+			next,
+			population,
+			timeSeconds,
+			config.sensingRadius,
+			config.lifecycle
+		);
 		peerChanged =
 			peers
 				.map((peer) => peer.id + ':' + (peer.expression?.id ?? ''))

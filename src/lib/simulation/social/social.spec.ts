@@ -16,7 +16,13 @@ const peer = (
 	id: string,
 	time: number,
 	expression: PeerObservation['expression'] = null
-): PeerObservation => ({ id, position: { x: 1, y: 0 }, observedAt: time, expression });
+): PeerObservation => ({
+	mature: true,
+	id,
+	position: { x: 1, y: 0 },
+	observedAt: time,
+	expression
+});
 
 describe('local peer observation', () => {
 	it('contains visible identity and display, never internal needs, intent, relationships or language', () => {
@@ -25,7 +31,13 @@ describe('local peer observation', () => {
 		const hidden = testCreature({ id: 'hidden', position: { x: 30, y: 0 } });
 		const seen = observePeers(observer, [observer, visible, hidden], 1.2, 3);
 		expect(seen).toHaveLength(1);
-		expect(Object.keys(seen[0]!).sort()).toEqual(['expression', 'id', 'observedAt', 'position']);
+		expect(Object.keys(seen[0]!).sort()).toEqual([
+			'expression',
+			'id',
+			'mature',
+			'observedAt',
+			'position'
+		]);
 		expect(Object.keys(seen[0]!.expression!).sort()).toEqual(['id', 'intensity', 'kind']);
 		expect(seen[0]!.position).not.toBe(visible.position);
 		expect(observePeers(observer, [visible], 2, 3)[0]!.expression).toBeNull();
@@ -150,4 +162,15 @@ describe('welfare and innate displays', () => {
 		);
 		expect(restarted.social.expression?.id).not.toBe(started.social.expression?.id);
 	});
+});
+
+it('observes developmental maturity using the configured growth threshold without fertility disclosure', () => {
+	const observer = testCreature({ id: 'observer' });
+	const adult = testCreature({ id: 'peer', hunger: 0.95 });
+	adult.lifecycle = { ...adult.lifecycle, ageSeconds: 100, nextReproductionAt: 999 };
+	const mature = observePeers(observer, [adult], 1, 3, { maturitySeconds: 90 })[0]!;
+	expect(mature.mature).toBe(true);
+	expect(mature).not.toHaveProperty('lifecycle');
+	expect(mature).not.toHaveProperty('hunger');
+	expect(observePeers(observer, [adult], 1, 3, { maturitySeconds: 120 })[0]!.mature).toBe(false);
 });

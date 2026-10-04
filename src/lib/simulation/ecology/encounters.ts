@@ -26,6 +26,7 @@ export function resolveEncounters(
 	for (const original of [...creatures].sort((a, b) => a.id.localeCompare(b.id))) {
 		let creature = updated.get(original.id)!;
 		for (const animal of orderedAnimals) {
+			if (creature.body.health <= 0) break;
 			if (!inReach(creature, animal, ecology.encounterDistance)) continue;
 			const creatureAbility = bodyAbility(creature.body, creature.energy);
 			const wildlifeAbility = bodyAbility(animal, animal.energy);
@@ -85,16 +86,15 @@ export function resolveEncounters(
 				time >= animal.nextAttackAt &&
 				animal.energy >= ecology.attackEnergyCost
 			) {
-				// Health represents injury here; lifecycle owns mortality, introduced separately.
 				const amount = Math.min(
-					Math.max(0, creature.body.health - 0.05),
+					creature.body.health,
 					(ecology.attackDamage * wildlifeAbility) / Math.max(0.15, creatureAbility)
 				);
 				animal.nextAttackAt = time + ecology.attackCooldownSeconds;
 				animal.energy = Math.max(0, animal.energy - ecology.attackEnergyCost);
 				creature = {
 					...creature,
-					body: { ...creature.body, health: Math.max(0.05, creature.body.health - amount) },
+					body: { ...creature.body, health: Math.max(0, creature.body.health - amount) },
 					pendingArbitrationTrigger: 'danger_perception_change'
 				};
 				record('wildlife_attack', amount);

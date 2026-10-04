@@ -32,6 +32,7 @@ const ACTION_BODY_COLOR: Record<CreatureAction, number> = {
 	sleep: 0x7b6b9c,
 	fight: 0xef4444,
 	dance: 0xffd166,
+	court: 0xffd166,
 	cry: 0x6caed6
 };
 
@@ -45,6 +46,7 @@ const ACTION_NOSE_COLOR: Record<CreatureAction, number> = {
 	sleep: 0xa78bfa,
 	fight: 0xfca5a5,
 	dance: 0xffef9f,
+	court: 0xffef9f,
 	cry: 0xbae6fd
 };
 

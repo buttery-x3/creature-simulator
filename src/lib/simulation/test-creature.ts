@@ -10,6 +10,7 @@ import { emptyLexicon } from './learning/lexicon-resolution';
 import { createEmptyAssociations } from './learning/signal-associations';
 import { createEmptyMemory } from './memory/create-memory';
 import { emptySocialState } from './social';
+import { createLifeState, DEFAULT_LIFECYCLE_CONFIG } from './lifecycle';
 import type { Creature } from './types';
 
 const DEFAULT_TEST_BOUNDS = { width: 20, height: 14 };
@@ -19,6 +20,12 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 	const exploration = overrides.exploration ?? createExplorationState(DEFAULT_TEST_BOUNDS, 2);
 	return {
 		id: 'creature-0',
+		lifecycle: createLifeState(
+			'test',
+			overrides.id ?? 'creature-0',
+			overrides.body ?? { size: 1, physicality: 1 },
+			DEFAULT_LIFECYCLE_CONFIG
+		),
 		social: emptySocialState(),
 		perceivedPeers: [],
 		body: { size: 1, physicality: 1, health: 1, nextAttackAt: 0 },

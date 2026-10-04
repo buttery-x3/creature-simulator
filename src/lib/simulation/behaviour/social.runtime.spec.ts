@@ -224,6 +224,8 @@ describe('local social simulation integration', () => {
 		config.energyDrainPerSecond = 0;
 		config.ecology.activityHungerCostPerSecond = 0;
 		config.ecology.movementEnergyCostPerUnit = 0;
+		// Keep this affinity experiment independent from reproductive choice.
+		for (const creature of state.creatures) creature.lifecycle.nextReproductionAt = 1000;
 		state.creatures[1].position = { x: 1.2, y: 0 };
 		// Experimental fixed positions isolate contact learning; ordinary display costs remain.
 		let acquainted = advance(state, config, 120);
@@ -235,6 +237,8 @@ describe('local social simulation integration', () => {
 		expect(learned.liking).toBeGreaterThan(0.6);
 		expect(observer(acquainted).position).toEqual({ x: 0, y: 0 });
 		const ready = patchObserver(acquainted, {
+			// Isolate learned approach from the later courtship alternative.
+			lifecycle: { ...observer(acquainted).lifecycle, nextReproductionAt: 1000 },
 			movementSpeed: 1,
 			nextReconsiderAt: 0,
 			perception: { ...observer(acquainted).perception, lastUpdatedAt: -1 }

@@ -14,6 +14,7 @@
 	import CreatureBehaviour from './CreatureBehaviour.svelte';
 	import CreatureEcology from './CreatureEcology.svelte';
 	import CreatureSocial from './CreatureSocial.svelte';
+	import CreatureLifecycle from './CreatureLifecycle.svelte';
 	import CreatureLanguage from './CreatureLanguage.svelte';
 
 	type Props = {
@@ -263,6 +264,11 @@
 		{/if}
 
 		<CreatureEcology creature={selectedCreature} timeSeconds={simulation.timeSeconds} />
+		<CreatureLifecycle
+			creature={selectedCreature}
+			timeSeconds={simulation.timeSeconds}
+			config={config.lifecycle}
+		/>
 		<CreatureSocial creature={selectedCreature} timeSeconds={simulation.timeSeconds} />
 
 		<CreatureBehaviour creature={selectedCreature} {investigation} />

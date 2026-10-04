@@ -31,6 +31,7 @@ import type { ExplorationState } from './exploration/types';
 import type { CreatureMemory } from './memory/types';
 import type { BodyState, EcologyConfig, EncounterRecord, Wildlife } from './ecology/types';
 import type { SocialState, PeerObservation } from './social/types';
+import type { LifeState, LifecycleConfig, LifeEvent } from './lifecycle/types';
 import type { EnvironmentState } from './resources/types';
 
 export type {
@@ -89,6 +90,7 @@ export type { ExplorationDiagnosticsView } from './exploration/diagnostics';
 
 /** Current step used to pursue the intention. Distinct from intention. */
 export type CreatureAction =
+	| 'court'
 	| 'move'
 	| 'investigate'
 	| 'eat'
@@ -157,6 +159,7 @@ export type BehaviourTransition = {
 };
 
 export type Creature = {
+	lifecycle: LifeState;
 	social: SocialState;
 	/** Current locally observable peer identities and broad expressions only. */
 	perceivedPeers: PeerObservation[];
@@ -284,6 +287,9 @@ export type Creature = {
 };
 
 export type SimulationState = {
+	/** Monotonic birth identifier; never reused after a death. */
+	nextCreatureId: number;
+	recentLifeEvents: LifeEvent[];
 	wildlife: Wildlife[];
 	recentEncounters: EncounterRecord[];
 	seed: string;
@@ -315,6 +321,7 @@ export type SpeedRange = {
  * Plain serialisable values only — no RNG closures.
  */
 export type SimulationConfig = {
+	lifecycle: LifecycleConfig;
 	ecology: EcologyConfig;
 	seed: string;
 	/** Habitat generation settings excluding seed (seed comes from this config). */

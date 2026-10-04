@@ -57,7 +57,7 @@ export function recordInjury(social: SocialState, amount: number): SocialState {
 
 /** Executes a selected action, never chooses it. Aborting consumes the start cooldown. */
 export function executeExpression(creature: Creature, timeSeconds: number): Creature {
-	const kind = creature.action;
+	const kind = creature.action === 'court' ? 'dance' : creature.action;
 	const active = creature.social.expression;
 	if (kind !== 'dance' && kind !== 'cry') {
 		return active ? { ...creature, social: { ...creature.social, expression: null } } : creature;

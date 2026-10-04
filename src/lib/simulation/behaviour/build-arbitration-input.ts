@@ -11,6 +11,7 @@ import { resolveFeature } from './resource-awareness';
 export type ArbitrationConfig = Pick<
 	SimulationConfig,
 	| 'ecology'
+	| 'lifecycle'
 	| 'emissionCooldownSeconds'
 	| 'seekFoodThreshold'
 	| 'seekWaterThreshold'
@@ -91,6 +92,7 @@ export function buildArbitrationInput(
 		trigger,
 		position: creature.position,
 		social: { state: creature.social, peers: creature.perceivedPeers },
+		lifecycle: { state: creature.lifecycle, config: config.lifecycle },
 		physical: {
 			body: creature.body,
 			homePosition: habitat.home.position,

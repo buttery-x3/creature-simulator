@@ -338,7 +338,7 @@ subsystem selects intentions.
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Placement**      | `simulation/cognition/` — not more helpers under capacity-full `behaviour/`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Runtime status** | **Authoritative.** Single decision system; legacy goal/lock/opportunity machinery removed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `explore`. No predator/social/mating types.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Candidates**     | `satisfy_hunger`, `satisfy_thirst`, `rest`, `investigate_signal`, `announce_resource`, `explore`. Physical and social extensions are documented below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **Need targets**   | Perception first (feature target), then newest usable resource memory as a **point** at the stored position (water skips `empty: true`), else `target: null` + `search_fallback`. Remote habitat changes do not invalidate remembered points.                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Need scores**    | `pressure × targetQuality` where quality is config-driven: **visible > remembered > search**. Factors expose raw pressure and `target_quality` multiplier. Blind search is materially discounted so actionable alternatives can win.                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Signal**         | Evaluate every retained `heard_signal` memory; interpret with the listener’s own resolved lexicon (`food`, `water`, or `unknown`). Score = `max(optional, needFloor) + 0.2 × matchingUnresolvedPressure`; optional = `(baseline + recency) × curiosityWeight`; needFloor restores unweighted baseline+recency when either threshold-valid hunger/thirst need has no actionable knowledge. Matching visible/usable remembered knowledge suppresses the semantic contribution. Unknown remains eligible. Highest score wins; ties use descending memory sequence, then ascending emission id. One investigation candidate, point target at the selected origin. |
@@ -519,8 +519,8 @@ daylight appearance; observer world truth and selected local observations are
 labeled separately in the workbench.
 
 Defaults and validation evidence live in overnight-expansion.md. Creature
-health currently models injury with a floor of 0.05; mortality is pending the
-complete lifecycle slice. Wildlife can die and yields finite decaying food.
+health now reaches zero through injury, deprivation or age in the lifecycle
+slice below. Wildlife can die and yields finite decaying food.
 No animal regeneration or population rescue is implemented.
 
 ## Grounded danger communication
@@ -624,3 +624,39 @@ in low floating-point bits by 30 seconds and make different later decisions.
 Trace evidence must record its runtime; Node event timestamps are not guaranteed
 browser replay timestamps. This observed numerical portability limit does not
 justify claiming rendering changes authoritative state.
+
+## Lifecycle and population turnover
+
+Simulation/lifecycle owns growth, age, accumulated deprivation, reciprocal courtship
+progress, birth requests and death events. Physiology runs after current needs and
+before encounters; lethal encounters are removed before reproduction and communication.
+The population coordinator assembles newborns through creation's shared creature factory.
+Dead creatures leave the active population; no resurrection, automatic replacement or
+creature-carcass resource is introduced. Retained personal relationships and messages
+expire normally, and live targets are lost through local sensing rather than global death
+notifications. Existing emissions can finish their physical lifetime after their sender dies.
+
+Cognition/lifecycle chooses court_peer from own mature condition, bounded acquired
+affiliation and fresh visible peer maturity. It never receives another creature's age,
+private needs, intent, reproductive cooldown or ancestry. The executor approaches the
+observed position, then courts in contact and may display an innate dance. World contact
+resolution requires independently selected reciprocal targets and continuous mutual
+participation; interruption resets progress. A nonreciprocal contact attempt times out.
+All mature creatures are biologically compatible in this minimal model; there is no sex,
+genetics, kinship restriction, pregnancy or childcare model. Courtship is voluntary utility,
+not a new social-need meter. Nearby danger penalizes stationary courtship as it does rest.
+
+Founders receive independently seeded adult ages. Newborn body size and physicality
+start at half their independent seeded adult baseline and grow to maturity; acquired
+knowledge, exploration, relationships and language start empty. Genealogy is observer
+state only. Independent within-run counters allocate IDs that are never reused after death.
+The explicit population cap is a computational limit: a completed pair at capacity receives
+a visible blocked event and cooldown, without silently deleting an offspring. Recent
+life events are bounded and are not lifetime population totals. Configurable accelerated
+biological defaults and outcome measurements are recorded in overnight-expansion.md.
+
+The public createSimulation/stepSimulation call shape is preserved. SimulationState adds
+nextCreatureId and recentLifeEvents; Creature adds lifecycle; SimulationConfig adds a
+cloned and validated lifecycle object. Presentation reads these through the simulation
+barrel and never owns mating, death or growth. Existing seed placement/trait streams are
+preserved; births use a separate stream and the authoritative state seed.

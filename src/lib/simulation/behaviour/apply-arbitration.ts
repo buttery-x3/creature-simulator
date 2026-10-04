@@ -62,7 +62,9 @@ export function replanFromArbitration(
 		record.selectedTarget?.kind === 'wildlife'
 			? config.ecology.encounterDistance
 			: record.selectedTarget?.kind === 'creature'
-				? SOCIAL_DEFAULTS.comfortDistance
+				? record.selectedIntention === 'court_peer'
+					? config.lifecycle.courtshipDistance
+					: SOCIAL_DEFAULTS.comfortDistance
 				: config.arrivalDistance,
 		creature.perceivedWildlife,
 		creature.perceivedPeers

@@ -1,3 +1,4 @@
+import { validateLifecycleConfig } from '../lifecycle';
 import type { SimulationConfig } from '../types';
 
 export class SimulationCreationError extends Error {
@@ -115,6 +116,10 @@ export function validateSimulationConfig(config: SimulationConfig): void {
 	}
 	validateLearningAndResources(config);
 	validateEcology(config);
+	const lifeErrors = validateLifecycleConfig(config.lifecycle);
+	if (lifeErrors.length) throw new SimulationCreationError(lifeErrors.join('; '));
+	if (config.creatureCount > config.lifecycle.populationCap)
+		throw new SimulationCreationError('creatureCount must not exceed lifecycle.populationCap');
 }
 
 function validateLearningAndResources(config: SimulationConfig): void {

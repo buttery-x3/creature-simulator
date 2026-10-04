@@ -198,3 +198,6 @@ export type {
 	Relationship,
 	MoodSnapshot
 } from './social';
+
+export type { LifeState, LifecycleConfig, LifeEvent } from './lifecycle/types';
+export { isMature } from './lifecycle';

@@ -12,6 +12,8 @@ export type InnateExpression = {
 
 /** Explicitly observable data only; identity requires local sight. */
 export type PeerObservation = {
+	/** Developmental appearance only, not fertility, age or private condition. */
+	mature: boolean;
 	id: string;
 	position: Vec2;
 	observedAt: number;

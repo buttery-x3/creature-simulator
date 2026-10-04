@@ -36,3 +36,59 @@ describe('buildOverviewViewModel', () => {
 		);
 	});
 });
+
+describe('population lifecycle observations', () => {
+	it('reports living age/generation and bounded event counts without including dead creatures', () => {
+		const state = createSimulation(defaultSimulationConfig('lifecycle-observer'));
+		state.creatures = state.creatures.slice(0, 2).map((creature, index) => ({
+			...creature,
+			lifecycle: {
+				...creature.lifecycle,
+				ageSeconds: index ? 150 : 10,
+				generation: index ? 0 : 1
+			}
+		}));
+		state.recentLifeEvents = [
+			{
+				kind: 'birth',
+				time: 10,
+				creatureId: 'offspring',
+				parentIds: ['parent-a', 'parent-b'],
+				generation: 1
+			},
+			{ kind: 'death', time: 11, creatureId: 'removed', cause: 'age' },
+			{
+				kind: 'courtship_failed',
+				time: 12,
+				creatureIds: ['parent-a', 'parent-b'],
+				reason: 'population_cap'
+			}
+		];
+		const before = JSON.stringify(state);
+		expect(buildOverviewViewModel(state).population).toEqual({
+			averageAgeSeconds: 80,
+			youngestAgeSeconds: 10,
+			oldestAgeSeconds: 150,
+			highestGeneration: 1,
+			recentBirthCount: 1,
+			recentDeathCount: 1,
+			recentCourtshipFailureCount: 1
+		});
+		expect(JSON.stringify(state)).toBe(before);
+		state.recentLifeEvents = [];
+		expect(buildOverviewViewModel(state).population.recentBirthCount).toBe(0);
+	});
+	it('represents extinction with absent age range and generation', () => {
+		const state = createSimulation(defaultSimulationConfig('empty-life'));
+		state.creatures = [];
+		expect(buildOverviewViewModel(state).population).toEqual({
+			averageAgeSeconds: 0,
+			youngestAgeSeconds: null,
+			oldestAgeSeconds: null,
+			highestGeneration: null,
+			recentBirthCount: 0,
+			recentDeathCount: 0,
+			recentCourtshipFailureCount: 0
+		});
+	});
+});

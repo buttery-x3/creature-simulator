@@ -14,9 +14,10 @@
 
 ## Current work
 
-Physical ecology, grounded danger language and acute-need scoring are implemented
-and checked. Locally chosen rest away from home is also checked. The current increment adds
-bounded relationships and innate expression before lifecycle.
+Physical ecology, grounded danger language, acute-need scoring, local rest,
+bounded relationships and innate expression are implemented and checked. Lifecycle
+and population turnover are implemented and observed, including natural births
+and eventual extinction. The next increment is grounded social movement learning.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -247,3 +248,77 @@ times should be observed there rather than copied from Node traces.
 
 Next: complete lifecycle with growth, reciprocal voluntary courtship, independent
 offspring learning and actual mortality; remove the temporary injury floor.
+
+## Checkpoint 6: lifecycle and turnover
+
+Implemented: seeded founder ages, juvenile growth, mature reciprocal courtship,
+independent newborn assembly, sustained deprivation, ageing and actual death.
+Selected courtship approaches a locally observed familiar adult, then requires
+three seconds of mutual contact. Either creature can choose another action.
+An unanswered contact attempt ends after six seconds and retries no sooner than
+fifteen seconds later. Birth consumes 0.2 energy and adds 0.15 hunger to both
+parents, with a 120-second reproductive cooldown. Compatible means any pair of
+mature, sufficiently well-conditioned creatures; no sex/genetics/childcare model.
+
+Eligibility requires health/energy at least 0.6, hunger/thirst at most 0.5, acquired
+familiarity at least 0.2 and liking at least 0.04. These are accelerated configurable
+experiment values. Newborn size/physicality grow from half an independent seeded
+adult baseline to full size at 90 seconds; founders start 90–240 seconds old.
+Deprivation at need>=0.95 has45s hunger/25s thirst grace, then damages health at
+0.004/0.006 per second. Exposure decays at2s/s when relieved. Senescence starts
+at 540 seconds and damages health at0.004/s; maximum age 900 seconds prevents
+sleep healing from making creatures immortal. The injury floor is removed.
+
+The population cap 64 is disclosed as a computational limit. A completed pair at
+capacity gets a recorded failure and cooldown; no newborn is secretly removed.
+Monotonic IDs survive deaths. The last 32 lifecycle events are observer history,
+not all-time counters. Dead creatures leave the living roster, and nearby targets
+clear by ordinary sensing; distant personal memories are not erased by omniscience.
+
+Offspring start with independent empty dictionaries, associations, spatial
+exploration, memory and relationships. Integration tests demonstrate actual
+hearing, voluntary investigation and arrival evidence teaching a newborn water
+for the same glyph its parent assigns to food; mixed evidence remains mixed.
+No copied dictionary, successful translation or parenting knowledge is injected.
+
+Validation: full npm run check passed 568 unit tests, server check, build and
+11 browser tests. The offspring/lost-peer regressions are included.
+
+Natural 600-second Node runs: demo produced 2 births, 10 deaths and 4 survivors;
+river and drought produced no births and became extinct at 580.267s and 463.733s.
+Highest observed generation was 1. These are genuine outcomes, not guaranteed
+population stability. Histories remained bounded, with no memory violations or
+saturated lifecycle history. Hunger remained substantial. The dynamic harness
+uses integrated alive creature-time, records births/deaths from roster changes,
+and reports null mean needs after extinction. Old fixed-population comparisons
+were removed because death changes the denominator. Full results/configuration
+are in overnight-observation-results.md; same-runtime repeated trajectories match.
+
+Structure: lifecycle is a named internal state-machine boundary with four
+implementation modules (defaults/validation, physiology, reproduction and population
+orchestration; declaration types are excluded from capacity); cognition owns
+courtship policy, creation owns shared assembly, and existing behaviour owns
+execution. Public call shapes remain intact; state/config/types extend to carry
+lifecycle and bounded observer events. No dependency-direction, threshold or
+repository-rule exceptions were required. The simulation barrel remains an
+explicit export list with its already documented headroom pressure. The substantial
+creature inspector adds composition only; its directory reaches seven files, with
+identity/perception extraction the next concrete split point if it grows again.
+
+Browser observation used normal paused Step controls with no state injection.
+Natural child 12 (parents 3+5) at 20.233s had age 9.533s and size 0.4223; at 80.233s
+it had age 69.533s and size 0.6769, with visibly larger body and matching inspector.
+Founder 0 died by 380.233s; selected identity and follow mode cleared, the camera
+returned to overview, and the inspector showed no stale selection. Population
+was 4 at 600.233s and 0 by 800.233s. At 900.233s the bounded history retained 2 births,
+14 deaths and 2 failed courtships; empty-population age displayed a dash. Four
+screenshots were inspected and there were no page errors. These are browser
+observations, not assumed copies of Node timing. Growth render uses authoritative
+body size; UI callbacks did not create births or restore the population.
+
+Function headroom: pursuit execution 141 code lines, simulation step 98, shared
+creature assembly 87 and reproduction resolution 110; no function limits raised.
+
+Next frontier: one grounded learned social movement concept, followed by deeper
+interactions, observation clarity and scale work. Come/go/stop are not yet learned
+meanings; courtship and innate displays do not confer those translations.

@@ -38,6 +38,7 @@ export type CreatureBehaviourStepResult = {
 export type BehaviourStepConfig = Pick<
 	SimulationConfig,
 	| 'ecology'
+	| 'lifecycle'
 	| 'maxTurnRate'
 	| 'creatureRadius'
 	| 'arrivalDistance'

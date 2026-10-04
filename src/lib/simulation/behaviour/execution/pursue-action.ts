@@ -57,6 +57,15 @@ export function pursueAction(
 	const announcementConfig = config as AnnouncementStepConfig;
 	// 7. Pursue action — no movement while eating/drinking/sleeping/investigating
 	if (
+		(next.action === 'court' &&
+			isAtTarget(
+				next.position,
+				habitat,
+				next.target,
+				config.lifecycle.courtshipDistance,
+				next.perceivedWildlife,
+				next.perceivedPeers
+			)) ||
 		next.action === 'dance' ||
 		next.action === 'cry' ||
 		next.action === 'eat' ||
@@ -96,7 +105,7 @@ export function pursueAction(
 		}
 	}
 
-	if (next.action === 'fight') next = { ...next, action: 'move' };
+	if (next.action === 'fight' || next.action === 'court') next = { ...next, action: 'move' };
 	const fallback = next.action === 'search' ? next.searchTarget : next.position;
 	const destination = movementPoint(
 		habitat,
@@ -144,7 +153,9 @@ export function pursueAction(
 			next.target?.kind === 'wildlife'
 				? config.ecology.encounterDistance
 				: next.target?.kind === 'creature'
-					? SOCIAL_DEFAULTS.comfortDistance
+					? next.intention === 'court_peer'
+						? config.lifecycle.courtshipDistance
+						: SOCIAL_DEFAULTS.comfortDistance
 					: config.arrivalDistance,
 			next.perceivedWildlife,
 			next.perceivedPeers

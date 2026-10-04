@@ -16,6 +16,7 @@
  * not a separate “continue” intention kind and not a commitment lock.
  */
 
+import type { LifeState, LifecycleConfig } from '../lifecycle';
 import type { SocialState, PeerObservation } from '../social/types';
 import type { Vec2 } from '$lib/habitat';
 import type { CreatureLexicon, SymbolAssociation } from '../learning/types';
@@ -26,6 +27,7 @@ import type { CreatureTarget, WildlifeObservation } from '../types';
 
 /** What the creature is trying to accomplish (distinct from low-level action). */
 export type IntentionKind =
+	| 'court_peer'
 	| 'approach_peer'
 	| 'dance'
 	| 'cry'
@@ -71,6 +73,9 @@ export type CandidateFactor = {
 
 /** Stable reason codes for candidate validity, scoring and selection. */
 export type CandidateReasonCode =
+	| 'reproductive_opportunity'
+	| 'no_reproductive_opportunity'
+	| 'reproductive_ineligible'
 	| 'social_opportunity'
 	| 'no_social_opportunity'
 	| 'expression_cooldown'
@@ -194,6 +199,8 @@ export type CognitionConfig = {
  * no opportunity lifecycle objects.
  */
 export type ArbitrationInput = {
+	/** Own life state only; partner eligibility remains independently chosen. */
+	lifecycle?: { state: LifeState; config: LifecycleConfig };
 	social?: { state: SocialState; peers: readonly PeerObservation[] };
 	speechReady?: boolean;
 	symbolAssociations?: readonly SymbolAssociation[];
@@ -251,6 +258,7 @@ export const INTENTION_TIE_BREAK_ORDER: readonly IntentionKind[] = [
 	'rest',
 	'investigate_signal',
 	'announce_resource',
+	'court_peer',
 	'approach_peer',
 	'dance',
 	'cry',

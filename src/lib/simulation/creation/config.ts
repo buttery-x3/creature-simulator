@@ -3,10 +3,12 @@ import { DEFAULT_COGNITION_CONFIG } from '../cognition/score-constants';
 import { DEFAULT_SYMBOL_INVENTORY } from '../communication/types';
 import { DEFAULT_EXPLORATION_CELL_SIZE } from '../exploration';
 import { DEFAULT_ECOLOGY_CONFIG } from '../ecology';
+import { DEFAULT_LIFECYCLE_CONFIG } from '../lifecycle';
 import type { SimulationConfig } from '../types';
 
 export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	ecology: { ...DEFAULT_ECOLOGY_CONFIG },
+	lifecycle: { ...DEFAULT_LIFECYCLE_CONFIG },
 	habitat: {
 		worldWidth: DEFAULT_HABITAT_CONFIG.worldWidth,
 		worldHeight: DEFAULT_HABITAT_CONFIG.worldHeight,
@@ -125,6 +127,7 @@ export function defaultSimulationConfig(seed = 'demo'): SimulationConfig {
 	return {
 		...DEFAULT_SIMULATION_CONFIG,
 		ecology: { ...DEFAULT_SIMULATION_CONFIG.ecology },
+		lifecycle: { ...DEFAULT_SIMULATION_CONFIG.lifecycle },
 		seed,
 		habitat: {
 			...habitat,

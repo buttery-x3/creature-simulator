@@ -41,7 +41,18 @@ export type OverviewAlert = {
 	message: string;
 };
 
+export type PopulationLifecycle = {
+	averageAgeSeconds: number;
+	youngestAgeSeconds: number | null;
+	oldestAgeSeconds: number | null;
+	highestGeneration: number | null;
+	recentBirthCount: number;
+	recentDeathCount: number;
+	recentCourtshipFailureCount: number;
+};
+
 export type OverviewViewModel = {
+	population: PopulationLifecycle;
 	wellbeing: PopulationWellbeing;
 	behaviour: BehaviourSnapshot;
 	world: WorldSnapshot;
@@ -60,6 +71,7 @@ const INTENTIONS: readonly IntentionKind[] = [
 	'warn_danger',
 	'avoid_danger',
 	'approach_peer',
+	'court_peer',
 	'dance',
 	'cry'
 ] as const;
@@ -77,6 +89,7 @@ function emptyIntentionCounts(): Record<IntentionKind, number> {
 		warn_danger: 0,
 		avoid_danger: 0,
 		approach_peer: 0,
+		court_peer: 0,
 		dance: 0,
 		cry: 0
 	};
@@ -167,7 +180,19 @@ export function buildOverviewViewModel(state: SimulationState): OverviewViewMode
 
 	const alerts = buildAlerts(state);
 
-	return { wellbeing, behaviour: { byIntention }, world, alerts };
+	const ages = creatures.map((c) => c.lifecycle.ageSeconds);
+	const population: PopulationLifecycle = {
+		averageAgeSeconds: mean(ages),
+		youngestAgeSeconds: n ? Math.min(...ages) : null,
+		oldestAgeSeconds: n ? Math.max(...ages) : null,
+		highestGeneration: n ? Math.max(...creatures.map((c) => c.lifecycle.generation)) : null,
+		recentBirthCount: state.recentLifeEvents.filter((event) => event.kind === 'birth').length,
+		recentDeathCount: state.recentLifeEvents.filter((event) => event.kind === 'death').length,
+		recentCourtshipFailureCount: state.recentLifeEvents.filter(
+			(event) => event.kind === 'courtship_failed'
+		).length
+	};
+	return { wellbeing, behaviour: { byIntention }, world, alerts, population };
 }
 
 function buildAlerts(state: SimulationState): OverviewAlert[] {

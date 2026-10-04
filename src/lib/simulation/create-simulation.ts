@@ -44,6 +44,8 @@ export function createSimulation(config: SimulationConfig): SimulationState {
 		habitat,
 		environment,
 		creatures,
+		nextCreatureId: creatures.length,
+		recentLifeEvents: [],
 		wildlife: createWildlife(config.seed, habitat, config.ecology),
 		recentEncounters: [],
 		activeEmissions: [],

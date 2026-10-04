@@ -31,6 +31,7 @@ export function actionForIntention(
 ): CreatureAction {
 	if (intention === 'dance' || intention === 'cry') return intention;
 	if (intention === 'approach_peer') return 'move';
+	if (intention === 'court_peer') return arrived ? 'court' : 'move';
 	if (intention === 'flee' || intention === 'avoid_danger' || intention === 'warn_danger')
 		return 'move';
 	if (intention === 'hunt') return arrived ? 'fight' : 'move';
@@ -114,7 +115,8 @@ function intentionHasConcreteDestination(
 	target: CreatureTarget | null,
 	intention: IntentionKind
 ): boolean {
-	if (intention === 'approach_peer') return target?.kind === 'creature';
+	if (intention === 'approach_peer' || intention === 'court_peer')
+		return target?.kind === 'creature';
 	if (intention === 'dance' || intention === 'cry') return target?.kind === 'point';
 	if (intention === 'hunt') return target?.kind === 'wildlife';
 	if (intention === 'flee') return target?.kind === 'point';

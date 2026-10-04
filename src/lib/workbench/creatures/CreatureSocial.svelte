@@ -40,15 +40,21 @@
 		</div>
 	</dl>
 	<h4>Observed peers</h4>
-	<p>Local snapshots show position and visible expression; other creatures’ needs are not known.</p>
+	<p>
+		Local snapshots show position, visible maturity and expression; other creatures’ needs are not
+		known.
+	</p>
 	{#if creature.perceivedPeers.length === 0}<p>No peers currently observed.</p>{:else}
 		<div class="table-wrap">
 			<table data-testid="inspector-perceived-peers">
-				<thead><tr><th>Peer</th><th>Position</th><th>Expression</th><th>Age</th></tr></thead><tbody>
+				<thead
+					><tr><th>Peer</th><th>Position</th><th>Mature</th><th>Expression</th><th>Age</th></tr
+					></thead
+				><tbody>
 					{#each creature.perceivedPeers as peer (peer.id)}<tr
 							><td>{peer.id}</td><td
 								>({peer.position.x.toFixed(1)}, {peer.position.y.toFixed(1)})</td
-							><td
+							><td>{peer.mature ? 'yes' : 'no'}</td><td
 								>{peer.expression?.kind ?? 'none'}{#if peer.expression}
 									({peer.expression.intensity.toFixed(2)}){/if}</td
 							><td>{Math.max(0, timeSeconds - peer.observedAt).toFixed(1)}s</td></tr

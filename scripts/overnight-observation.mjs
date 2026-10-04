@@ -20,15 +20,8 @@ const reportPath = path.resolve(
 const duration = Number(process.argv[3] ?? 600);
 assert.ok(Number.isFinite(duration) && duration > 0, 'Duration must be positive and finite');
 const seeds = ['demo', 'overnight-river', 'overnight-drought'];
-// Historical 600-second acute-need measurements, retained in checkpoint 6d02f21.
-// Values are observational comparisons, never pass/fail thresholds or tuning targets.
-const previousBaseline = {
-	demo: { hunger: 2837.8333, thirst: 555.4667, exhaustion: 293.6333 },
-	'overnight-river': { hunger: 4033.9, thirst: 4216.5333, exhaustion: 1839 },
-	'overnight-drought': { hunger: 3188.9, thirst: 1300.1, exhaustion: 440.3333 }
-};
 const fields = ['hunger', 'thirst', 'energy', 'health'];
-const rounded = (value) => Number(value.toFixed(4));
+const rounded = (value) => (Number.isFinite(value) ? Number(value.toFixed(4)) : null);
 const increment = (counts, key, amount = 1) => {
 	counts[key] = (counts[key] ?? 0) + amount;
 };
@@ -61,6 +54,17 @@ function run(api, seed, seconds, hashTrajectory = false) {
 		fixedDt: config.fixedDt,
 		steps: Math.round(seconds / config.fixedDt),
 		runtimeSeconds: 0,
+		initialPopulation: state.creatures.length,
+		populationMinimum: state.creatures.length,
+		populationMaximum: state.creatures.length,
+		births: 0,
+		deaths: 0,
+		deathCauses: {},
+		courtshipFailures: {},
+		maximumGeneration: 0,
+		aliveCreatureSeconds: 0,
+		firstExtinctionAt: state.creatures.length === 0 ? 0 : null,
+		saturatedLifeEventSteps: 0,
 		actionSamples: {},
 		intentionSamples: {},
 		intentionEntries: {},
@@ -112,10 +116,41 @@ function run(api, seed, seconds, hashTrajectory = false) {
 			increment(stats.encounters, event.kind);
 			increment(stats.encounterAmounts, event.kind, event.amount);
 		}
+		const livingIds = new Set(state.creatures.map((creature) => creature.id));
+		for (const id of previous.keys()) {
+			if (!livingIds.has(id)) {
+				stats.deaths += 1;
+				previous.delete(id);
+			}
+		}
+		stats.populationMinimum = Math.min(stats.populationMinimum, state.creatures.length);
+		stats.populationMaximum = Math.max(stats.populationMaximum, state.creatures.length);
+		stats.aliveCreatureSeconds += state.creatures.length * config.fixedDt;
+		if (state.creatures.length === 0 && stats.firstExtinctionAt === null)
+			stats.firstExtinctionAt = rounded(state.timeSeconds);
+		const lifeEvents = state.recentLifeEvents.filter((event) => event.time === state.timeSeconds);
+		if (lifeEvents.length === config.lifecycle.eventHistoryLimit)
+			stats.saturatedLifeEventSteps += 1;
+		for (const event of lifeEvents) {
+			if (event.kind === 'death') increment(stats.deathCauses, event.cause);
+			if (event.kind === 'courtship_failed') increment(stats.courtshipFailures, event.reason);
+		}
 		const sample = state.timeSeconds + 1e-8 >= nextSample;
 		for (const creature of state.creatures) {
-			const prior = previous.get(creature.id);
-			assert.ok(prior, 'This physical-slice harness expects the initial fixed population');
+			let prior = previous.get(creature.id);
+			if (!prior) {
+				stats.births += 1;
+				prior = {
+					intention: creature.intention,
+					switchedAt: state.timeSeconds,
+					position: creature.position,
+					hungerRun: 0,
+					thirstRun: 0,
+					stationaryRun: 0
+				};
+				previous.set(creature.id, prior);
+			}
+			stats.maximumGeneration = Math.max(stats.maximumGeneration, creature.lifecycle.generation);
 			for (const field of fields) {
 				const value = field === 'health' ? creature.body.health : creature[field];
 				assert.ok(Number.isFinite(value) && value >= 0 && value <= 1, `${seed}: invalid ${field}`);
@@ -194,20 +229,21 @@ function run(api, seed, seconds, hashTrajectory = false) {
 		if (sample) nextSample += 1;
 	}
 	stats.runtimeSeconds = rounded((performance.now() - started) / 1000);
+	const livingMean = (field) =>
+		state.creatures.length > 0
+			? rounded(
+					state.creatures.reduce((sum, creature) => sum + creature[field], 0) /
+						state.creatures.length
+				)
+			: null;
 	stats.final = {
 		population: state.creatures.length,
 		livingWildlife: state.wildlife.filter((w) => w.health > 0).length,
 		carcasses: state.wildlife.filter((w) => w.health <= 0).length,
 		foodSources: state.habitat.food.length,
-		meanHunger: rounded(
-			state.creatures.reduce((sum, c) => sum + c.hunger, 0) / state.creatures.length
-		),
-		meanThirst: rounded(
-			state.creatures.reduce((sum, c) => sum + c.thirst, 0) / state.creatures.length
-		),
-		meanEnergy: rounded(
-			state.creatures.reduce((sum, c) => sum + c.energy, 0) / state.creatures.length
-		),
+		meanHunger: livingMean('hunger'),
+		meanThirst: livingMean('thirst'),
+		meanEnergy: livingMean('energy'),
 		injuredCreatures: state.creatures.filter((c) => c.body.health < 0.99).length
 	};
 	if (trajectory) stats.trajectorySha256 = trajectory.digest('hex');
@@ -216,6 +252,7 @@ function run(api, seed, seconds, hashTrajectory = false) {
 		value.max = rounded(value.max);
 	}
 	for (const key of [
+		'aliveCreatureSeconds',
 		'highHungerCreatureSeconds',
 		'highThirstCreatureSeconds',
 		'lowEnergyCreatureSeconds',
@@ -226,11 +263,29 @@ function run(api, seed, seconds, hashTrajectory = false) {
 		stats[key] = rounded(stats[key]);
 	for (const key of Object.keys(stats.encounterAmounts))
 		stats.encounterAmounts[key] = rounded(stats.encounterAmounts[key]);
+	stats.highHungerAlivePercent =
+		stats.aliveCreatureSeconds > 0
+			? rounded((100 * stats.highHungerCreatureSeconds) / stats.aliveCreatureSeconds)
+			: null;
+	stats.highThirstAlivePercent =
+		stats.aliveCreatureSeconds > 0
+			? rounded((100 * stats.highThirstCreatureSeconds) / stats.aliveCreatureSeconds)
+			: null;
+	stats.lowEnergyAlivePercent =
+		stats.aliveCreatureSeconds > 0
+			? rounded((100 * stats.lowEnergyCreatureSeconds) / stats.aliveCreatureSeconds)
+			: null;
+	assert.equal(
+		stats.final.population,
+		stats.initialPopulation + stats.births - stats.deaths,
+		'Population accounting differs'
+	);
 	return { stats, config };
 }
 
 function distribution(counts) {
 	const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+	if (total === 0) return 'none';
 	return Object.entries(counts)
 		.sort((a, b) => b[1] - a[1])
 		.map(([key, value]) => `${key}: ${value} (${((value / total) * 100).toFixed(1)}%)`)
@@ -239,23 +294,32 @@ function distribution(counts) {
 
 function report(results, repeat, metadata) {
 	const lines = [
-		'# Overnight physical ecology observation',
+		'# Overnight lifecycle and ecology observation',
 		'',
 		`Run on ${metadata.date} with \`node scripts/overnight-observation.mjs\`. Source HEAD: \`${metadata.head}\`; working-source SHA-256: \`${metadata.sourceFingerprint}\`.`,
 		'',
 		'## Method',
 		'',
-		`Three fixed seeds, default configuration and fixed timestep, ${duration} simulated seconds per seed. Vite SSR loads the authoritative simulation in middleware mode without opening a listening port. Runtime includes stepping and measurement, excludes module loading. Action/intention distributions sample each creature once per simulated second; extrema, need-duration and encounter totals are accumulated every step.`,
+		`Three fixed seeds, default configuration and fixed timestep, ${duration} simulated seconds per seed. Vite SSR loads the authoritative simulation in middleware mode without opening a listening port. Runtime includes stepping and measurement, excludes module loading. Action/intention distributions sample each creature once per simulated second; extrema, need-duration and encounter totals are accumulated every step. Alive creature-seconds integrate the post-step living population at each fixed timestep; need percentages use this same changing-population denominator. Empty-population final means are null.`,
 		'',
-		'Encounter counters select records whose timestamp equals the current step, rather than counting the same bounded history repeatedly. A saturated history step makes totals a lower bound. Hunt/flee entries count actual intention changes into those states. “Rapid switches” means successive intention changes within two seconds; it is a diagnostic proxy, not proof of pathological oscillation. “Stationary movement” means consecutive one-second observations moving less than 0.02 units while action is move/search/explore; it can include turning or edge effects.',
+		'Encounter, death-cause and failed-courtship counters select records whose timestamp equals the current step, rather than counting the same bounded history repeatedly. A saturated history step makes these detail totals lower bounds. Birth/death totals instead use live ID additions/removals and are not truncated by event-history capacity. Hunt/flee entries count actual intention changes into those states. “Rapid switches” means successive intention changes within two seconds; it is a diagnostic proxy, not proof of pathological oscillation. “Stationary movement” means consecutive one-second observations moving less than 0.02 units while action is move/search/explore; it can include turning or edge effects.',
 		'',
-		'This run covers the current physical ecology and danger-behaviour slice: population is fixed and creature health is injury-only. These results do not measure mortality, reproduction, lifespan or population survival. High need pressure is reported directly; no ecological success criterion is imposed.',
+		'This run includes growth, reciprocal courtship, birth, ageing and mortality. Population decline or extinction is reported directly; no rescue or ecological success criterion is imposed. Historical fixed-population pressure totals are not comparable to these dynamic-population measurements and are intentionally omitted.',
 		'',
 		'## Results',
 		'',
-		'| Seed | Runtime s | Hunt / flee entries | Creature / wildlife attacks | Carcass consumption events / amount | Living wildlife / carcasses |',
+		'| Seed | Population initial / final / min–max | Births / deaths | Max generation | Alive creature-s | First extinction s |',
 		'| --- | ---: | ---: | ---: | ---: | ---: |'
 	];
+	for (const row of results)
+		lines.push(
+			`| ${row.seed} | ${row.initialPopulation} / ${row.final.population} / ${row.populationMinimum}–${row.populationMaximum} | ${row.births} / ${row.deaths} | ${row.maximumGeneration} | ${row.aliveCreatureSeconds} | ${row.firstExtinctionAt ?? 'none'} |`
+		);
+	lines.push(
+		'',
+		'| Seed | Runtime s | Hunt / flee entries | Creature / wildlife attacks | Carcass consumption events / amount | Living wildlife / carcasses |',
+		'| --- | ---: | ---: | ---: | ---: | ---: |'
+	);
 	for (const row of results)
 		lines.push(
 			`| ${row.seed} | ${row.runtimeSeconds} | ${row.intentionEntries.hunt ?? 0} / ${row.intentionEntries.flee ?? 0} | ${row.encounters.creature_attack ?? 0} / ${row.encounters.wildlife_attack ?? 0} | ${row.encounters.consume_carcass ?? 0} / ${row.encounterAmounts.consume_carcass ?? 0} | ${row.final.livingWildlife} / ${row.final.carcasses} |`
@@ -283,6 +347,10 @@ function report(results, repeat, metadata) {
 			'',
 			`### ${row.seed}`,
 			'',
+			`Death causes: ${distribution(row.deathCauses)}. Courtship failures: ${distribution(row.courtshipFailures)}. Saturated lifecycle-history steps: ${row.saturatedLifeEventSteps}.`,
+			'',
+			`High hunger / high thirst / exhaustion: ${row.highHungerAlivePercent ?? 'n/a'}% / ${row.highThirstAlivePercent ?? 'n/a'}% / ${row.lowEnergyAlivePercent ?? 'n/a'}% of alive creature-time.`,
+			'',
 			`Actions: ${distribution(row.actionSamples)}.`,
 			'',
 			`Innate expression starts: ${
@@ -301,34 +369,18 @@ function report(results, repeat, metadata) {
 			'',
 			`Final mean hunger/thirst/energy: ${row.final.meanHunger} / ${row.final.meanThirst} / ${row.final.meanEnergy}; injured creatures: ${row.final.injuredCreatures}/${row.final.population}; food sources: ${row.final.foodSources}. Exhausted travel home: ${row.exhaustedHomeTravelCreatureSeconds} creature-seconds. Memory bound violations: ${row.memoryBoundViolations}; saturated encounter-history steps: ${row.saturatedEncounterSteps}.`
 		);
-	if (duration === 600) {
-		lines.push(
-			'',
-			'## Comparison with the acute-needs checkpoint',
-			'',
-			'The same seeds, duration and defaults were measured at checkpoint `6d02f21` (fingerprint `5e14deb60a18ded70dc723bedfed66053de6c56a6edc5f089f2e1a44be938acd`). This compares complete evolving trajectories; changes in one decision policy can alter later encounters and evidence. No improvement is assumed.',
-			'',
-			'| Seed | Hunger ≥.95 creature-s before → now | Thirst ≥.95 creature-s before → now | Energy ≤.05 creature-s before → now |',
-			'| --- | ---: | ---: | ---: |'
-		);
-		for (const row of results) {
-			const old = previousBaseline[row.seed];
-			lines.push(
-				`| ${row.seed} | ${old.hunger} → ${row.highHungerCreatureSeconds} | ${old.thirst} → ${row.highThirstCreatureSeconds} | ${old.exhaustion} → ${row.lowEnergyCreatureSeconds} |`
-			);
-		}
-	}
+
 	lines.push(
 		'',
 		'## Determinism and interpretation',
 		'',
-		`Two independent ${repeat.seconds}-second runs of seed \`${seeds[0]}\` produced identical complete-state trajectory SHA-256: \`${repeat.sha256}\`. Summary metrics also matched after excluding wall-clock runtime.`,
+		`Two independent ${repeat.seconds}-second runs in ${metadata.runtime} using the same source and seed \`${seeds[0]}\` produced identical complete-state trajectory SHA-256: \`${repeat.sha256}\`. Summary metrics also matched after excluding wall-clock runtime.`,
 		'',
 		'All per-step need/health values remained finite and within [0,1]. See the pressure episodes and switching counts above when judging stability: repeatability alone does not establish that creatures meet their needs or that competing intentions are well tuned.',
 		'',
-		`Hunger pressure remains high for ${Math.min(...results.map((row) => (row.highHungerCreatureSeconds / (row.final.population * duration)) * 100)).toFixed(1)}–${Math.max(...results.map((row) => (row.highHungerCreatureSeconds / (row.final.population * duration)) * 100)).toFixed(1)}% of total creature-time. This is substantial unmet need despite hunting; it warrants resource/decision follow-up rather than claiming a balanced ecosystem. Local wildlife can be depleted and severe injuries occur. The rapid-transition pair counts identify competing intentions worth inspecting; they do not justify adding scripted emergency overrides.`,
+		'Need-pressure ratios measure time alive, not survival success: death can lower total unmet-need time. Births, deaths, surviving population and generation reach must be read alongside those ratios. Same-runtime repeatability does not guarantee identical long trajectories across JavaScript engines; browser/Node floating-point differences were observed in the preceding social checkpoint.',
 		'',
-		'## Reproduction configuration',
+		'## Run configuration',
 		'',
 		'```json',
 		JSON.stringify(metadata.config, null, 2),
@@ -357,6 +409,11 @@ try {
 		{ ...second, runtimeSeconds: 0 },
 		'Repeat trajectory and observations differ'
 	);
+	assert.equal(
+		sourceFingerprint(),
+		fingerprint,
+		'Production source changed during observation; rerun against a stable snapshot'
+	);
 	const metadata = {
 		date: new Intl.DateTimeFormat('en-CA', {
 			timeZone: 'Australia/Sydney',
@@ -365,6 +422,7 @@ try {
 		}).format(new Date()),
 		head: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
 		sourceFingerprint: fingerprint,
+		runtime: `Node ${process.version}`,
 		config: runs[0].config
 	};
 	const reportText = report(

@@ -8,6 +8,7 @@ import { emptySocialState, SOCIAL_DEFAULTS, type PeerObservation } from '../../s
 import { buildSocialCandidates } from './candidates';
 
 const peer: PeerObservation = {
+	mature: true,
 	id: 'friend',
 	position: { x: 2, y: 0 },
 	observedAt: 1,

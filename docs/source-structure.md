@@ -489,3 +489,25 @@ all social decision policy. `behaviour/sensing/wildlife-perception.ts` extracts
 existing animal sensing and encounter provenance while `sense-creature.ts`
 coordinates resource, animal, peer and exploration sensing. No new dependency
 direction or top-level catch-all directory is introduced.
+
+### Lifecycle experiment extension
+
+- simulation/lifecycle/types.ts declares life/config/event/birth-request data.
+- defaults.ts owns lifecycle tunables and their validation; physiology.ts owns age,
+  juvenile growth, accumulated deprivation and own reproductive eligibility.
+- reproduction.ts owns reciprocal contact progress and bounded outcome requests;
+  population.ts composes mortality, reproduction and the shared creation factory.
+  index.ts exposes only the domain operations needed internally. Four implementation
+  files leave four slots; no new top-level subsystem or import exception is needed.
+- creation/creatures.ts owns common independent founder/newborn assembly and separate
+  seeded spawn streams. It neither copies knowledge nor resolves mating policy.
+- cognition/lifecycle/courtship-candidate.ts owns optional courtship utility; social
+  observation adds visible maturity, while execution continues under behaviour/.
+- workbench/creatures/CreatureLifecycle.svelte and overview/PopulationLifecycle.svelte
+  own individual lifecycle and bounded observer event presentation. The simulation
+  public barrel exports the life/config/event types and isMature for these consumers.
+
+Tests are co-located. Existing thresholds and dependency direction remain unchanged.
+The creature inspector directory now has seven implementation files; future growth in
+its substantial composition component should separate identity/perception presentation
+at a coherent responsibility boundary before adding more inline sections.

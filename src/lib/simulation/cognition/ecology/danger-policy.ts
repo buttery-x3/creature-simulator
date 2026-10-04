@@ -141,7 +141,7 @@ export function applyDangerRouteRisk(
 					Math.min(1.5, Math.max(0, danger.opponentAbility / Math.max(0.05, ability) - 0.65)) *
 					Math.max(
 						routeExposure(input.position, destination, danger),
-						['rest', 'dance', 'cry'].includes(candidate.intention)
+						['rest', 'dance', 'cry', 'court_peer'].includes(candidate.intention)
 							? danger.confidence /
 									(1 + Math.sqrt(distanceSquared(destination, danger.position)) / 2)
 							: 0

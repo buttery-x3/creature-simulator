@@ -20,6 +20,9 @@
 		errorMessage: string | null;
 		config: SimulationConfig;
 		paused: boolean;
+		speed: number;
+		onSpeedChange: (speed: number) => void;
+		onStep: () => void;
 		selectedCreatureId: string | null;
 		activeTab: WorkbenchTabId;
 		onActiveTabChange: (tab: WorkbenchTabId) => void;
@@ -37,6 +40,9 @@
 		errorMessage,
 		config,
 		paused,
+		speed,
+		onSpeedChange,
+		onStep,
 		selectedCreatureId,
 		activeTab,
 		onActiveTabChange,
@@ -105,6 +111,9 @@
 				{onRegenerate}
 				{onRandomSeed}
 				{onTogglePause}
+				{speed}
+				{onSpeedChange}
+				{onStep}
 				{onReset}
 			/>
 		{:else if activeTab === 'creatures'}

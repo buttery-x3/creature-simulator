@@ -29,8 +29,10 @@ describe('buildOverviewViewModel', () => {
 		expect(vm.world.activeAnnouncementCount).toBe(state.activeEmissions.length);
 	});
 
-	it('does not invent predator counts', () => {
+	it('counts authoritative living wildlife', () => {
 		const state = createSimulation(defaultSimulationConfig('demo'));
-		expect(buildOverviewViewModel(state).world.predatorCount).toBe(0);
+		expect(buildOverviewViewModel(state).world.wildlifeCount).toBe(
+			state.wildlife.filter((animal) => animal.health > 0).length
+		);
 	});
 });

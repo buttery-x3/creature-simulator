@@ -13,25 +13,16 @@ import type { Habitat } from '$lib/habitat';
 import { stepAnnouncement, type AnnouncementStepConfig } from '../announcement/step-announcement';
 import type { ArbitrationTrigger } from '../cognition/types';
 import type { EmissionRequest } from '../communication/types';
-import { distanceSquared, moveToward, sampleSearchTarget } from '../creature-movement';
-import {
-	selectExplorationTarget,
-	updateExplorationFromSensing,
-	type ExplorationScoreConfig
-} from '../exploration';
 import { resolveInvestigationAtSite } from '../learning/step-signal-learning';
 import type { Creature, SimulationConfig } from '../types';
-import { appendTransition, transitionToConsumptive } from './actions';
+import { appendTransition } from './actions';
 import { replanFromArbitration, type ReplanConfig } from './apply-arbitration';
 import { advanceNeeds, recoveryComplete, type ConsumptionGrants } from './needs';
-import { updatePerception } from './perception';
-import {
-	ensureSearchTarget,
-	isAtTarget,
-	isTargetValid,
-	movementPoint,
-	pointTarget
-} from './resource-awareness';
+import { senseCreature } from './sensing/sense-creature';
+import { pursueAction, applyAnnouncementEnd } from './execution/pursue-action';
+import type { Wildlife } from '../ecology/types';
+import { advanceBody } from '../ecology/body';
+import { ensureSearchTarget, isTargetValid } from './resource-awareness';
 
 /** Result of one creature behaviour step, including optional emission handoff. */
 export type CreatureBehaviourStepResult = {
@@ -41,6 +32,7 @@ export type CreatureBehaviourStepResult = {
 
 export type BehaviourStepConfig = Pick<
 	SimulationConfig,
+	| 'ecology'
 	| 'maxTurnRate'
 	| 'creatureRadius'
 	| 'arrivalDistance'
@@ -108,36 +100,6 @@ function replan(
 }
 
 /**
- * Handle announcement executor completion.
- * Successful emission: defer action_complete to next step (memory not yet written).
- * Invalid/end without emit: replan immediately.
- */
-function applyAnnouncementEnd(
-	creature: Creature,
-	habitat: Habitat,
-	timeSeconds: number,
-	config: BehaviourStepConfig,
-	simulationSeed: string,
-	result: { creature: Creature; emissionRequest: EmissionRequest | null; endedPreparation: boolean }
-): { creature: Creature; emissionRequest: EmissionRequest | null } {
-	let next = result.creature;
-	const emissionRequest = result.emissionRequest;
-	if (!result.endedPreparation) {
-		return { creature: next, emissionRequest };
-	}
-	if (emissionRequest) {
-		// Defer until after communication + applySuccessfulAnnouncementMemories.
-		next = {
-			...next,
-			pendingArbitrationTrigger: 'action_complete'
-		};
-		return { creature: next, emissionRequest };
-	}
-	next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
-	return { creature: next, emissionRequest: null };
-}
-
-/**
  * Advance one creature through needs, perception, arbitration and actions for a fixed dt.
  * `grants` are world-resource consumption amounts for this step (eat/drink recovery).
  */
@@ -148,72 +110,22 @@ export function stepCreatureBehaviour(
 	simulationSeed: string,
 	habitat: Habitat,
 	config: BehaviourStepConfig,
-	grants: ConsumptionGrants = { food: 0, water: 0 }
+	grants: ConsumptionGrants = { food: 0, water: 0 },
+	wildlife: readonly Wildlife[] = []
 ): CreatureBehaviourStepResult {
 	// Snapshot so a deferred post-emit trigger set later this step cannot fire now.
 	const incomingPendingTrigger = creature.pendingArbitrationTrigger;
 
 	const needs = advanceNeeds(creature, dt, config, grants);
-	let next: Creature = { ...creature, ...needs };
+	let next: Creature = advanceBody({ ...creature, ...needs }, dt, config.ecology);
 	let emissionRequest: EmissionRequest | null = null;
 
-	// 1. Perception always runs (no investigation freeze).
-	const previousFood = new Set(next.perception.perceivedFoodIds);
-	const previousWater = new Set(next.perception.perceivedWaterIds);
-	const perceived = updatePerception(next.perception, next.position, habitat, timeSeconds, config);
-	next = { ...next, perception: perceived.perception };
-
-	let perceptionChanged = false;
-	if (perceived.sensed) {
-		const foodNow = next.perception.perceivedFoodIds;
-		const waterNow = next.perception.perceivedWaterIds;
-		const foodChanged =
-			foodNow.length !== previousFood.size || foodNow.some((id) => !previousFood.has(id));
-		const waterChanged =
-			waterNow.length !== previousWater.size || waterNow.some((id) => !previousWater.has(id));
-		perceptionChanged = foodChanged || waterChanged;
-
-		// Exploration knowledge updates on every real sensing pass (any intention).
-		const previousActive = next.exploration.activeCellIndex;
-		const previousActiveTime =
-			previousActive !== null ? next.exploration.map.lastFullySensedAt[previousActive] : null;
-		const map = updateExplorationFromSensing(
-			next.exploration.map,
-			habitat.bounds,
-			next.position,
-			config.sensingRadius,
-			timeSeconds
-		);
-		let exploration = { ...next.exploration, map };
-
-		// Completing the active exploration cell immediately retargets (no need to reach centre).
-		if (
-			next.intention === 'explore' &&
-			previousActive !== null &&
-			map.lastFullySensedAt[previousActive] !== previousActiveTime &&
-			map.lastFullySensedAt[previousActive] === timeSeconds
-		) {
-			const scoreConfig: ExplorationScoreConfig = {
-				explorationDistanceWeight: config.explorationDistanceWeight,
-				explorationStalenessWeight: config.explorationStalenessWeight,
-				explorationStalenessScaleSeconds: config.explorationStalenessScaleSeconds
-			};
-			const selection = selectExplorationTarget(
-				map,
-				habitat.bounds,
-				next.position,
-				timeSeconds,
-				scoreConfig
-			);
-			exploration = { map, activeCellIndex: selection.cellIndex };
-			next = {
-				...next,
-				exploration,
-				target: pointTarget(selection.centre)
-			};
-		} else {
-			next = { ...next, exploration };
-		}
+	const sensed = senseCreature(next, habitat, timeSeconds, config, wildlife);
+	next = sensed.creature;
+	const { perceptionChanged, dangerChanged, wildlifeChanged } = sensed;
+	const dangerReplanned = dangerChanged || incomingPendingTrigger === 'danger_perception_change';
+	if (dangerReplanned) {
+		next = replan(next, habitat, timeSeconds, 'danger_perception_change', config, simulationSeed);
 	}
 
 	// 2. Announcement executor (only advances when intention is announce_resource).
@@ -241,7 +153,7 @@ export function stepCreatureBehaviour(
 	if (!emissionRequest) {
 		const investigationStale =
 			next.intention === 'investigate_signal' && next.activeInvestigation === null;
-		const targetOk = isTargetValid(habitat, next.target);
+		const targetOk = isTargetValid(habitat, next.target, next.perceivedWildlife);
 		if (!targetOk || investigationStale) {
 			if (next.action === 'search' && next.target?.kind !== 'point' && !investigationStale) {
 				const search = ensureSearchTarget(next, simulationSeed, habitat, config);
@@ -286,13 +198,22 @@ export function stepCreatureBehaviour(
 
 	// 6. Event / periodic reconsideration — not after a successful same-step emit.
 	const isConsumptive = next.action === 'eat' || next.action === 'drink' || next.action === 'sleep';
-	if (!emissionRequest && !isConsumptive) {
+	if (!emissionRequest && !dangerReplanned && !isConsumptive) {
 		if (incomingPendingTrigger) {
 			next = replan(next, habitat, timeSeconds, incomingPendingTrigger, config, simulationSeed);
 		} else if (next.pendingArbitrationTrigger) {
 			// e.g. set mid-step by other paths without emit (should be rare).
 			const trigger = next.pendingArbitrationTrigger;
 			next = replan(next, habitat, timeSeconds, trigger, config, simulationSeed);
+		} else if (wildlifeChanged) {
+			next = replan(
+				next,
+				habitat,
+				timeSeconds,
+				'wildlife_perception_change',
+				config,
+				simulationSeed
+			);
 		} else if (perceptionChanged) {
 			next = replan(
 				next,
@@ -307,109 +228,7 @@ export function stepCreatureBehaviour(
 		}
 	}
 
-	// 7. Pursue action — no movement while eating/drinking/sleeping/investigating
-	if (
-		next.action === 'eat' ||
-		next.action === 'drink' ||
-		next.action === 'sleep' ||
-		next.action === 'investigate'
-	) {
-		return { creature: next, emissionRequest };
-	}
-
-	// Search retarget if at search point (need-driven; independent of exploration).
-	if (next.action === 'search') {
-		const arrivalSq = config.arrivalDistance * config.arrivalDistance;
-		if (distanceSquared(next.position, next.searchTarget) <= arrivalSq) {
-			const searchDecisionIndex = next.searchDecisionIndex + 1;
-			const searchTarget = sampleSearchTarget(
-				simulationSeed,
-				next.id,
-				searchDecisionIndex,
-				habitat.bounds,
-				config.creatureRadius
-			);
-			next = {
-				...next,
-				searchDecisionIndex,
-				searchTarget,
-				target: pointTarget(searchTarget)
-			};
-		}
-	}
-
-	const fallback = next.action === 'search' ? next.searchTarget : next.position;
-	const destination = movementPoint(habitat, next.target, fallback);
-	const moved = moveToward(next, destination, dt, habitat.bounds, config);
-	next = { ...next, ...moved };
-
-	// After movement, re-check announcement clarity — never a second executor pass after emit.
-	if (
-		!emissionRequest &&
-		(next.intention === 'announce_resource' || next.activeAnnouncementExecution !== null)
-	) {
-		const afterMove = stepAnnouncement({
-			creature: next,
-			habitat,
-			timeSeconds,
-			config: announcementConfig
-		});
-		const applied = applyAnnouncementEnd(
-			next,
-			habitat,
-			timeSeconds,
-			config,
-			simulationSeed,
-			afterMove
-		);
-		next = applied.creature;
-		if (applied.emissionRequest) {
-			emissionRequest = applied.emissionRequest;
-		}
-	}
-
-	// Arrive at feature → consumptive action, or arrive at signal origin → investigate
-	if (
-		!emissionRequest &&
-		next.action === 'move' &&
-		isAtTarget(next.position, habitat, next.target, config.arrivalDistance)
-	) {
-		const transition = transitionToConsumptive(next, timeSeconds, config);
-		if (transition) {
-			next = { ...next, ...transition };
-			if (
-				next.intention === 'investigate_signal' &&
-				next.action === 'investigate' &&
-				next.activeInvestigation
-			) {
-				next = resolveInvestigationAtSite(next, habitat, timeSeconds, config);
-				next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
-				return { creature: next, emissionRequest };
-			}
-		}
-	}
-
-	if (next.action === 'search') {
-		const arrivalSq = config.arrivalDistance * config.arrivalDistance;
-		if (distanceSquared(next.position, next.searchTarget) <= arrivalSq) {
-			const searchDecisionIndex = next.searchDecisionIndex + 1;
-			const searchTarget = sampleSearchTarget(
-				simulationSeed,
-				next.id,
-				searchDecisionIndex,
-				habitat.bounds,
-				config.creatureRadius
-			);
-			next = {
-				...next,
-				searchDecisionIndex,
-				searchTarget,
-				target: pointTarget(searchTarget)
-			};
-		}
-	}
-
-	return { creature: next, emissionRequest };
+	return pursueAction(next, dt, timeSeconds, simulationSeed, habitat, config, emissionRequest);
 }
 
 // Re-export appendTransition for tests that import from step module historically.

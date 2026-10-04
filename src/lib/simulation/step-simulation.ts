@@ -15,6 +15,7 @@
  * via ordinary arbitration (no pending opportunity / curiosity gate).
  */
 
+import { stepWildlife, resolveEncounters } from './ecology';
 import { stepCreatureBehaviour } from './behaviour/step-creature-behaviour';
 import { stepCommunication } from './communication/step-communication';
 import type { EmissionRequest } from './communication/types';
@@ -28,6 +29,7 @@ import type { Creature, SimulationConfig, SimulationState } from './types';
 
 export type StepSimulationConfig = Pick<
 	SimulationConfig,
+	| 'ecology'
 	| 'fixedDt'
 	| 'maxTurnRate'
 	| 'creatureRadius'
@@ -138,6 +140,14 @@ export function stepSimulation(
 	const habitat = resources.habitat;
 	const environment = resources.environment;
 
+	const wildlife = stepWildlife(
+		state.wildlife,
+		state.creatures,
+		habitat,
+		timeSeconds,
+		dt,
+		config.ecology
+	);
 	const emissionRequests: EmissionRequest[] = [];
 	const creatures = state.creatures.map((creature) => {
 		const grants = resources.grantsByCreatureId.get(creature.id) ?? emptyGrant();
@@ -148,7 +158,8 @@ export function stepSimulation(
 			state.seed,
 			habitat,
 			config,
-			grants
+			grants,
+			wildlife
 		);
 		if (result.emissionRequest) {
 			emissionRequests.push(result.emissionRequest);
@@ -156,12 +167,14 @@ export function stepSimulation(
 		return result.creature;
 	});
 
+	const encountered = resolveEncounters(wildlife, creatures, timeSeconds, dt, config);
+
 	// Stable request order by sender id (not array iteration accidents).
 	emissionRequests.sort((a, b) => (a.senderId < b.senderId ? -1 : a.senderId > b.senderId ? 1 : 0));
 
 	// Resource observations from this step's sensing (available food + water geography).
 	const afterObservationMemory = applyResourceObservationMemories(
-		creatures,
+		encountered.creatures,
 		habitat,
 		timeSeconds,
 		config
@@ -172,6 +185,10 @@ export function stepSimulation(
 		timeSeconds,
 		habitat,
 		environment,
+		wildlife: encountered.wildlife,
+		recentEncounters: [...state.recentEncounters, ...encountered.encounters].slice(
+			-config.ecology.encounterHistoryLimit
+		),
 		creatures: afterObservationMemory
 	};
 

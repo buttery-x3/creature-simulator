@@ -11,6 +11,8 @@ export default defineConfig({
 	},
 	testMatch: '**/*.e2e.{ts,js}',
 	use: {
+		// Optional installed-browser fallback; ports and managed server lifecycle stay identical.
+		channel: process.env.PLAYWRIGHT_CHANNEL,
 		baseURL: `http://127.0.0.1:${ports.browserTest}`
 	}
 });

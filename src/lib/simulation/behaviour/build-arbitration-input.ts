@@ -10,6 +10,7 @@ import { resolveFeature } from './resource-awareness';
 
 export type ArbitrationConfig = Pick<
 	SimulationConfig,
+	| 'ecology'
 	| 'seekFoodThreshold'
 	| 'seekWaterThreshold'
 	| 'restThreshold'
@@ -88,6 +89,12 @@ export function buildArbitrationInput(
 		timeSeconds,
 		trigger,
 		position: creature.position,
+		physical: {
+			body: creature.body,
+			wildlife: creature.perceivedWildlife,
+			bounds: habitat.bounds,
+			ecology: config.ecology
+		},
 		hunger: creature.hunger,
 		thirst: creature.thirst,
 		energy: creature.energy,

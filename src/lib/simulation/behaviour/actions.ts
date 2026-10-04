@@ -29,6 +29,8 @@ export function actionForIntention(
 	hasUsableFeatureTarget: boolean,
 	hasConcreteDestination = hasUsableFeatureTarget
 ): CreatureAction {
+	if (intention === 'flee') return 'move';
+	if (intention === 'hunt') return arrived ? 'fight' : 'move';
 	if (intention === 'explore') {
 		return 'explore';
 	}
@@ -109,6 +111,8 @@ function intentionHasConcreteDestination(
 	target: CreatureTarget | null,
 	intention: IntentionKind
 ): boolean {
+	if (intention === 'hunt') return target?.kind === 'wildlife';
+	if (intention === 'flee') return target?.kind === 'point';
 	if (intentionHasFeatureTarget(target, intention)) {
 		return true;
 	}

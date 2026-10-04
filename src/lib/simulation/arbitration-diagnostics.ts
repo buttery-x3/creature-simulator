@@ -10,6 +10,7 @@ export function formatDiagnosticTarget(target: CreatureTarget | null): string {
 	if (target.kind === 'point') {
 		return `point=(${target.position.x.toFixed(3)}, ${target.position.y.toFixed(3)})`;
 	}
+	if (target.kind === 'wildlife') return `wildlife:${target.wildlifeId}`;
 	return `${target.featureKind}:${target.featureId}`;
 }
 

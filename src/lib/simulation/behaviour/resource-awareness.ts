@@ -8,7 +8,7 @@
 import { featureRect, type Habitat, type HabitatFeature, type Vec2 } from '$lib/habitat';
 import { distanceSquared, sampleSearchTarget } from '../creature-movement';
 import { isResourceAvailable } from '../resources/availability';
-import type { Creature, CreatureTarget, SimulationConfig } from '../types';
+import type { Creature, CreatureTarget, SimulationConfig, WildlifeObservation } from '../types';
 
 export function resolveFeature(
 	habitat: Habitat,
@@ -35,13 +35,19 @@ export function resolveFeature(
  * Remembered resources are valid while the habitat feature still has supply —
  * perception is not required (memory-driven pursuit).
  */
-export function isTargetValid(habitat: Habitat, target: CreatureTarget | null): boolean {
+export function isTargetValid(
+	habitat: Habitat,
+	target: CreatureTarget | null,
+	wildlife: readonly WildlifeObservation[] = []
+): boolean {
 	if (target === null) {
 		return false;
 	}
 	if (target.kind === 'point') {
 		return Number.isFinite(target.position.x) && Number.isFinite(target.position.y);
 	}
+	if (target.kind === 'wildlife')
+		return wildlife.some((w) => w.id === target.wildlifeId && (w.health > 0 || w.foodAmount > 0));
 	if (target.featureKind === 'home') {
 		return resolveFeature(habitat, target) !== null;
 	}
@@ -70,13 +76,20 @@ export function isAtTarget(
 	position: Vec2,
 	habitat: Habitat,
 	target: CreatureTarget | null,
-	arrivalDistance: number
+	arrivalDistance: number,
+	wildlife: readonly WildlifeObservation[] = []
 ): boolean {
 	if (!target) {
 		return false;
 	}
 	if (target.kind === 'point') {
 		return distanceSquared(position, target.position) <= arrivalDistance * arrivalDistance;
+	}
+	if (target.kind === 'wildlife') {
+		const animal = wildlife.find((w) => w.id === target.wildlifeId);
+		return (
+			!!animal && distanceSquared(position, animal.position) <= arrivalDistance * arrivalDistance
+		);
 	}
 	const feature = resolveFeature(habitat, target);
 	if (!feature) {
@@ -109,7 +122,8 @@ export function homeTarget(habitat: Habitat): CreatureTarget {
 export function movementPoint(
 	habitat: Habitat,
 	target: CreatureTarget | null,
-	fallback: Vec2
+	fallback: Vec2,
+	wildlife: readonly WildlifeObservation[] = []
 ): Vec2 {
 	if (!target) {
 		return fallback;
@@ -117,6 +131,8 @@ export function movementPoint(
 	if (target.kind === 'point') {
 		return target.position;
 	}
+	if (target.kind === 'wildlife')
+		return wildlife.find((w) => w.id === target.wildlifeId)?.position ?? fallback;
 	const feature = resolveFeature(habitat, target);
 	return feature ? feature.position : fallback;
 }

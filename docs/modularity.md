@@ -398,3 +398,23 @@ The thresholds in this document are currently review policy.
 ESLint does not yet enforce file or function length, and no architecture checker currently enforces directory capacity or dependency direction. Agents must not claim mechanical enforcement that does not exist.
 
 A future issue may add proportional checks when repository growth makes them useful. Adding such checks is not required during unrelated feature work.
+
+## Overnight expansion disposition
+
+Physical ecology creates a new domain responsibility, owned by ecology (three
+implementation modules plus types and barrel). Creation previously combined
+configuration, validation and assembly in a substantial file; these now live in
+three creation modules, with a small public orchestration facade. The existing
+create-simulation API is preserved. Behaviour root remains at its existing eight
+files; sensing/ and execution/ isolate algorithms from the step orchestrator.
+Cognition/ecology owns independently testable physical utility policy; it does
+not perform movement, world lookups or contact resolution.
+
+Presentation's substantial viewport lifecycle moves into viewport scene and
+resource ownership; the Svelte adapter only wires reactive snapshots and cleanup.
+Animal rendering has its own ecology-presentation boundary. The existing
+CreaturesTab remains a review-trigger component but delegates both physical and
+language detail panels; future social/lifecycle panels belong beside these,
+not embedded as new algorithms inside the tab. Existing public simulation barrel
+size remains a review concern; added exports are deliberate ecology capabilities.
+No hard thresholds, capacity limits or dependency directions were raised.

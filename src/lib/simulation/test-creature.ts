@@ -18,6 +18,8 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 	const exploration = overrides.exploration ?? createExplorationState(DEFAULT_TEST_BOUNDS, 2);
 	return {
 		id: 'creature-0',
+		body: { size: 1, physicality: 1, health: 1, nextAttackAt: 0 },
+		perceivedWildlife: [],
 		position: { x: 0, y: 0 },
 		facing: 0,
 		movementSpeed: 1,

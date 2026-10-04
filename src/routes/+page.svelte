@@ -5,6 +5,8 @@
 	import { HabitatGenerationError, type Habitat } from '$lib/habitat';
 	import {
 		advanceSimulation,
+		stepSimulation,
+		daylightAt,
 		createSimulation,
 		defaultSimulationConfig,
 		SimulationCreationError,
@@ -64,6 +66,7 @@
 	let seedInput = $state(initial.simulation.seed);
 	let errorMessage = $state<string | null>(initial.error);
 	let paused = $state(false);
+	let speed = $state(1);
 	/** Presentation-only selection; never written into simulation state. */
 	let selectedCreatureId = $state<string | null>(null);
 	/** Presentation-only workbench tab; never written into simulation state. */
@@ -136,6 +139,13 @@
 		lastFrameMs = null;
 	}
 
+	function stepOnce(): void {
+		if (!paused) return;
+		simulation = stepSimulation(simulation, simulationConfigBase);
+		accumulator = 0;
+		clearStaleSelection(simulation);
+	}
+
 	function selectCreature(creatureId: string | null): void {
 		// Selection must not mutate simulation state — only presentation id/tab.
 		selectedCreatureId = creatureId;
@@ -153,7 +163,7 @@
 			} else if (!paused) {
 				const elapsed = Math.min(0.1, (nowMs - lastFrameMs) / 1000);
 				lastFrameMs = nowMs;
-				const result = advanceSimulation(simulation, elapsed, accumulator, config);
+				const result = advanceSimulation(simulation, elapsed * speed, accumulator, config);
 				accumulator = result.accumulator;
 				if (result.stepsTaken > 0) {
 					// Always adopt the stepped state, including habitat resource amounts.
@@ -182,8 +192,8 @@
 	<header class="header">
 		<h1>Creature Simulator</h1>
 		<p>
-			Creatures have inspectable needs and resource-driven goals. Simulation state is plain data;
-			Three.js is presentation only. Selection does not alter behaviour.
+			Observe creatures learning, foraging and encountering wildlife through a changing day. Select
+			a creature to inspect its local knowledge and the evidence behind its decisions.
 		</p>
 	</header>
 
@@ -192,6 +202,8 @@
 			<ThreeViewport
 				{habitat}
 				{creatures}
+				wildlife={simulation.wildlife}
+				daylight={daylightAt(simulation.timeSeconds, simulationConfigBase.ecology)}
 				activeEmissions={simulation.activeEmissions}
 				timeSeconds={simulation.timeSeconds}
 				weather={simulation.environment.weather}
@@ -208,6 +220,11 @@
 			{errorMessage}
 			config={configForSeed(simulation.seed)}
 			{paused}
+			{speed}
+			onSpeedChange={(value) => {
+				speed = value;
+			}}
+			onStep={stepOnce}
 			{selectedCreatureId}
 			activeTab={activeWorkbenchTab}
 			onActiveTabChange={(tab) => {

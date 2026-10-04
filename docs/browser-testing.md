@@ -46,3 +46,11 @@ Prefer `data-testid` attributes for stable selectors on rendering surfaces.
 
 Tests and local verification assume a normal desktop viewport. Mobile-specific layout
 and touch behaviour are out of scope for this project.
+
+## Installed browser selection
+
+Playwright defaults to its installed Chromium. On a host where that browser cannot
+access the local test server, set PLAYWRIGHT_CHANNEL to an installed browser such
+as msedge for the command. In PowerShell: `$env:PLAYWRIGHT_CHANNEL = 'msedge'`,
+then `npm run check`. This preserves port 8125 and Playwright's managed server
+lifecycle. Clear that environment variable afterward to restore the default.

@@ -41,6 +41,12 @@ describe('announcement memory integration', () => {
 	it('writes memory after a successful resource announcement emission', () => {
 		const config = {
 			...defaultSimulationConfig('mem-emit'),
+			ecology: {
+				...defaultSimulationConfig().ecology,
+				wildlifeCount: 0,
+				activityHungerCostPerSecond: 0,
+				movementEnergyCostPerUnit: 0
+			},
 			creatureCount: 1,
 			sensingRadius: 8,
 			perceptionIntervalSeconds: 0.01,

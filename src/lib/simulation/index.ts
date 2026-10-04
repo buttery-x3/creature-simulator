@@ -185,3 +185,7 @@ export {
 	resolveConsumption,
 	stepResources
 } from './resources';
+
+export { daylightAt } from './ecology/body';
+export type { BodyState, Wildlife, EcologyConfig, EncounterRecord } from './ecology/types';
+export type { WildlifeObservation } from './types';

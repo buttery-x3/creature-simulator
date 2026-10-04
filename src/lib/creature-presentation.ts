@@ -29,7 +29,8 @@ const ACTION_BODY_COLOR: Record<CreatureAction, number> = {
 	search: 0xe76f51,
 	eat: 0x2a9d8f,
 	drink: 0x4ea8de,
-	sleep: 0x7b6b9c
+	sleep: 0x7b6b9c,
+	fight: 0xef4444
 };
 
 const ACTION_NOSE_COLOR: Record<CreatureAction, number> = {
@@ -39,7 +40,8 @@ const ACTION_NOSE_COLOR: Record<CreatureAction, number> = {
 	search: 0xf4a261,
 	eat: 0x52b788,
 	drink: 0x90e0ef,
-	sleep: 0xa78bfa
+	sleep: 0xa78bfa,
+	fight: 0xfca5a5
 };
 
 type HopState = {
@@ -142,6 +144,8 @@ function applyCreatureTransform(group: THREE.Group, creature: Creature, hopOffse
 	} else {
 		group.scale.set(1, 1, 1);
 	}
+	group.scale.multiplyScalar(creature.body.size);
+	group.userData.health = creature.body.health;
 }
 
 function applyActionMaterials(
@@ -224,6 +228,9 @@ export function reconcileCreatures(
 			resources.structureVersion += 1;
 		}
 		applyActionMaterials(resources, creature.id, creature.action);
+		resources.materialsById
+			.get(creature.id)!
+			.body.color.lerp(new THREE.Color(0x8f263d), (1 - creature.body.health) * 0.7);
 		const hopZ = resolveHopOffset(resources, creature, timeSeconds);
 		applyCreatureTransform(group, creature, hopZ);
 		if (selectedCreatureId === creature.id) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import WorldEcology from './WorldEcology.svelte';
 	import type { ResourceFeature } from '$lib/habitat';
 	import { isResourceFeature } from '$lib/habitat';
 	import type { SimulationConfig, SimulationState } from '$lib/simulation';
@@ -45,6 +46,7 @@
 </script>
 
 <div class="world" data-testid="world-tab">
+	<WorldEcology {simulation} {config} />
 	<section class="block" data-testid="world-habitat-summary">
 		<h3>Habitat</h3>
 		<dl class="meta">

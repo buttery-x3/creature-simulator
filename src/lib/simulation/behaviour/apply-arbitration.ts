@@ -58,7 +58,10 @@ export function replanFromArbitration(
 		creature.position,
 		habitat,
 		record.selectedTarget,
-		config.arrivalDistance
+		record.selectedTarget?.kind === 'wildlife'
+			? config.ecology.encounterDistance
+			: config.arrivalDistance,
+		creature.perceivedWildlife
 	);
 	const applied = applyArbitration(creature, record, arrived, config);
 

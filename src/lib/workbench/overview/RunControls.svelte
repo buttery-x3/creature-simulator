@@ -4,6 +4,9 @@
 		activeSeed: string;
 		timeSeconds: number;
 		paused: boolean;
+		speed: number;
+		onSpeedChange: (speed: number) => void;
+		onStep: () => void;
 		creatureCount: number;
 		signalCount: number;
 		errorMessage: string | null;
@@ -19,6 +22,9 @@
 		activeSeed,
 		timeSeconds,
 		paused,
+		speed,
+		onSpeedChange,
+		onStep,
 		creatureCount,
 		signalCount,
 		errorMessage,
@@ -56,6 +62,9 @@
 		<button type="button" data-testid="simulation-pause-resume" onclick={onTogglePause}>
 			{paused ? 'Resume' : 'Pause'}
 		</button>
+		<button type="button" data-testid="simulation-step" onclick={onStep} disabled={!paused}
+			>Step</button
+		>
 		<button type="button" data-testid="simulation-reset" onclick={onReset}>Reset</button>
 		<button type="button" data-testid="habitat-regenerate" onclick={onRegenerate}>
 			Regenerate
@@ -65,6 +74,17 @@
 		</button>
 	</div>
 
+	<label class="field" for="simulation-speed"
+		><span>Speed</span>
+		<select
+			id="simulation-speed"
+			data-testid="simulation-speed"
+			value={speed}
+			onchange={(event) => onSpeedChange(Number(event.currentTarget.value))}
+		>
+			{#each [0.25, 1, 2, 4, 8] as value (value)}<option {value}>{value}×</option>{/each}
+		</select>
+	</label>
 	{#if errorMessage}
 		<p class="error" data-testid="habitat-error" role="alert">{errorMessage}</p>
 	{/if}
@@ -117,7 +137,8 @@
 		color: #cbd5e1;
 	}
 
-	.field input {
+	.field input,
+	.field select {
 		box-sizing: border-box;
 		width: 100%;
 		padding: 0.45rem 0.55rem;
@@ -151,6 +172,10 @@
 		cursor: pointer;
 	}
 
+	.actions button:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
 	.actions button:hover {
 		background: #334155;
 	}

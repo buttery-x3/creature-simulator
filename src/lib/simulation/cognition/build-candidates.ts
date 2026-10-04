@@ -15,6 +15,7 @@ import type {
 	IntentionCandidate,
 	IntentionKind
 } from './types';
+import { buildPhysicalCandidates, nightRestWeight } from './ecology/physical-candidates';
 import { buildSignalCandidate } from './investigation/signal-candidate';
 import { verbosityToSpeechWeight } from './speech-weight';
 import {
@@ -92,7 +93,8 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 
 	const hungerPressure = hunger;
 	const thirstPressure = thirst;
-	const restScore = 1 - energy;
+	const nightWeight = nightRestWeight(input);
+	const restScore = 1 - energy + nightWeight;
 
 	const foodValid = hungerPressure >= config.seekFoodThreshold;
 	const waterValid = thirstPressure >= config.seekWaterThreshold;
@@ -130,7 +132,10 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 				reasonCodes: ['below_threshold'] as CandidateReasonCode[]
 			};
 
-	const restFactors: CandidateFactor[] = [{ code: 'energy_deficit', value: restScore }];
+	const restFactors: CandidateFactor[] = [
+		{ code: 'energy_deficit', value: 1 - energy },
+		{ code: 'night_rest', value: nightWeight }
+	];
 	const restReasons: CandidateReasonCode[] = restValid ? ['energy_deficit'] : ['below_threshold'];
 
 	const announceValid = announce.featureId !== null;
@@ -159,6 +164,7 @@ export function buildCandidates(input: ArbitrationInput): IntentionCandidate[] {
 			: null;
 
 	return [
+		...buildPhysicalCandidates(input),
 		candidate({
 			intention: 'satisfy_hunger',
 			valid: foodValid,

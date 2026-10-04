@@ -19,10 +19,14 @@
 import type { Vec2 } from '$lib/habitat';
 import type { CreatureLexicon } from '../learning/types';
 import type { CreatureMemory } from '../memory/types';
-import type { CreatureTarget } from '../types';
+import type { BodyState, EcologyConfig } from '../ecology/types';
+import type { WorldBounds } from '$lib/habitat';
+import type { CreatureTarget, WildlifeObservation } from '../types';
 
 /** What the creature is trying to accomplish (distinct from low-level action). */
 export type IntentionKind =
+	| 'flee'
+	| 'hunt'
 	| 'satisfy_hunger'
 	| 'satisfy_thirst'
 	| 'rest'
@@ -35,6 +39,8 @@ export type IntentionKind =
  * they never map 1:1 to a forced intention.
  */
 export type ArbitrationTrigger =
+	| 'wildlife_perception_change'
+	| 'danger_perception_change'
 	| 'initial'
 	| 'periodic'
 	| 'new_heard_signal_memory'
@@ -58,6 +64,10 @@ export type CandidateFactor = {
 
 /** Stable reason codes for candidate validity, scoring and selection. */
 export type CandidateReasonCode =
+	| 'local_danger'
+	| 'night_rest'
+	| 'hunting_payoff'
+	| 'no_local_wildlife'
 	| 'always_valid'
 	| 'below_threshold'
 	| 'hunger_pressure'
@@ -88,6 +98,7 @@ export type CandidateReasonCode =
 
 /** Diagnostic reference for the candidate’s evidence/target source. */
 export type CandidateReference =
+	| { kind: 'wildlife'; wildlifeId: string }
 	| { kind: 'feature'; featureId: string; resourceKind: 'food' | 'water' | 'home' }
 	| { kind: 'heard_signal'; emissionId: string; symbolId: string }
 	| { kind: 'point'; position: Vec2 };
@@ -162,6 +173,13 @@ export type CognitionConfig = {
  * no opportunity lifecycle objects.
  */
 export type ArbitrationInput = {
+	/** Optional only for resource-only pure consumers; runtime always supplies this snapshot. */
+	physical?: {
+		body: BodyState;
+		wildlife: readonly WildlifeObservation[];
+		bounds: WorldBounds;
+		ecology: EcologyConfig;
+	};
 	timeSeconds: number;
 	trigger: ArbitrationTrigger;
 	position: Vec2;
@@ -198,6 +216,8 @@ export type ArbitrationInput = {
  * Survival before optional behaviours before explore.
  */
 export const INTENTION_TIE_BREAK_ORDER: readonly IntentionKind[] = [
+	'flee',
+	'hunt',
 	'satisfy_hunger',
 	'satisfy_thirst',
 	'rest',

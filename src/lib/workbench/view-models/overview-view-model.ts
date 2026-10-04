@@ -30,8 +30,8 @@ export type WorldSnapshot = {
 	foodCount: number;
 	waterCount: number;
 	homeCount: number;
-	/** Reserved: always 0 until predators exist. */
-	predatorCount: number;
+	/** All living wildlife; danger depends on the observer and encounter. */
+	wildlifeCount: number;
 	activeAnnouncementCount: number;
 };
 
@@ -54,7 +54,9 @@ const INTENTIONS: readonly IntentionKind[] = [
 	'satisfy_thirst',
 	'rest',
 	'investigate_signal',
-	'announce_resource'
+	'announce_resource',
+	'flee',
+	'hunt'
 ] as const;
 
 function emptyIntentionCounts(): Record<IntentionKind, number> {
@@ -64,7 +66,9 @@ function emptyIntentionCounts(): Record<IntentionKind, number> {
 		satisfy_thirst: 0,
 		rest: 0,
 		investigate_signal: 0,
-		announce_resource: 0
+		announce_resource: 0,
+		flee: 0,
+		hunt: 0
 	};
 }
 
@@ -147,7 +151,7 @@ export function buildOverviewViewModel(state: SimulationState): OverviewViewMode
 		foodCount: state.habitat.food.length,
 		waterCount: state.habitat.water.length,
 		homeCount: 1,
-		predatorCount: 0,
+		wildlifeCount: state.wildlife.filter((animal) => animal.health > 0).length,
 		activeAnnouncementCount: state.activeEmissions.length
 	};
 

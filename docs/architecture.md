@@ -492,3 +492,33 @@ abstractions are forbidden.
 The standalone HTTP transport in `server/` serves compiled public files only.
 It has no dependency on simulation or presentation modules. Build configuration,
 PM2 process ownership and deployment are documented in [deployment.md](deployment.md).
+
+## Physical ecology experiment
+
+The local overnight experiment adds serialisable wildlife and body condition to
+SimulationState. Internal ecology owns wildlife movement, daylight, energy costs,
+injury and encounter consequences. Wildlife chooses local approach/avoidance from
+condition and relative ability; creature choices remain in unified cognition.
+Cognition/ecology scores flee and hunt from a current local observation snapshot,
+plus a bounded nighttime rest preference. It never looks up hidden animal state.
+
+CreatureTarget now includes wildlife identity. Execution follows only its latest
+local observation, invalidates a pursuit on loss of sight, and rechecks physical
+contact against world truth before attacks or carcass withdrawal. Hearing has no
+new meaning in this slice. Perception still shares the existing sensing clock;
+spatial exploration retains simultaneous four-corner sensing and separate memory.
+Danger requests arbitration before announcement or investigation execution, even
+while recovering. Safe consumptive actions retain their existing persistence.
+
+Creation now separates configuration, validation and population assembly beneath
+creation/; public createSimulation/defaultSimulationConfig exports are preserved.
+Behavior sensing and movement execution have explicit internal homes, leaving
+step-creature-behaviour as orchestration. The viewport adapter delegates scene and
+resource lifecycle to viewport/. Ecology-presentation owns animal meshes and
+daylight appearance; observer world truth and selected local observations are
+labeled separately in the workbench.
+
+Defaults and validation evidence live in overnight-expansion.md. Creature
+health currently models injury with a floor of 0.05; mortality is pending the
+complete lifecycle slice. Wildlife can die and yields finite decaying food.
+No animal regeneration or population rescue is implemented.

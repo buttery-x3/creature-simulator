@@ -29,6 +29,7 @@ import type {
 } from './learning/types';
 import type { ExplorationState } from './exploration/types';
 import type { CreatureMemory } from './memory/types';
+import type { BodyState, EcologyConfig, EncounterRecord, Wildlife } from './ecology/types';
 import type { EnvironmentState } from './resources/types';
 
 export type {
@@ -87,7 +88,7 @@ export type { ExplorationDiagnosticsView } from './exploration/diagnostics';
 
 /** Current step used to pursue the intention. Distinct from intention. */
 export type CreatureAction =
-	'move' | 'investigate' | 'eat' | 'drink' | 'sleep' | 'explore' | 'search';
+	'move' | 'investigate' | 'eat' | 'drink' | 'sleep' | 'explore' | 'search' | 'fight';
 
 /**
  * A single food/water observation in the current perception snapshot.
@@ -120,13 +121,19 @@ export type CreaturePerception = {
  * Habitat feature or free-space point associated with the current action.
  * Feature targets use authoritative simulation footprints, not presentation meshes.
  */
+export type WildlifeObservation = Pick<
+	Wildlife,
+	'id' | 'position' | 'size' | 'physicality' | 'health' | 'energy' | 'foodAmount'
+> & { observedAt: number };
+
 export type CreatureTarget =
 	| {
 			kind: 'feature';
 			featureId: string;
 			featureKind: Extract<HabitatFeatureKind, 'food' | 'water' | 'home'>;
 	  }
-	| { kind: 'point'; position: Vec2 };
+	| { kind: 'point'; position: Vec2 }
+	| { kind: 'wildlife'; wildlifeId: string };
 
 /** Bounded history entry for intention/action transitions. */
 export type BehaviourTransition = {
@@ -139,6 +146,9 @@ export type BehaviourTransition = {
 };
 
 export type Creature = {
+	body: BodyState;
+	/** Current local snapshot, never a global entity lookup for cognition. */
+	perceivedWildlife: WildlifeObservation[];
 	id: string;
 	position: Vec2;
 	/** Radians on the ground plane; 0 faces +x. */
@@ -260,6 +270,8 @@ export type Creature = {
 };
 
 export type SimulationState = {
+	wildlife: Wildlife[];
+	recentEncounters: EncounterRecord[];
 	seed: string;
 	/** Simulated seconds advanced by fixed steps. */
 	timeSeconds: number;
@@ -289,6 +301,7 @@ export type SpeedRange = {
  * Plain serialisable values only — no RNG closures.
  */
 export type SimulationConfig = {
+	ecology: EcologyConfig;
 	seed: string;
 	/** Habitat generation settings excluding seed (seed comes from this config). */
 	habitat: Omit<HabitatGenerationConfig, 'seed'>;

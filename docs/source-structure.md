@@ -401,3 +401,28 @@ Mechanical enforcement may be introduced by a dedicated issue when repository co
 owns its listener lifecycle. Tests live beside the transport. `scripts/deploy.sh`
 and `scripts/deploy-remote.mjs` own release operations; they do not import `src/lib`.
 See [deployment.md](deployment.md) for build and proxy configuration.
+
+## Overnight experiment topology extensions
+
+These are implemented internal boundaries under the existing simulation and
+presentation subsystems; all cross-subsystem imports still use public barrels.
+
+| Location                                                      | Responsibility and dependency                                                                                  |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| simulation/creation/config.ts                                 | Default configuration; imports existing domain defaults                                                        |
+| simulation/creation/validation.ts                             | Creation constraints and SimulationCreationError                                                               |
+| simulation/creation/creatures.ts                              | Seeded population assembly and traits                                                                          |
+| simulation/ecology/{body,wildlife,encounters}.ts              | Body/daylight, local animal motion, physical contact outcomes; habitat/determinism/plain simulation types only |
+| simulation/cognition/ecology/physical-candidates.ts           | Pure flee/hunt/night utility from local snapshots; uses pure ecology ability/daylight functions                |
+| simulation/behaviour/sensing/sense-creature.ts                | Sensing orchestration, local animal snapshots, exploration updates                                             |
+| simulation/behaviour/execution/pursue-action.ts               | Selected physical movement/arrival and announcement completion                                                 |
+| viewport/{scene,resources}.ts                                 | Presentation snapshot reconciliation and scene/resource lifecycle, exposed through viewport/index.ts           |
+| ecology-presentation/wildlife.ts                              | Animal meshes and daylight adaptation, exposed through ecology-presentation/index.ts                           |
+| workbench/creatures/{CreatureEcology,CreatureLanguage}.svelte | Selected physical/local observation panel and existing learned language evidence                               |
+| workbench/world/WorldEcology.svelte                           | Observer-only world/encounter panel                                                                            |
+
+Simulation's public entry point additionally exports daylightAt and ecology
+types. CreatureTarget gains an explicit wildlife identity variant. Existing
+creation exports remain intact. No dependency-direction or threshold exceptions
+are introduced. New unit tests are co-located; ecology.e2e.ts uses the route test
+convention.

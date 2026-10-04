@@ -154,3 +154,22 @@ describe('reconcileCreatures', () => {
 		expect(hopHeightFactor(1)).toBeCloseTo(0);
 	});
 });
+
+describe('body visuals', () => {
+	it('shows body size and injury without changing authoritative position or recreating meshes', () => {
+		const resources = createCreaturePresentationResources();
+		const healthy = creature('creature-0', 1, 2);
+		reconcileCreatures(resources, [healthy]);
+		const group = resources.byId.get(healthy.id)!;
+		const version = resources.structureVersion;
+		const healthyColor = resources.materialsById.get(healthy.id)!.body.color.getHex();
+		const injured = { ...healthy, body: { ...healthy.body, size: 1.5, health: 0.4 } };
+		reconcileCreatures(resources, [injured]);
+		expect(resources.byId.get(healthy.id)).toBe(group);
+		expect(resources.structureVersion).toBe(version);
+		expect(group.scale.x).toBeCloseTo(1.5);
+		expect(resources.materialsById.get(healthy.id)!.body.color.getHex()).not.toBe(healthyColor);
+		expect(injured.position).toEqual({ x: 1, y: 2 });
+		clearCreaturePresentation(resources);
+	});
+});

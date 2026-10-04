@@ -35,6 +35,12 @@ const swappedLexicon: CreatureLexicon = { food: 'glyph-2', water: 'glyph-1' };
 function fixture(overrides: Partial<Creature> = {}) {
 	const config = {
 		...defaultSimulationConfig('listener-meaning-runtime'),
+		ecology: {
+			...defaultSimulationConfig().ecology,
+			wildlifeCount: 0,
+			activityHungerCostPerSecond: 0,
+			movementEnergyCostPerUnit: 0
+		},
 		creatureCount: 1,
 		hungerRisePerSecond: 0,
 		thirstRisePerSecond: 0,

@@ -8,6 +8,9 @@
 		seedInput: string;
 		errorMessage: string | null;
 		paused: boolean;
+		speed: number;
+		onSpeedChange: (speed: number) => void;
+		onStep: () => void;
 		onSeedInput: (value: string) => void;
 		onRegenerate: () => void;
 		onRandomSeed: () => void;
@@ -20,6 +23,9 @@
 		seedInput,
 		errorMessage,
 		paused,
+		speed,
+		onSpeedChange,
+		onStep,
 		onSeedInput,
 		onRegenerate,
 		onRandomSeed,
@@ -46,6 +52,9 @@
 		{onRegenerate}
 		{onRandomSeed}
 		{onTogglePause}
+		{speed}
+		{onSpeedChange}
+		{onStep}
 		{onReset}
 	/>
 
@@ -158,8 +167,8 @@
 				<dd>{world.homeCount}</dd>
 			</div>
 			<div>
-				<dt>Predators</dt>
-				<dd>{world.predatorCount}</dd>
+				<dt>Wildlife</dt>
+				<dd>{world.wildlifeCount}</dd>
 			</div>
 			<div>
 				<dt>Active announcements</dt>

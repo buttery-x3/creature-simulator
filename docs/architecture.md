@@ -749,7 +749,8 @@ remote target resolution, go/stop grammar or universal command vocabulary.
 `creation/scenarios.ts` composes fixed starting configurations from the default
 configuration. Its public `scenarioSimulationConfig(seed, scenario)` and
 `SIMULATION_SCENARIOS` metadata are shared by the route controls and the headless
-observation harness. Baseline is unchanged. More food, fewer predators starts 12
+observation harness. Baseline uses the default 14-second food-spawn attempt cadence,
+and Population stress inherits it. More food, fewer predators starts 12
 founders with 8 food sources, caps food at 12, attempts food spawn every 8 seconds,
 and starts 2 wildlife. Population stress starts 32 founders with baseline resources
 and wildlife. These three presets retain the explicit 64-creature computational cap.

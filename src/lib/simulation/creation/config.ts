@@ -112,7 +112,7 @@ export const DEFAULT_SIMULATION_CONFIG: Omit<SimulationConfig, 'seed'> = {
 	// Food is scarcer/more volatile; water is more abundant but can dry between rains.
 	maxActiveFoodSources: 5,
 	// Spawn cadence visible over a practical run without flooding the map.
-	foodSpawnIntervalSeconds: 18,
+	foodSpawnIntervalSeconds: 14,
 	// Rain every ~45–75s of sim time; brief visible rain window.
 	rainIntervalMinSeconds: 45,
 	rainIntervalMaxSeconds: 75,

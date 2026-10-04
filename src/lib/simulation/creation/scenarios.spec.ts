@@ -7,9 +7,9 @@ import { scenarioSimulationConfig, SIMULATION_SCENARIOS } from './scenarios';
 
 const seeds = ['demo', 'overnight-river', 'overnight-drought'];
 const expectedScenarios = {
-	baseline: { founders: 12, food: 5, water: 2, wildlife: 6, cap: 64, interval: 18 },
+	baseline: { founders: 12, food: 5, water: 2, wildlife: 6, cap: 64, interval: 14 },
 	'resource-rich': { founders: 12, food: 8, water: 2, wildlife: 2, cap: 64, interval: 8 },
-	crowded: { founders: 32, food: 5, water: 2, wildlife: 6, cap: 64, interval: 18 },
+	crowded: { founders: 32, food: 5, water: 2, wildlife: 6, cap: 64, interval: 14 },
 	'larger-world': { founders: 48, food: 32, water: 8, wildlife: 8, cap: 128, interval: 2 }
 };
 

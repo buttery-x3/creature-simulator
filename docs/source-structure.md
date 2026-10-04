@@ -511,3 +511,13 @@ Tests are co-located. Existing thresholds and dependency direction remain unchan
 The creature inspector directory now has seven implementation files; future growth in
 its substantial composition component should separate identity/perception presentation
 at a coherent responsibility boundary before adding more inline sections.
+
+### Evidence format extension preparation
+
+Existing learning/types.ts owns per-meaning evidence/history records, and
+signal-associations.ts owns typed record construction and partial reinforcement.
+lexicon-resolution.ts owns ordered assignment enumeration. Existing communication,
+cognition, diagnostic and workbench consumers use those declared meanings rather
+than replicating strength/count fields. No production file, directory or dependency
+boundary is added by this representation change. Public symbol-association and
+learning-history types change shape; every in-repository consumer is migrated.

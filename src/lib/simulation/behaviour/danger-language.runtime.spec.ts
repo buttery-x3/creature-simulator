@@ -120,7 +120,7 @@ describe('grounded warnings with matched listener knowledge', () => {
 		expect(silent.listener.lexicon.danger).toBeNull();
 		expect(silent.listener.recentHeard).toHaveLength(0);
 		expect(
-			heard.listener.symbolAssociations.find((a) => a.symbolId === 'glyph-0')?.dangerEvidenceCount
+			heard.listener.symbolAssociations.find((a) => a.symbolId === 'glyph-0')?.evidence.danger.count
 		).toBe(1);
 	});
 

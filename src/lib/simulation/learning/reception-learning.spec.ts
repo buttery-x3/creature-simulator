@@ -91,7 +91,7 @@ describe('listener-local danger reception learning', () => {
 		expect(before.lexicon.danger).toBeNull();
 		expect(before.recentHeard[0]).not.toHaveProperty('contextDetail');
 		const after = learn(before);
-		expect(association(after).dangerEvidenceCount).toBe(1);
+		expect(association(after).evidence.danger.count).toBe(1);
 		expect(after.lexicon.danger).toBe('glyph-2');
 		expect(after.recentLearning.at(-1)?.outcome).toBe('danger_evidence');
 		expect(after.memory.entries.find((e) => e.kind === 'heard_signal')).toMatchObject({
@@ -114,7 +114,7 @@ describe('listener-local danger reception learning', () => {
 			[{ ...threat, health: 0 }]
 		]) {
 			const next = learn(hear(listener({ perceivedWildlife })));
-			expect(association(next).dangerStrength).toBe(0);
+			expect(association(next).evidence.danger.strength).toBe(0);
 		}
 	});
 
@@ -122,7 +122,7 @@ describe('listener-local danger reception learning', () => {
 		const next = learn(
 			hear(listener({ body: { size: 10, physicality: 10, health: 1, nextAttackAt: 0 } }))
 		);
-		expect(association(next).dangerStrength).toBe(0);
+		expect(association(next).evidence.danger.strength).toBe(0);
 	});
 
 	it('preserves mixed local evidence even when sender intends a different meaning', () => {
@@ -137,9 +137,7 @@ describe('listener-local danger reception learning', () => {
 		};
 		const next = learn(hear(receiver, 1, 'water'));
 		expect(association(next)).toMatchObject({
-			foodStrength: 0.25,
-			dangerStrength: 0.25,
-			waterStrength: 0
+			evidence: { food: { strength: 0.25 }, danger: { strength: 0.25 }, water: { strength: 0 } }
 		});
 		expect(next.recentLearning.at(-1)?.outcome).toBe('mixed_evidence');
 		expect(next.lexicon.food).toBe('glyph-2');
@@ -151,7 +149,7 @@ describe('listener-local danger reception learning', () => {
 		receiver.perception.observations = [
 			{ featureId: 'old-food', featureKind: 'food', position: { x: 0.25, y: 0 }, observedAt: 0 }
 		];
-		expect(association(learn(hear(receiver))).foodEvidenceCount).toBe(0);
+		expect(association(learn(hear(receiver))).evidence.food.count).toBe(0);
 	});
 
 	it('counts a received episode once across repeated hooks, warning emissions, and arrival', () => {
@@ -164,12 +162,12 @@ describe('listener-local danger reception learning', () => {
 			1,
 			config
 		);
-		expect(association(arrived).dangerEvidenceCount).toBe(1);
+		expect(association(arrived).evidence.danger.count).toBe(1);
 		const repeated = learn(
 			hear({ ...first, perceivedWildlife: [{ ...threat, observedAt: 5 }] }, 5, 'danger', 1),
 			5
 		);
-		expect(association(repeated).dangerEvidenceCount).toBe(1);
+		expect(association(repeated).evidence.danger.count).toBe(1);
 		expect(repeated.recentLearning).toHaveLength(1);
 	});
 
@@ -189,7 +187,7 @@ describe('listener-local danger reception learning', () => {
 			})
 		};
 		next = learn(hear(next, 20, 'danger', 1), 20);
-		expect(association(next).dangerEvidenceCount).toBe(2);
+		expect(association(next).evidence.danger.count).toBe(2);
 		expect(association(next).dangerEvidenceEpisodes).toEqual(['animal:1', 'animal:20']);
 	});
 
@@ -202,14 +200,14 @@ describe('listener-local danger reception learning', () => {
 			1,
 			config
 		);
-		expect(association(unseen).dangerStrength).toBe(0);
+		expect(association(unseen).evidence.danger.strength).toBe(0);
 		const seen = resolveInvestigationAtSite(
 			{ ...before, activeInvestigation, perceivedWildlife: [threat] },
 			world.habitat,
 			1,
 			config
 		);
-		expect(association(seen).dangerStrength).toBe(0.25);
+		expect(association(seen).evidence.danger.strength).toBe(0.25);
 	});
 });
 
@@ -240,7 +238,7 @@ it.each([1, 2])(
 			next = learn(hear(next, time, 'danger', index), time);
 			expect(next.memory.entries.length).toBeLessThanOrEqual(capacity);
 		}
-		expect(association(next).dangerEvidenceCount).toBe(1);
+		expect(association(next).evidence.danger.count).toBe(1);
 	}
 );
 
@@ -256,6 +254,6 @@ it('starts a new observed episode after actual loss of sight and expiry at capac
 	expect(next.perceivedWildlife).toEqual([]);
 	next = senseCreature(next, world.habitat, 20, config, [animal]).creature;
 	next = learn(hear(next, 20, 'danger', 1), 20);
-	expect(association(next).dangerEvidenceCount).toBe(2);
+	expect(association(next).evidence.danger.count).toBe(2);
 	expect(association(next).dangerEvidenceEpisodes).toEqual(['animal:1', 'animal:20']);
 });

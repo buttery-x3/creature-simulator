@@ -15,19 +15,17 @@ export type LexiconMeaning = 'food' | 'water' | 'danger';
 export const LEXICON_MEANINGS: readonly LexiconMeaning[] = ['food', 'water', 'danger'] as const;
 
 /**
- * Per-symbol raw food/water evidence for one creature.
+ * Per-symbol raw meaning evidence for one creature.
  * Strengths are finite and clamped to the configured range (default [0, 1]).
  * Zero strength means no learned semantic knowledge. Evidence may be ambiguous;
  * exclusive interpretation lives on {@link CreatureLexicon}.
  */
+export type MeaningEvidence = { strength: number; count: number };
+export type MeaningStrengths = Record<LexiconMeaning, number>;
+
 export type SymbolAssociation = {
 	symbolId: SymbolId;
-	foodStrength: number;
-	waterStrength: number;
-	dangerStrength: number;
-	foodEvidenceCount: number;
-	waterEvidenceCount: number;
-	dangerEvidenceCount: number;
+	evidence: Record<LexiconMeaning, MeaningEvidence>;
 	/** Bounded listener-local observation episodes already credited for danger. */
 	dangerEvidenceEpisodes: string[];
 };
@@ -36,11 +34,7 @@ export type SymbolAssociation = {
  * Exclusive per-creature vocabulary: at most one symbol per meaning and one
  * meaning per symbol. Null means unassigned (insufficient evidence or lost competition).
  */
-export type CreatureLexicon = {
-	food: SymbolId | null;
-	water: SymbolId | null;
-	danger: SymbolId | null;
-};
+export type CreatureLexicon = Record<LexiconMeaning, SymbolId | null>;
 
 /** Bounded diagnostic history of exclusive lexicon reassignments (newest last). */
 export type LexiconChangeEntry = {
@@ -81,10 +75,6 @@ export type LearningHistoryEntry = {
 	symbolId: SymbolId;
 	emissionId: string;
 	reason: string;
-	foodStrengthBefore: number;
-	foodStrengthAfter: number;
-	waterStrengthBefore: number;
-	waterStrengthAfter: number;
-	dangerStrengthBefore: number;
-	dangerStrengthAfter: number;
+	before: MeaningStrengths;
+	after: MeaningStrengths;
 };

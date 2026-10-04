@@ -57,13 +57,12 @@ function assoc(
 ): SymbolAssociation {
 	return {
 		symbolId,
-		foodStrength: food,
-		waterStrength: water,
-		dangerStrength: 0,
-		dangerEvidenceCount: 0,
-		dangerEvidenceEpisodes: [],
-		foodEvidenceCount: foodN,
-		waterEvidenceCount: waterN
+		evidence: {
+			food: { strength: food, count: foodN },
+			water: { strength: water, count: waterN },
+			danger: { strength: 0, count: 0 }
+		},
+		dangerEvidenceEpisodes: []
 	};
 }
 
@@ -253,8 +252,11 @@ it('separates personal danger assignments and evidence from observer-only sender
 			symbolAssociations: [
 				{
 					...assoc('glyph-2', 0, 0),
-					dangerStrength: 0.6,
-					dangerEvidenceCount: 2,
+					evidence: {
+						food: { strength: 0, count: 0 },
+						water: { strength: 0, count: 0 },
+						danger: { strength: 0.6, count: 2 }
+					},
 					dangerEvidenceEpisodes: ['a', 'b']
 				}
 			]

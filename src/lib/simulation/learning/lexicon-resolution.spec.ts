@@ -23,12 +23,12 @@ function row(
 ): SymbolAssociation {
 	return {
 		symbolId,
-		foodStrength: food,
-		waterStrength: water,
-		dangerStrength: 0,
-		foodEvidenceCount: foodN,
-		waterEvidenceCount: waterN,
-		dangerEvidenceCount: 0,
+		evidence: {
+			food: { strength: food, count: foodN },
+			water: { strength: water, count: waterN },
+			danger: { strength: 0, count: 0 }
+		},
+
 		dangerEvidenceEpisodes: []
 	};
 }
@@ -98,8 +98,8 @@ describe('resolveCreatureLexicon', () => {
 		expect(result.lexicon.food).toBe('glyph-2');
 		expect(result.lexicon.water).toBe('glyph-1');
 		const g2 = rows.find((r) => r.symbolId === 'glyph-2')!;
-		expect(g2.foodStrength).toBe(0.9);
-		expect(g2.waterStrength).toBe(0.8);
+		expect(g2.evidence.food.strength).toBe(0.9);
+		expect(g2.evidence.water.strength).toBe(0.8);
 	});
 
 	it('selects maximum-total-evidence non-duplicating mapping', () => {
@@ -175,12 +175,12 @@ describe('resolveCreatureLexicon', () => {
 		const rows = evidence({});
 		rows[0] = {
 			symbolId: 'glyph-0',
-			foodStrength: Number.NaN,
-			waterStrength: Number.POSITIVE_INFINITY,
-			dangerStrength: 0,
-			foodEvidenceCount: 5,
-			waterEvidenceCount: 5,
-			dangerEvidenceCount: 0,
+			evidence: {
+				food: { strength: Number.NaN, count: 5 },
+				water: { strength: Number.POSITIVE_INFINITY, count: 5 },
+				danger: { strength: 0, count: 0 }
+			},
+
 			dangerEvidenceEpisodes: []
 		};
 		const result = resolveCreatureLexicon(rows, DEFAULT_SYMBOL_INVENTORY, config);
@@ -219,36 +219,41 @@ describe('three-meaning exclusivity', () => {
 		const rows = [
 			{
 				...emptyAssociation('glyph-0'),
-				foodStrength: 0.9,
-				foodEvidenceCount: 1,
-				dangerStrength: 1,
-				dangerEvidenceCount: 1
+				evidence: {
+					...emptyAssociation('glyph-0').evidence,
+					food: { strength: 0.9, count: 1 },
+					danger: { strength: 1, count: 1 }
+				}
 			},
 			{
 				...emptyAssociation('glyph-1'),
-				waterStrength: 0.8,
-				waterEvidenceCount: 1,
-				dangerStrength: 0.6,
-				dangerEvidenceCount: 1
+				evidence: {
+					...emptyAssociation('glyph-1').evidence,
+					water: { strength: 0.8, count: 1 },
+					danger: { strength: 0.6, count: 1 }
+				}
 			},
-			{ ...emptyAssociation('glyph-2'), dangerStrength: 0.8, dangerEvidenceCount: 1 }
+			{
+				...emptyAssociation('glyph-2'),
+				evidence: { ...emptyAssociation('glyph-2').evidence, danger: { strength: 0.8, count: 1 } }
+			}
 		];
 		const resolved = resolveCreatureLexicon(rows, DEFAULT_SYMBOL_INVENTORY, config);
 		expect(resolved.lexicon).toEqual({ food: 'glyph-0', water: 'glyph-1', danger: 'glyph-2' });
 		expect(resolved.score).toBeCloseTo(2.5);
-		expect(rows[0]!.dangerStrength).toBe(1);
+		expect(rows[0]!.evidence.danger.strength).toBe(1);
 	});
 
 	it('never uses a single ambiguous symbol for multiple meanings', () => {
 		const rows = [
 			{
 				...emptyAssociation('glyph-0'),
-				foodStrength: 0.4,
-				waterStrength: 0.6,
-				dangerStrength: 0.9,
-				foodEvidenceCount: 1,
-				waterEvidenceCount: 1,
-				dangerEvidenceCount: 1
+				evidence: {
+					...emptyAssociation('glyph-0').evidence,
+					food: { strength: 0.4, count: 1 },
+					water: { strength: 0.6, count: 1 },
+					danger: { strength: 0.9, count: 1 }
+				}
 			}
 		];
 		expect(resolveCreatureLexicon(rows, DEFAULT_SYMBOL_INVENTORY, config).lexicon).toEqual({

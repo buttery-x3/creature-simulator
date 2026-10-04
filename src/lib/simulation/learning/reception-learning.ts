@@ -57,9 +57,8 @@ export function learnFromLocalDangerReception(
 				next.symbolAssociations,
 				heard.symbolId,
 				{
-					reinforceFood: resources.food,
-					reinforceWater: resources.water,
-					reinforceDanger: true,
+					meanings: { food: resources.food, water: resources.water, danger: true },
+
 					dangerEpisodes: episodes,
 					amount: config.associationReinforcement
 				},
@@ -89,12 +88,8 @@ export function learnFromLocalDangerReception(
 						symbolId: heard.symbolId,
 						emissionId: heard.emissionId,
 						reason: `local reception: danger[${dangerIds.join(',')}] food[${resources.foodFeatureIds.join(',')}] water[${resources.waterFeatureIds.join(',')}] near origin`,
-						foodStrengthBefore: update.foodStrengthBefore,
-						foodStrengthAfter: update.foodStrengthAfter,
-						waterStrengthBefore: update.waterStrengthBefore,
-						waterStrengthAfter: update.waterStrengthAfter,
-						dangerStrengthBefore: update.dangerStrengthBefore,
-						dangerStrengthAfter: update.dangerStrengthAfter
+						before: update.before,
+						after: update.after
 					},
 					config.learningHistoryLimit
 				)

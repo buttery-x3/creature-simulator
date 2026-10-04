@@ -5,6 +5,7 @@
  * Evidence may overlap; the resolved lexicon is one-to-one (meaning ↔ symbol).
  */
 
+import { mapMeanings } from './signal-associations';
 import type { SymbolId } from '../communication/types';
 import {
 	LEXICON_MEANINGS,
@@ -29,14 +30,14 @@ export type LexiconResolveResult = {
 };
 
 export function emptyLexicon(): CreatureLexicon {
-	return { food: null, water: null, danger: null };
+	return mapMeanings(() => null);
 }
 
 function strengthFor(row: SymbolAssociation | undefined, meaning: LexiconMeaning): number {
 	if (!row) {
 		return 0;
 	}
-	const raw = row[`${meaning}Strength`];
+	const raw = row.evidence[meaning].strength;
 	return Number.isFinite(raw) && raw > 0 ? raw : 0;
 }
 
@@ -44,7 +45,7 @@ function countFor(row: SymbolAssociation | undefined, meaning: LexiconMeaning): 
 	if (!row) {
 		return 0;
 	}
-	const raw = row[`${meaning}EvidenceCount`];
+	const raw = row.evidence[meaning].count;
 	return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
 }
 
@@ -118,7 +119,7 @@ function isValidExclusive(lexicon: CreatureLexicon): boolean {
 }
 
 /**
- * Resolve a non-duplicating food/water lexicon maximising total evidence score.
+ * Resolve a non-duplicating personal lexicon maximising total evidence score.
  *
  * Exhaustive over partial assignments (meanings may remain null). Symbols must
  * meet min strength and evidence-count thresholds to be eligible for a meaning.
@@ -135,11 +136,7 @@ export function resolveCreatureLexicon(
 ): LexiconResolveResult {
 	const byId = evidenceBySymbol(evidence);
 
-	const eligible: Record<LexiconMeaning, (SymbolId | null)[]> = {
-		food: [null],
-		water: [null],
-		danger: [null]
-	};
+	const eligible = mapMeanings<(SymbolId | null)[]>(() => [null]);
 	for (const symbolId of inventory) {
 		const row = byId.get(symbolId);
 		for (const meaning of LEXICON_MEANINGS) {

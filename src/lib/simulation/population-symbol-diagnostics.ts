@@ -98,14 +98,14 @@ function strengthOf(assoc: SymbolAssociation | undefined, context: LexiconMeanin
 	if (!assoc) {
 		return 0;
 	}
-	return assoc[`${context}Strength`];
+	return assoc.evidence[context].strength;
 }
 
 function evidenceCountOf(assoc: SymbolAssociation | undefined, context: LexiconMeaning): number {
 	if (!assoc) {
 		return 0;
 	}
-	return assoc[`${context}EvidenceCount`];
+	return assoc.evidence[context].count;
 }
 
 function lexiconAssignment(creature: Creature, context: LexiconMeaning): SymbolId | null {

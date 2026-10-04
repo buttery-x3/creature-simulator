@@ -58,7 +58,7 @@ describe('offspring learning and survivor knowledge', () => {
 			expect(child.recentLearning).toEqual([]);
 			expect(
 				child.symbolAssociations.every(
-					(row) => row.foodEvidenceCount === 0 && row.waterEvidenceCount === 0
+					(row) => row.evidence.food.count === 0 && row.evidence.water.count === 0
 				)
 			).toBe(true);
 			// Set only attention/mobility traits for the experiment, never a meaning or learned relation.
@@ -101,8 +101,8 @@ describe('offspring learning and survivor knowledge', () => {
 			expect(Math.hypot(learned.position.x, learned.position.y)).toBeLessThanOrEqual(
 				config.arrivalDistance
 			);
-			expect(association.waterEvidenceCount).toBe(1);
-			expect(association.foodEvidenceCount).toBe(mixed ? 1 : 0);
+			expect(association.evidence.water.count).toBe(1);
+			expect(association.evidence.food.count).toBe(mixed ? 1 : 0);
 			expect(learned.recentLearning.at(-1)?.outcome).toBe(
 				mixed ? 'mixed_evidence' : 'water_evidence'
 			);

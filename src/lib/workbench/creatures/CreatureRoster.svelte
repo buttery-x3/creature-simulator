@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SymbolGlyph from '$lib/SymbolGlyph.svelte';
+	import { LEXICON_MEANINGS } from '$lib/simulation';
 	import type { RosterRow } from '../view-models/creature-detail-view-model';
 
 	type Props = {
@@ -20,9 +21,9 @@
 				<th scope="col">Thirst</th>
 				<th scope="col">Energy</th>
 				<th scope="col">Intention</th>
-				<th scope="col">Food</th>
-				<th scope="col">Water</th>
-				<th scope="col">Danger</th>
+				{#each LEXICON_MEANINGS as meaning (meaning)}<th scope="col"
+						>{meaning[0].toUpperCase() + meaning.slice(1)}</th
+					>{/each}
 			</tr>
 		</thead>
 		<tbody>
@@ -45,27 +46,15 @@
 					<td>{row.thirst.toFixed(2)}</td>
 					<td>{row.energy.toFixed(2)}</td>
 					<td>{row.intention}</td>
-					<td>
-						{#if row.foodSymbolId}
-							<SymbolGlyph symbolId={row.foodSymbolId} showId={false} size={11} />
-						{:else}
-							—
-						{/if}
-					</td>
-					<td>
-						{#if row.waterSymbolId}
-							<SymbolGlyph symbolId={row.waterSymbolId} showId={false} size={11} />
-						{:else}
-							—
-						{/if}
-					</td>
-					<td
-						>{#if row.dangerSymbolId}<SymbolGlyph
-								symbolId={row.dangerSymbolId}
-								showId={false}
-								size={11}
-							/>{:else}—{/if}</td
-					>
+					{#each LEXICON_MEANINGS as meaning (meaning)}
+						<td
+							>{#if row.lexicon[meaning]}<SymbolGlyph
+									symbolId={row.lexicon[meaning]!}
+									showId={false}
+									size={11}
+								/>{:else}—{/if}</td
+						>
+					{/each}
 				</tr>
 			{/each}
 		</tbody>

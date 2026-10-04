@@ -41,3 +41,26 @@ describe('events-view-model', () => {
 		);
 	});
 });
+
+it('preserves every learned-meaning before/after value in event details', () => {
+	const state = createSimulation(defaultSimulationConfig('learning-events'));
+	state.creatures[0].recentLearning = [
+		{
+			timeSeconds: 2,
+			symbolId: 'glyph-1',
+			emissionId: 'e-1',
+			outcome: 'mixed_evidence',
+			reason: 'local observations',
+			before: { food: 0.1, water: 0.2, danger: 0.3 },
+			after: { food: 0.4, water: 0.5, danger: 0.6 }
+		}
+	];
+	const learning = buildEventRows(state).find((row) => row.category === 'Learning');
+	expect(learning?.detail).toEqual({
+		reason: 'local observations',
+		food: '0.1→0.4',
+		water: '0.2→0.5',
+		danger: '0.3→0.6',
+		emissionId: 'e-1'
+	});
+});

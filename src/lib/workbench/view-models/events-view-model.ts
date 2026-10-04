@@ -3,7 +3,12 @@
  * Not an authoritative audit log — FLAME-72 will own full linked audit events.
  */
 
-import type { Creature, SimulationState, SymbolId } from '$lib/simulation';
+import {
+	LEXICON_MEANINGS,
+	type Creature,
+	type SimulationState,
+	type SymbolId
+} from '$lib/simulation';
 import type { EventCategory, EventFilterState } from '../workbench-types';
 
 export type EventRow = {
@@ -150,9 +155,12 @@ function appendCreatureEvents(rows: EventRow[], creature: Creature): void {
 			listenerId: creature.id,
 			detail: {
 				reason: entry.reason,
-				food: `${entry.foodStrengthBefore}→${entry.foodStrengthAfter}`,
-				water: `${entry.waterStrengthBefore}→${entry.waterStrengthAfter}`,
-				danger: `${entry.dangerStrengthBefore}→${entry.dangerStrengthAfter}`,
+				...Object.fromEntries(
+					LEXICON_MEANINGS.map((meaning) => [
+						meaning,
+						`${entry.before[meaning]}→${entry.after[meaning]}`
+					])
+				),
 				emissionId: entry.emissionId
 			}
 		});

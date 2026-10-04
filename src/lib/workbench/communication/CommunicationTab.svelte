@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SymbolGlyph from '$lib/SymbolGlyph.svelte';
+	import { LEXICON_MEANINGS } from '$lib/simulation';
 	import PopulationMeaningSummary from './PopulationMeaningSummary.svelte';
 	import { SYMBOL_PRESENTATIONS } from '$lib/symbol-presentation';
 	import type { SimulationConfig, SimulationState } from '$lib/simulation';
@@ -35,8 +36,8 @@
 		<h3>Symbol legend</h3>
 		<p class="hint" data-testid="population-communication-hint">
 			Observational summaries only — exclusive lexicons and raw evidence are personal, not a global
-			dictionary or “correct” food/water/danger symbol. Sender contexts shown in histories are
-			observer information, not messages decoded by a listener.
+			dictionary or “correct” symbol for a meaning. Sender contexts shown in histories are observer
+			information, not messages decoded by a listener.
 		</p>
 		<div class="legend" data-testid="symbol-presentation-legend" aria-label="Symbol legend">
 			<span class="legend-title">Glyphs</span>
@@ -89,9 +90,9 @@
 				<thead>
 					<tr>
 						<th scope="col">Creature</th>
-						<th scope="col">Food</th>
-						<th scope="col">Water</th>
-						<th scope="col">Danger</th>
+						{#each LEXICON_MEANINGS as meaning (meaning)}<th scope="col"
+								>{meaning[0].toUpperCase() + meaning.slice(1)}</th
+							>{/each}
 						<th scope="col">Evidence</th>
 					</tr>
 				</thead>
@@ -108,26 +109,14 @@
 									{row.creatureId}
 								</button>
 							</td>
-							<td>
-								{#if row.foodSymbolId}
-									<SymbolGlyph symbolId={row.foodSymbolId} showId={false} />
-								{:else}
-									—
-								{/if}
-							</td>
-							<td>
-								{#if row.waterSymbolId}
-									<SymbolGlyph symbolId={row.waterSymbolId} showId={false} />
-								{:else}
-									—
-								{/if}
-							</td>
-							<td
-								>{#if row.dangerSymbolId}<SymbolGlyph
-										symbolId={row.dangerSymbolId}
-										showId={false}
-									/>{:else}—{/if}</td
-							>
+							{#each LEXICON_MEANINGS as meaning (meaning)}
+								<td
+									>{#if row.lexicon[meaning]}<SymbolGlyph
+											symbolId={row.lexicon[meaning]!}
+											showId={false}
+										/>{:else}—{/if}</td
+								>
+							{/each}
 							<td>{row.evidenceCount}</td>
 						</tr>
 					{/each}
@@ -136,7 +125,8 @@
 		</div>
 	</section>
 
-	{#each [vm.population.food, vm.population.water, vm.population.danger] as ctx (ctx.context)}
+	{#each LEXICON_MEANINGS as meaning (meaning)}
+		{@const ctx = vm.population[meaning]}
 		<PopulationMeaningSummary {ctx} creatureCount={vm.population.creatureCount} />
 	{/each}
 

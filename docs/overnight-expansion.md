@@ -322,3 +322,33 @@ creature assembly 87 and reproduction resolution 110; no function limits raised.
 Next frontier: one grounded learned social movement concept, followed by deeper
 interactions, observation clarity and scale work. Come/go/stop are not yet learned
 meanings; courtship and innate displays do not confer those translations.
+
+## Checkpoint 7: consistent meaning evidence
+
+Preparation for temporal social learning replaces repeated food/water/danger
+strength/count fields with an evidence record keyed by the existing meaning list.
+Learning histories use before/after records, partial reinforcement changes only
+requested meanings, and exclusive resolution enumerates the declared meanings
+in the same deterministic order. Inspector and population diagnostics iterate the
+same list. There is no new meaning or behavioral policy in this checkpoint.
+
+This addresses concrete pressure from adding approach next and possible go/stop
+later. Learning retains evidence ownership, cognition selects intentions, and
+presentation reads the simulation public entry point. No new module, dependency
+direction, threshold or directory-capacity exception is introduced. Exported
+association/history data shapes change; all current consumers are migrated.
+The substantial population diagnostics module only changes field access; it does
+not acquire another responsibility. Further diagnostic policy growth should
+separate aggregation from report formatting before expanding that file.
+
+Validation: full npm run check passed 573 unit tests, server check, build and 11
+browser tests. Three extra evidence tests cover independent nested records,
+frozen-source partial reinforcement, history snapshot independence and count
+preservation under confidence reduction; two workbench regressions cover meaning
+iteration and aggregation. Normalized full-state replay against committed lifecycle
+8d05fba matched at every step from initialization through 60 seconds for demo,
+river and drought (1800 steps each). Only association/history representation fields
+were normalized; decisions, learning, positions, offspring and histories matched.
+The archived-source comparison and hashes are retained in the ignored local
+.svelte-kit/evidence-migration directory. This is evidence for the representation
+migration, not a cross-runtime reproducibility claim.

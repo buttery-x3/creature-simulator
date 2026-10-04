@@ -299,17 +299,17 @@ resolved exclusive lexicon (learned path) or deterministic exploratory selection
 when unassigned — never independent multi-context weighted sampling, and never
 speaker-success feedback.
 
-| Concern           | Rule                                                                                                                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Evidence**      | Per-creature `foodStrength` / `waterStrength` per symbol, clamped, start at zero. May be ambiguous/overlapping across meanings. Independent arrays (no shared references).                 |
-| **Lexicon**       | Exclusive one-to-one assignment (`food` / `water` → symbol or null). Deterministic max-total-evidence non-duplicating resolve after evidence updates.                                      |
-| **Selection**     | Cognition may select `investigate_signal` from `heard_signal` memory (no pending queue, no curiosity gate).                                                                                |
-| **Execution**     | Slim `activeInvestigation` holds emission/symbol/origin while travelling/inspecting. Not a lock — ordinary arbitration may replace the intention.                                          |
-| **Reinforcement** | Only on **arrival** at the origin: ephemeral local inspection of food/water within evidence radius (learning-only), reinforce at most once, then recompute lexicon.                        |
-| **Completion**    | Clear active investigation and re-arbitrate immediately after site inspection (food / water / mixed / no_evidence).                                                                        |
-| **No-evidence**   | Conservative: leave evidence unchanged by default (optional small reduction via config); still recompute lexicon.                                                                          |
-| **Production**    | Communication emits `lexicon[context]` when assigned; otherwise exploratory among symbols not assigned to another meaning. Learning never mutates evidence because someone heard a signal. |
-| **Out of scope**  | Confidence weighting and speaker-success feedback. Listener-local relevance and optional investigation preference (`curiosity`) are owned by cognition, not learning.                      |
+| Concern           | Rule                                                                                                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Evidence**      | Per-creature `evidence[meaning] = { strength, count }` per symbol; strengths are clamped and start at zero. May be ambiguous/overlapping across meanings. Independent arrays (no shared references). |
+| **Lexicon**       | Exclusive one-to-one assignment (`food` / `water` → symbol or null). Deterministic max-total-evidence non-duplicating resolve after evidence updates.                                                |
+| **Selection**     | Cognition may select `investigate_signal` from `heard_signal` memory (no pending queue, no curiosity gate).                                                                                          |
+| **Execution**     | Slim `activeInvestigation` holds emission/symbol/origin while travelling/inspecting. Not a lock — ordinary arbitration may replace the intention.                                                    |
+| **Reinforcement** | Only on **arrival** at the origin: ephemeral local inspection of food/water within evidence radius (learning-only), reinforce at most once, then recompute lexicon.                                  |
+| **Completion**    | Clear active investigation and re-arbitrate immediately after site inspection (food / water / mixed / no_evidence).                                                                                  |
+| **No-evidence**   | Conservative: leave evidence unchanged by default (optional small reduction via config); still recompute lexicon.                                                                                    |
+| **Production**    | Communication emits `lexicon[context]` when assigned; otherwise exploratory among symbols not assigned to another meaning. Learning never mutates evidence because someone heard a signal.           |
+| **Out of scope**  | Confidence weighting and speaker-success feedback. Listener-local relevance and optional investigation preference (`curiosity`) are owned by cognition, not learning.                                |
 
 ### Creature memory
 
@@ -660,3 +660,15 @@ nextCreatureId and recentLifeEvents; Creature adds lifecycle; SimulationConfig a
 cloned and validated lifecycle object. Presentation reads these through the simulation
 barrel and never owns mating, death or growth. Existing seed placement/trait streams are
 preserved; births use a separate stream and the authoritative state seed.
+
+## Meaning evidence representation
+
+Symbol associations store one typed evidence record per supported meaning, and
+learning history stores typed before/after strength records. The meaning list
+owns iteration order for empty evidence, updates, exclusive assignment and
+presentation. Resolution still enumerates partial one-to-one assignments and
+preserves evidence scores and deterministic tie-breaking. This is representation
+work for the imminent temporal approach learner; it does not add a meaning or
+change food/water/danger learning. Danger encounter provenance remains bounded
+and separate from numeric evidence. No saved-state compatibility layer is added:
+this application does not currently load persistent simulation saves.

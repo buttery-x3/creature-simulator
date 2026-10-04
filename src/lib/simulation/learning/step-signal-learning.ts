@@ -17,7 +17,8 @@ import { applyLexiconResolution } from './lexicon-resolution';
 import {
 	applyNoEvidenceReduction,
 	findAssociation,
-	reinforceAssociation
+	reinforceAssociation,
+	snapshotAssociationStrengths
 } from './signal-associations';
 import {
 	appendLearningHistory,
@@ -72,18 +73,6 @@ function inspectEvidenceNearOrigin(
 	};
 }
 
-function snapshotStrengths(
-	creature: Creature,
-	symbolId: Creature['symbolAssociations'][number]['symbolId']
-): { food: number; water: number; danger: number } {
-	const assoc = findAssociation(creature.symbolAssociations, symbolId);
-	return {
-		food: assoc?.foodStrength ?? 0,
-		water: assoc?.waterStrength ?? 0,
-		danger: assoc?.dangerStrength ?? 0
-	};
-}
-
 /**
  * Resolve investigation at the origin: ephemeral local inspection for learning
  * evidence, reinforce once, consume the heard_signal for this emission, clear active.
@@ -122,11 +111,11 @@ export function resolveInvestigationAtSite(
 	const danger = dangerIds.length > 0;
 	const evidence = inspectEvidenceNearOrigin(habitat, active.origin, config.learningEvidenceRadius);
 
-	const before = snapshotStrengths(creature, active.symbolId);
+	const before = snapshotAssociationStrengths(
+		findAssociation(creature.symbolAssociations, active.symbolId)
+	);
 	let associations = creature.symbolAssociations;
-	let foodAfter = before.food;
-	let waterAfter = before.water;
-	let dangerAfter = before.danger;
+	let after = before;
 	let reason: string;
 
 	if (evidence.food || evidence.water || danger) {
@@ -134,18 +123,14 @@ export function resolveInvestigationAtSite(
 			associations,
 			active.symbolId,
 			{
-				reinforceFood: evidence.food,
-				reinforceWater: evidence.water,
-				reinforceDanger: danger,
+				meanings: { food: evidence.food, water: evidence.water, danger: danger },
 				dangerEpisodes: localDangerEpisodes(creature, dangerIds),
 				amount: config.associationReinforcement
 			},
 			config
 		);
 		associations = reinforced.associations;
-		foodAfter = reinforced.foodStrengthAfter;
-		waterAfter = reinforced.waterStrengthAfter;
-		dangerAfter = reinforced.dangerStrengthAfter;
+		after = reinforced.after;
 		const bits: string[] = [];
 		if (danger) bits.push(`danger[${dangerIds.join(',')}]`);
 		if (evidence.food) {
@@ -164,9 +149,7 @@ export function resolveInvestigationAtSite(
 				config
 			);
 			associations = reduced.associations;
-			foodAfter = reduced.foodStrengthAfter;
-			waterAfter = reduced.waterStrengthAfter;
-			dangerAfter = reduced.dangerStrengthAfter;
+			after = reduced.after;
 		}
 		reason =
 			'arrival inspection: no qualifying resource or locally observed danger within evidence radius (associations unchanged unless reduction configured)';
@@ -179,12 +162,8 @@ export function resolveInvestigationAtSite(
 		symbolId: active.symbolId,
 		emissionId: active.emissionId,
 		reason,
-		foodStrengthBefore: before.food,
-		foodStrengthAfter: foodAfter,
-		waterStrengthBefore: before.water,
-		waterStrengthAfter: waterAfter,
-		dangerStrengthBefore: before.danger,
-		dangerStrengthAfter: dangerAfter
+		before,
+		after
 	};
 
 	const lexiconApplied = applyLexiconResolution(
@@ -235,19 +214,17 @@ export function interruptInvestigation(
 		return creature;
 	}
 
-	const before = snapshotStrengths(creature, active.symbolId);
+	const before = snapshotAssociationStrengths(
+		findAssociation(creature.symbolAssociations, active.symbolId)
+	);
 	const entry: LearningHistoryEntry = {
 		timeSeconds,
 		outcome: 'interrupted',
 		symbolId: active.symbolId,
 		emissionId: active.emissionId,
 		reason,
-		foodStrengthBefore: before.food,
-		foodStrengthAfter: before.food,
-		waterStrengthBefore: before.water,
-		waterStrengthAfter: before.water,
-		dangerStrengthBefore: before.danger,
-		dangerStrengthAfter: before.danger
+		before,
+		after: { ...before }
 	};
 
 	return {

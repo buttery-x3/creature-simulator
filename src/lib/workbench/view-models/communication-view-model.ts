@@ -7,6 +7,7 @@ import {
 	buildPopulationSymbolDiagnostics,
 	ensureCreatureMemory,
 	listHeardSignalMemories,
+	type CreatureLexicon,
 	type PopulationSymbolDiagnostics,
 	type SimulationConfig,
 	type SimulationState,
@@ -27,9 +28,7 @@ export type FunnelStage = {
 
 export type LexiconMatrixRow = {
 	creatureId: string;
-	foodSymbolId: SymbolId | null;
-	waterSymbolId: SymbolId | null;
-	dangerSymbolId: SymbolId | null;
+	lexicon: CreatureLexicon;
 	evidenceCount: number;
 };
 
@@ -106,9 +105,7 @@ export function buildCommunicationViewModel(
 	const funnel = buildFunnel(state, population);
 	const lexiconMatrix = state.creatures.map((c) => ({
 		creatureId: c.id,
-		foodSymbolId: c.lexicon.food,
-		waterSymbolId: c.lexicon.water,
-		dangerSymbolId: c.lexicon.danger,
+		lexicon: { ...c.lexicon },
 		evidenceCount: evidenceRowCount(c)
 	}));
 

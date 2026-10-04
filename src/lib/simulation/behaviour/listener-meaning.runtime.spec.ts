@@ -295,10 +295,14 @@ describe('listener meaning keeps arrival learning grounded', () => {
 			symbolId: olderSignal.symbolId,
 			outcome: scenario.outcome
 		});
-		expect(evidence.foodEvidenceCount).toBe(scenario.food ? 1 : 0);
-		expect(evidence.waterEvidenceCount).toBe(scenario.water ? 1 : 0);
-		expect(evidence.foodStrength).toBe(scenario.food ? config.associationReinforcement : 0);
-		expect(evidence.waterStrength).toBe(scenario.water ? config.associationReinforcement : 0);
+		expect(evidence.evidence.food.count).toBe(scenario.food ? 1 : 0);
+		expect(evidence.evidence.water.count).toBe(scenario.water ? 1 : 0);
+		expect(evidence.evidence.food.strength).toBe(
+			scenario.food ? config.associationReinforcement : 0
+		);
+		expect(evidence.evidence.water.strength).toBe(
+			scenario.water ? config.associationReinforcement : 0
+		);
 		expect(hasHeardSignalMemory(resolved.memory, olderSignal.emissionId)).toBe(false);
 		expect(hasHeardSignalMemory(resolved.memory, newerSignal.emissionId)).toBe(true);
 	});

@@ -60,7 +60,9 @@ describe('step signal learning', () => {
 			}
 		});
 		// Travel path never calls resolveInvestigationAtSite until investigate action.
-		expect(creature.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!.foodStrength).toBe(0);
+		expect(
+			creature.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!.evidence.food.strength
+		).toBe(0);
 		expect(creature.activeInvestigation).not.toBeNull();
 		expect(creature.recentLearning).toHaveLength(0);
 	});
@@ -98,8 +100,8 @@ describe('step signal learning', () => {
 		expect(next.activeInvestigation).toBeNull();
 		expect(hasHeardSignalMemory(next.memory, 'em-1')).toBe(false);
 		const assoc = next.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!;
-		expect(assoc.foodStrength).toBe(0.25);
-		expect(assoc.foodEvidenceCount).toBe(1);
+		expect(assoc.evidence.food.strength).toBe(0.25);
+		expect(assoc.evidence.food.count).toBe(1);
 		expect(next.recentLearning).toHaveLength(1);
 		expect(next.recentLearning[0]!.outcome).toBe('food_evidence');
 		expect(next.lexicon.food).toBe('glyph-2');
@@ -109,9 +111,9 @@ describe('step signal learning', () => {
 		).toBe(true);
 		expect(next.activeAnnouncementExecution).toBeNull();
 		const again = resolveInvestigationAtSite(next, habitat, 3, learningConfig);
-		expect(again.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!.foodEvidenceCount).toBe(
-			1
-		);
+		expect(
+			again.symbolAssociations.find((a) => a.symbolId === 'glyph-2')!.evidence.food.count
+		).toBe(1);
 		expect(again.recentLearning).toHaveLength(1);
 	});
 
@@ -143,7 +145,9 @@ describe('step signal learning', () => {
 		expect(next.activeInvestigation).toBeNull();
 		expect(next.recentLearning.at(-1)?.outcome).toBe('no_evidence');
 		expect(
-			next.symbolAssociations.every((a) => a.foodStrength === 0 && a.waterStrength === 0)
+			next.symbolAssociations.every(
+				(a) => a.evidence.food.strength === 0 && a.evidence.water.strength === 0
+			)
 		).toBe(true);
 	});
 
@@ -290,10 +294,10 @@ describe('step signal learning', () => {
 		const config = defaultSimulationConfig('learn-init');
 		const state = createSimulation(config);
 		for (const creature of state.creatures) {
-			expect(creature.symbolAssociations.every((a) => a.foodStrength === 0)).toBe(true);
+			expect(creature.symbolAssociations.every((a) => a.evidence.food.strength === 0)).toBe(true);
 		}
-		state.creatures[0]!.symbolAssociations[0]!.foodStrength = 0.9;
-		expect(state.creatures[1]!.symbolAssociations[0]!.foodStrength).toBe(0);
+		state.creatures[0]!.symbolAssociations[0]!.evidence.food.strength = 0.9;
+		expect(state.creatures[1]!.symbolAssociations[0]!.evidence.food.strength).toBe(0);
 		expect(() => JSON.stringify(state)).not.toThrow();
 	});
 

@@ -65,7 +65,7 @@ export function buildWarningCandidates(
 		const age = Math.max(0, input.timeSeconds - memory.rememberedAt);
 		if (age >= WARNING_MAX_AGE_SECONDS) continue;
 		const association = input.symbolAssociations?.find((a) => a.symbolId === memory.symbolId);
-		const strength = Math.min(1, Math.max(0, association?.dangerStrength ?? 0));
+		const strength = Math.min(1, Math.max(0, association?.evidence.danger.strength ?? 0));
 		// The resolved assignment establishes a tentative interpretation; raw evidence sets confidence.
 		const confidence = 0.4 + strength * 0.6;
 		const distance = Math.hypot(

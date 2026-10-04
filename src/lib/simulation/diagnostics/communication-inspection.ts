@@ -89,9 +89,9 @@ export function formatCommunicationInspection(
 	} else {
 		for (const assoc of creature.symbolAssociations) {
 			lines.push(
-				`  ${assoc.symbolId}: food=${assoc.foodStrength.toFixed(3)} (n=${assoc.foodEvidenceCount})` +
-					` water=${assoc.waterStrength.toFixed(3)} (n=${assoc.waterEvidenceCount})` +
-					` danger=${assoc.dangerStrength.toFixed(3)} (n=${assoc.dangerEvidenceCount})`
+				`  ${assoc.symbolId}: food=${assoc.evidence.food.strength.toFixed(3)} (n=${assoc.evidence.food.count})` +
+					` water=${assoc.evidence.water.strength.toFixed(3)} (n=${assoc.evidence.water.count})` +
+					` danger=${assoc.evidence.danger.strength.toFixed(3)} (n=${assoc.evidence.danger.count})`
 			);
 		}
 	}

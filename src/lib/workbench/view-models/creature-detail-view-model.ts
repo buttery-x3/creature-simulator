@@ -5,6 +5,7 @@
 
 import type {
 	Creature,
+	CreatureLexicon,
 	CreatureMemory,
 	CreatureTarget,
 	ExplorationDiagnosticsView,
@@ -15,6 +16,7 @@ import type {
 	SymbolId
 } from '$lib/simulation';
 import {
+	LEXICON_MEANINGS,
 	buildExplorationDiagnostics,
 	createEmptyMemory,
 	ensureCreatureMemory,
@@ -27,9 +29,7 @@ export type RosterRow = {
 	thirst: number;
 	energy: number;
 	intention: IntentionKind;
-	foodSymbolId: SymbolId | null;
-	waterSymbolId: SymbolId | null;
-	dangerSymbolId: SymbolId | null;
+	lexicon: CreatureLexicon;
 };
 
 export type LabelledScoreTerm = {
@@ -67,9 +67,7 @@ export function buildRosterRows(creatures: readonly Creature[]): RosterRow[] {
 		thirst: c.thirst,
 		energy: c.energy,
 		intention: c.intention,
-		foodSymbolId: c.lexicon.food,
-		waterSymbolId: c.lexicon.water,
-		dangerSymbolId: c.lexicon.danger
+		lexicon: { ...c.lexicon }
 	}));
 }
 
@@ -247,7 +245,8 @@ export function lastLearningSummary(creature: Creature): string | null {
 
 export function evidenceRowCount(creature: Creature): number {
 	return creature.symbolAssociations.reduce(
-		(sum, row) => sum + row.foodEvidenceCount + row.waterEvidenceCount + row.dangerEvidenceCount,
+		(sum, row) =>
+			sum + LEXICON_MEANINGS.reduce((count, meaning) => count + row.evidence[meaning].count, 0),
 		0
 	);
 }

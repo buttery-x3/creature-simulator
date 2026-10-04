@@ -13,10 +13,10 @@ describe('symbol associations', () => {
 		const associations = createEmptyAssociations(['glyph-0', 'glyph-1']);
 		expect(associations).toHaveLength(2);
 		for (const a of associations) {
-			expect(a.foodStrength).toBe(0);
-			expect(a.waterStrength).toBe(0);
-			expect(a.foodEvidenceCount).toBe(0);
-			expect(a.waterEvidenceCount).toBe(0);
+			expect(a.evidence.food.strength).toBe(0);
+			expect(a.evidence.water.strength).toBe(0);
+			expect(a.evidence.food.count).toBe(0);
+			expect(a.evidence.water.count).toBe(0);
 		}
 	});
 
@@ -25,8 +25,8 @@ describe('symbol associations', () => {
 		const b = createEmptyAssociations(['glyph-0']);
 		expect(a).not.toBe(b);
 		expect(a[0]).not.toBe(b[0]);
-		a[0]!.foodStrength = 0.5;
-		expect(b[0]!.foodStrength).toBe(0);
+		a[0]!.evidence.food.strength = 0.5;
+		expect(b[0]!.evidence.food.strength).toBe(0);
 	});
 
 	it('reinforces only the requested resource kind and clamps', () => {
@@ -34,51 +34,50 @@ describe('symbol associations', () => {
 		const food = reinforceAssociation(
 			base,
 			'glyph-0',
-			{ reinforceFood: true, reinforceWater: false, amount: 0.25 },
+			{ meanings: { food: true, water: false }, amount: 0.25 },
 			clamp
 		);
-		expect(food.foodStrengthAfter).toBe(0.25);
-		expect(food.waterStrengthAfter).toBe(0);
-		expect(food.associations[0]!.foodEvidenceCount).toBe(1);
+		expect(food.after.food).toBe(0.25);
+		expect(food.after.water).toBe(0);
+		expect(food.associations[0]!.evidence.food.count).toBe(1);
 
 		const capped = reinforceAssociation(
 			food.associations,
 			'glyph-0',
-			{ reinforceFood: true, reinforceWater: false, amount: 5 },
+			{ meanings: { food: true, water: false }, amount: 5 },
 			clamp
 		);
-		expect(capped.foodStrengthAfter).toBe(1);
+		expect(capped.after.food).toBe(1);
 
 		const water = reinforceAssociation(
 			capped.associations,
 			'glyph-0',
-			{ reinforceFood: false, reinforceWater: true, amount: 0.3 },
+			{ meanings: { food: false, water: true }, amount: 0.3 },
 			clamp
 		);
-		expect(water.waterStrengthAfter).toBe(0.3);
-		expect(water.foodStrengthAfter).toBe(1);
+		expect(water.after.water).toBe(0.3);
+		expect(water.after.food).toBe(1);
 	});
 
 	it('applies optional no-evidence reduction conservatively', () => {
 		const associations = [
 			{
 				symbolId: 'glyph-0' as const,
-				foodStrength: 0.4,
-				waterStrength: 0.2,
-				dangerStrength: 0,
-				foodEvidenceCount: 1,
-				waterEvidenceCount: 1,
-				dangerEvidenceCount: 0,
+				evidence: {
+					food: { strength: 0.4, count: 1 },
+					water: { strength: 0.2, count: 1 },
+					danger: { strength: 0, count: 0 }
+				},
 				dangerEvidenceEpisodes: []
 			}
 		];
 		const unchanged = applyNoEvidenceReduction(associations, 'glyph-0', 0, clamp);
-		expect(unchanged.foodStrengthAfter).toBe(0.4);
-		expect(unchanged.waterStrengthAfter).toBe(0.2);
+		expect(unchanged.after.food).toBe(0.4);
+		expect(unchanged.after.water).toBe(0.2);
 
 		const reduced = applyNoEvidenceReduction(associations, 'glyph-0', 0.1, clamp);
-		expect(reduced.foodStrengthAfter).toBeCloseTo(0.3);
-		expect(reduced.waterStrengthAfter).toBeCloseTo(0.1);
+		expect(reduced.after.food).toBeCloseTo(0.3);
+		expect(reduced.after.water).toBeCloseTo(0.1);
 	});
 });
 
@@ -89,9 +88,7 @@ it('bounds independent danger episode provenance and ignores repeated confirmati
 			associations,
 			'glyph-0',
 			{
-				reinforceFood: false,
-				reinforceWater: false,
-				reinforceDanger: true,
+				meanings: { food: false, water: false, danger: true },
 				dangerEpisodes: [`animal:${episode}`],
 				amount: 0.1
 			},
@@ -102,27 +99,70 @@ it('bounds independent danger episode provenance and ignores repeated confirmati
 		associations,
 		'glyph-0',
 		{
-			reinforceFood: false,
-			reinforceWater: false,
-			reinforceDanger: true,
+			meanings: { food: false, water: false, danger: true },
 			dangerEpisodes: ['animal:19'],
 			amount: 0.1
 		},
 		clamp
 	);
-	expect(repeated.associations[0]).toMatchObject({ dangerStrength: 1, dangerEvidenceCount: 20 });
+	expect(repeated.associations[0]).toMatchObject({
+		evidence: { danger: { strength: 1, count: 20 } }
+	});
 	expect(repeated.associations[0]!.dangerEvidenceEpisodes).toHaveLength(8);
 });
 
 it('does not repeatedly learn when simultaneous episode candidates exceed provenance capacity', () => {
 	const options = {
-		reinforceFood: false,
-		reinforceWater: false,
-		reinforceDanger: true,
+		meanings: { food: false, water: false, danger: true },
 		dangerEpisodes: Array.from({ length: 12 }, (_, index) => `animal-${index}:1`),
 		amount: 0.25
 	};
 	const first = reinforceAssociation([emptyAssociation('glyph-0')], 'glyph-0', options, clamp);
 	const second = reinforceAssociation(first.associations, 'glyph-0', options, clamp);
-	expect(second.associations[0]!.dangerEvidenceCount).toBe(1);
+	expect(second.associations[0]!.evidence.danger.count).toBe(1);
+});
+
+it('keeps nested evidence independent across meanings and symbols', () => {
+	const rows = createEmptyAssociations(['glyph-0', 'glyph-1']);
+	rows[0]!.evidence.food.strength = 0.8;
+	rows[0]!.evidence.food.count = 3;
+	expect(rows[0]!.evidence.water).toEqual({ strength: 0, count: 0 });
+	expect(rows[0]!.evidence.danger).toEqual({ strength: 0, count: 0 });
+	expect(rows[1]!.evidence.food).toEqual({ strength: 0, count: 0 });
+});
+
+it('updates partial meaning evidence without mutating its source or scalar history', () => {
+	const row = emptyAssociation('glyph-0');
+	row.evidence.water = { strength: 0.7, count: 3 };
+	row.evidence.danger = { strength: 0.4, count: 2 };
+	for (const evidence of Object.values(row.evidence)) Object.freeze(evidence);
+	Object.freeze(row.evidence);
+	Object.freeze(row);
+	const update = reinforceAssociation(
+		[row],
+		'glyph-0',
+		{ meanings: { food: true }, amount: 0.25 },
+		clamp
+	);
+	expect(row.evidence.food).toEqual({ strength: 0, count: 0 });
+	expect(update.before).toEqual({ food: 0, water: 0.7, danger: 0.4 });
+	expect(update.after).toEqual({ food: 0.25, water: 0.7, danger: 0.4 });
+	expect(update.associations[0]!.evidence.water).toEqual(row.evidence.water);
+	expect(update.associations[0]!.evidence.danger).toEqual(row.evidence.danger);
+	update.associations[0]!.evidence.food.strength = 1;
+	expect(update.after.food).toBe(0.25);
+});
+
+it('preserves evidence counts and source records when confidence falls', () => {
+	const row = emptyAssociation('glyph-0');
+	row.evidence.food = { strength: 0.4, count: 2 };
+	row.evidence.water = { strength: 0.2, count: 3 };
+	row.evidence.danger = { strength: 0.1, count: 1 };
+	const update = applyNoEvidenceReduction([row], 'glyph-0', 0.25, clamp);
+	expect(update.before).toEqual({ food: 0.4, water: 0.2, danger: 0.1 });
+	expect(update.after).toEqual({ food: 0.15000000000000002, water: 0, danger: 0 });
+	expect(Object.values(update.associations[0]!.evidence).map((entry) => entry.count)).toEqual([
+		2, 3, 1
+	]);
+	expect(row.evidence.food.strength).toBe(0.4);
 });

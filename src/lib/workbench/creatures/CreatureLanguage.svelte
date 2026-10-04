@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SymbolGlyph from '$lib/SymbolGlyph.svelte';
-	import type { Creature, SimulationConfig } from '$lib/simulation';
+	import { LEXICON_MEANINGS, type Creature, type SimulationConfig } from '$lib/simulation';
 	import {
 		lastEmittedSymbolId,
 		lastHeardSymbolId,
@@ -24,34 +24,16 @@
 <section class="block" data-testid="creature-language-summary" aria-label="Language summary">
 	<h3>Language summary</h3>
 	<dl class="meta">
-		<div>
-			<dt>Food assignment</dt>
-			<dd data-testid="inspector-lexicon-food">
-				{#if selectedCreature.lexicon.food}
-					<SymbolGlyph symbolId={selectedCreature.lexicon.food} />
-				{:else}
-					unassigned
-				{/if}
-			</dd>
-		</div>
-		<div>
-			<dt>Water assignment</dt>
-			<dd data-testid="inspector-lexicon-water">
-				{#if selectedCreature.lexicon.water}
-					<SymbolGlyph symbolId={selectedCreature.lexicon.water} />
-				{:else}
-					unassigned
-				{/if}
-			</dd>
-		</div>
-		<div>
-			<dt>Danger assignment</dt>
-			<dd data-testid="inspector-lexicon-danger">
-				{#if selectedCreature.lexicon.danger}<SymbolGlyph
-						symbolId={selectedCreature.lexicon.danger}
-					/>{:else}unassigned{/if}
-			</dd>
-		</div>
+		{#each LEXICON_MEANINGS as meaning (meaning)}
+			<div>
+				<dt>{meaning[0].toUpperCase() + meaning.slice(1)} assignment</dt>
+				<dd data-testid={`inspector-lexicon-${meaning}`}>
+					{#if selectedCreature.lexicon[meaning]}<SymbolGlyph
+							symbolId={selectedCreature.lexicon[meaning]!}
+						/>{:else}unassigned{/if}
+				</dd>
+			</div>
+		{/each}
 		<div>
 			<dt>Preferred symbol</dt>
 			<dd data-testid="inspector-preferred-symbol">
@@ -126,10 +108,12 @@
 		<ul class="assoc" data-testid="inspector-symbol-associations">
 			{#each selectedCreature.symbolAssociations as assoc (assoc.symbolId)}
 				<li data-testid={`inspector-assoc-${assoc.symbolId}`}>
-					<SymbolGlyph symbolId={assoc.symbolId} />: food={assoc.foodStrength.toFixed(3)} (n={assoc.foodEvidenceCount}),
-					water={assoc.waterStrength.toFixed(3)} (n={assoc.waterEvidenceCount}), danger={assoc.dangerStrength.toFixed(
-						3
-					)} (n={assoc.dangerEvidenceCount})
+					<SymbolGlyph symbolId={assoc.symbolId} />:
+					{#each LEXICON_MEANINGS as meaning, index (meaning)}{index
+							? ', '
+							: ''}{meaning}={assoc.evidence[meaning].strength.toFixed(3)} (n={assoc.evidence[
+							meaning
+						].count}){/each}
 				</li>
 			{/each}
 		</ul>

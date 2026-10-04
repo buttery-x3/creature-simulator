@@ -554,12 +554,12 @@ describe('discovery integration via stepSimulation', () => {
 		const config = commConfig('no-emitter-feedback');
 		const associations = DEFAULT_SYMBOL_INVENTORY.map((symbolId) => ({
 			symbolId,
-			foodStrength: 0.5,
-			waterStrength: 0.25,
-			dangerStrength: 0,
-			foodEvidenceCount: 1,
-			waterEvidenceCount: 1,
-			dangerEvidenceCount: 0,
+			evidence: {
+				food: { strength: 0.5, count: 1 },
+				water: { strength: 0.25, count: 1 },
+				danger: { strength: 0, count: 0 }
+			},
+
 			dangerEvidenceEpisodes: []
 		}));
 		const lexicon = { food: 'glyph-0' as const, water: 'glyph-1' as const, danger: null };

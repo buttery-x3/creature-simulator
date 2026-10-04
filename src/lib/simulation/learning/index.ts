@@ -11,6 +11,8 @@ export type {
 	CreatureLexicon,
 	LearningHistoryEntry,
 	LearningOutcome,
+	MeaningEvidence,
+	MeaningStrengths,
 	LexiconChangeEntry,
 	LexiconMeaning,
 	SymbolAssociation
@@ -24,6 +26,8 @@ export {
 	createEmptyAssociations,
 	emptyAssociation,
 	findAssociation,
+	mapMeanings,
+	snapshotAssociationStrengths,
 	getOrCreateAssociation,
 	reinforceAssociation
 } from './signal-associations';

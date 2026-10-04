@@ -23,11 +23,7 @@ import type {
 } from './types';
 
 /** Minimal lexicon row — data only; no learning module import. */
-export type LexiconAssignmentRow = {
-	food: SymbolId | null;
-	water: SymbolId | null;
-	danger: SymbolId | null;
-};
+export type LexiconAssignmentRow = Record<SignalContextDetail, SymbolId | null>;
 
 export type SelectContextSymbolInput = {
 	simulationSeed: string;
@@ -47,15 +43,7 @@ export type SelectContextSymbolResult = {
 };
 
 function assignedSymbols(lexicon: LexiconAssignmentRow): Set<SymbolId> {
-	const set = new Set<SymbolId>();
-	if (lexicon.food !== null) {
-		set.add(lexicon.food);
-	}
-	if (lexicon.water !== null) {
-		set.add(lexicon.water);
-	}
-	if (lexicon.danger !== null) set.add(lexicon.danger);
-	return set;
+	return new Set(Object.values(lexicon).filter((symbol): symbol is SymbolId => symbol !== null));
 }
 
 function formatReasonText(evidence: SymbolSelectionEvidence): string {

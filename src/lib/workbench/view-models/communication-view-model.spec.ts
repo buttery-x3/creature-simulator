@@ -57,7 +57,7 @@ it('counts direct danger learning without describing it as a completed investiga
 	const state = createSimulation(config);
 	const creature = state.creatures[0]!;
 	creature.lexicon.danger = 'glyph-2';
-	creature.symbolAssociations[0]!.dangerEvidenceCount = 2;
+	creature.symbolAssociations[0]!.evidence.danger.count = 2;
 	creature.recentLearning = [
 		{
 			timeSeconds: 2,
@@ -65,16 +65,12 @@ it('counts direct danger learning without describing it as a completed investiga
 			symbolId: 'glyph-2',
 			emissionId: 'e-danger',
 			reason: 'direct local evidence',
-			foodStrengthBefore: 0,
-			foodStrengthAfter: 0,
-			waterStrengthBefore: 0,
-			waterStrengthAfter: 0,
-			dangerStrengthBefore: 0,
-			dangerStrengthAfter: 0.3
+			before: { food: 0, water: 0, danger: 0 },
+			after: { food: 0, water: 0, danger: 0.3 }
 		}
 	];
 	const vm = buildCommunicationViewModel(state, config);
-	expect(vm.lexiconMatrix[0]?.dangerSymbolId).toBe('glyph-2');
+	expect(vm.lexiconMatrix[0]?.lexicon.danger).toBe('glyph-2');
 	expect(vm.lexiconMatrix[0]?.evidenceCount).toBe(2);
 	expect(vm.completedOutcomes.danger_evidence).toBe(1);
 	expect(vm.funnel.find((f) => f.id === 'investigations_completed')?.label).toBe(

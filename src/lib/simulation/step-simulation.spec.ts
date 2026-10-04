@@ -27,6 +27,30 @@ function longRunConfig(seed: string): SimulationConfig {
 }
 
 describe('stepSimulation', () => {
+	it('expires existing calls and advances creatures through quiet communication ticks', () => {
+		const config = defaultSimulationConfig('overnight-river');
+		config.signalLifetimeSeconds = config.fixedDt * 2;
+		let state = stepSimulation(createSimulation(config), config);
+		const first = structuredClone(state);
+		expect(first.activeEmissions.length).toBeGreaterThan(0);
+		const emittedCount = first.creatures.reduce((sum, creature) => sum + creature.emissionCount, 0);
+		for (let i = 0; i < 4; i++) {
+			state = stepSimulation(state, config);
+			expect(state.creatures.reduce((sum, creature) => sum + creature.emissionCount, 0)).toBe(
+				emittedCount
+			);
+		}
+		expect(state.activeEmissions).toEqual([]);
+		expect(state.recentEmissions).toEqual(first.recentEmissions);
+		expect(state.timeSeconds).toBeCloseTo(first.timeSeconds + config.fixedDt * 4);
+		for (const creature of state.creatures) {
+			const before = first.creatures.find((row) => row.id === creature.id)!;
+			expect(creature.lifecycle.ageSeconds).toBeCloseTo(
+				before.lifecycle.ageSeconds + config.fixedDt * 4
+			);
+			expect(creature.hunger).toBeGreaterThan(before.hunger);
+		}
+	});
 	it('is deterministic across identical step sequences', () => {
 		const config = defaultSimulationConfig('step-det');
 		let a = createSimulation(config);

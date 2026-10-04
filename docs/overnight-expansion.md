@@ -22,7 +22,9 @@ are implemented and observed, including voluntary visible companionship/followin
 Personal meanings are observable by living generation. The measured empty-hearing
 fast path is implemented with exact trajectory checks. Useful-companionship discovery credit is deferred: all four observed resource
 handoffs across three rich 900s runs led to already-known resources. Current work
-separates physical reception from bounded display history for crowded calls.
+separates physical reception from bounded display history for crowded calls. The
+verified quiet-communication shortcut is implemented and checked; next is a compact
+on-demand diagnostic capture for preserving a run and its exact active settings.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -627,3 +629,25 @@ bounded-memory inspector screenshots were reviewed with all eleven memory rows,
 no sender identity/context in retained fields, and no page errors. Port 8125 was
 released. Next: a measured quiet-communication fast path, only if full trajectory
 comparison and paired timing support it.
+
+## Checkpoint 14: quiet communication orchestration
+
+After communication has expired active signals and produced its current-step
+handoffs, an empty pair of handoffs now returns that state directly. Earlier
+world, behaviour, memory observation, social and lifecycle phases still run.
+This skips no-op announcement/heard memory, danger/movement learning and
+reconsideration passes. No new module, API, state, configuration or responsibility
+boundary is introduced; step-simulation remains the existing phase coordinator.
+No threshold, topology or dependency changes. Independent expiry stays with its
+existing owners rather than moving into this optimization.
+
+The isolated candidate matched all initial and 16,200 complete post-step states
+across three seeds, 12/32/64 founders and 60 simulated seconds. Paired warmed
+timings were faster in 25/27 pairs, with median reductions 7.65%/6.96%/7.67%.
+Two slower 32-founder pairs and ranges are recorded in overnight-scale-performance.md;
+this is local wall time, not a guaranteed browser improvement. The applied source
+has identical transpiled output to the measured candidate (only source whitespace
+differs). A focused regression confirms quiet ticks expire existing emissions and
+continue age, time and hunger progression. The reception-independence replay also
+continues to pass. Full npm run check passed 666 unit tests in 82 files, server
+check, build and 13 browser tests. No visual behavior or presentation change.

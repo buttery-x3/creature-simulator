@@ -45,3 +45,26 @@ Three focused regressions cover quiet hearing without peer reads or expiry, stal
 Exact configurations, per-run wall times, final-state and per-step trajectory digests: ignored `.svelte-kit/scale-ab-results.json`. Reproduction driver: `.svelte-kit/scale-ab.mjs`. Sampled profiles: `.svelte-kit/scale-64.cpuprofile` (baseline investigation) and `.svelte-kit/scale-optimized.cpuprofile`. Original probe/count scripts and results use the `.svelte-kit/scale-probe-*` and `.svelte-kit/scale-empty-hearing.json` paths. These machine-local artifacts are reproducible aids, not required application files.
 
 The experiment covers the first 60 seconds for these nine configurations. It does not prove equal behavior for every possible configuration, compare browser frame rates, or guarantee an identical percentage improvement on another machine. Focused quiet/stale/mixed-signal regressions supplement the trajectory comparisons.
+
+## Quiet communication handoff experiment
+
+A subsequent isolated experiment used reception-corrected baseline `cddebc2868f53997df07391c7490d5bfd5f9e941`. Its candidate adds only an early return **after** `stepCommunication` when both `emittedThisStep` and `receivedThisStep` are empty. This avoids redundant downstream memory, learning and reconsideration walks; their quiet paths have no independent aging or expiry responsibilities.
+
+Source fingerprints, using the same method above:
+
+- Archived baseline: `6b52c05389da0fb02a4d70283bc55ad5c7de7875629ad6987146cf64b20fa73a`.
+- Measured isolated candidate: `6b0c73a4296ef170bc56cb3182e7440da4f13b0fe419ef6d5f8c1c2c2a8cfbb6`.
+
+Both copies were loaded through separate portless Vite SSR instances in the same Node v24.15.0 process. Defaults changed only founder count to 12/32/64; cap 64 and the three seeds above were preserved. Initial states and **all 16,200 post-step complete serialized states** matched across nine 60-second cases. Timings ran separately: an additional discarded warm-up per size/implementation, then three repetitions per case, alternating baseline/candidate order and rotating population order. Creation, JSON serialization and hashing remained outside the timed loop. No further runs were added after inspecting results.
+
+| Founders | Faster pairs | Median paired reduction | Median paired ms saved per 60 simulated seconds | Paired ms saved range |
+| -------- | ------------ | ----------------------: | ----------------------------------------------: | --------------------: |
+| 12       | 9 / 9        |                   7.65% |                                          18.437 |          4.201–26.015 |
+| 32       | 7 / 9        |                   6.96% |                                          67.126 |       −55.845–140.305 |
+| 64       | 9 / 9        |                   7.67% |                                         145.630 |        39.086–420.448 |
+
+These are medians of matched differences and ratios, not differences or ratios of pooled medians. Two 32-founder pairs were slower; the 25/27 positive pairs support this small change without establishing a universal speedup. Median absolute savings correspond to about 10/37/81 microseconds per fixed step. Local scheduling, GC and JIT variation remain; the experiment does not measure browser frame rates or long-run ecological performance.
+
+In the preceding corrected-source count probe, 89–99% of ticks accepted no new emission. Quiet does **not** mean no active signals: 91/205/377 signals expired during quiet ticks in the 64-founder demo/river/drought cases. Hence communication and its expiry must run before the guard. All lifecycle, needs and sensory aging also remain before it. Named downstream passes accounted for about 1–2% of sampled time; that incomplete attribution excludes some caller/anonymous allocation work and is not the measured A/B gain.
+
+The adopted production source fingerprint is `c7454cbbc64ef382cbb002f8c7fccd75aba157f09758d5f188519962604ac1cc`. Its difference from the measured scratch copy is source whitespace only (indentation and trailing newline): TypeScript-transpiled ESNext output with `removeComments: true` was compared and is exactly identical. The isolated candidate fingerprint identifies the measured raw source; it is not a claim of byte identity with production. A focused production regression additionally covers quiet-tick signal expiry, age and need progression. Exact configurations, trajectory digests and 27 timing pairs are in ignored `.svelte-kit/quiet-ab-results.json`; the driver, summaries and isolated source copies are `.svelte-kit/quiet-ab.mjs`, `.svelte-kit/quiet-ab-summary.json`, `.svelte-kit/quiet-ab-baseline/` and `.svelte-kit/quiet-ab-candidate/`. The preceding count/profile artifacts use `.svelte-kit/quiet-communication-*`.

@@ -229,6 +229,7 @@ export function stepSimulation(
 		emittedThisStep,
 		receivedThisStep
 	} = stepCommunication(afterBehaviour, emissionRequests, timeSeconds, config);
+	if (emittedThisStep.length === 0 && receivedThisStep.size === 0) return afterCommunication;
 
 	// Successful announcement emissions this step → first-class memory (not perception).
 	const afterAnnouncementMemory = applySuccessfulAnnouncementMemories(

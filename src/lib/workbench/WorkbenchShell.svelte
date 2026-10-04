@@ -3,6 +3,7 @@
 	import CommunicationTab from './communication/CommunicationTab.svelte';
 	import CreaturesTab from './creatures/CreaturesTab.svelte';
 	import DebugTab from './debug/DebugTab.svelte';
+	import type { CapturedRun } from './debug/run-capture';
 	import EventsTab from './events/EventsTab.svelte';
 	import OverviewTab from './overview/OverviewTab.svelte';
 	import WorkbenchTabs from './WorkbenchTabs.svelte';
@@ -60,6 +61,7 @@
 		onSelectCreature
 	}: Props = $props();
 
+	let capturedRun = $state<CapturedRun | null>(null);
 	let eventFilter = $state<EventFilterState>({ ...DEFAULT_EVENT_FILTER });
 	let communicationCreatureFilter = $state<string | null>(null);
 	let worldFeatureFocus = $state<string | null>(null);
@@ -152,7 +154,16 @@
 				onNavigate={handleNavigate}
 			/>
 		{:else}
-			<DebugTab {simulation} {config} {paused} {selectedCreatureId} />
+			<DebugTab
+				{simulation}
+				{config}
+				{paused}
+				{selectedCreatureId}
+				{capturedRun}
+				onCapture={(value) => {
+					capturedRun = value;
+				}}
+			/>
 		{/if}
 	</div>
 </aside>

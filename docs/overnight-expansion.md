@@ -23,8 +23,9 @@ Personal meanings are observable by living generation. The measured empty-hearin
 fast path is implemented with exact trajectory checks. Useful-companionship discovery credit is deferred: all four observed resource
 handoffs across three rich 900s runs led to already-known resources. Current work
 separates physical reception from bounded display history for crowded calls. The
-verified quiet-communication shortcut is implemented and checked; next is a compact
-on-demand diagnostic capture for preserving a run and its exact active settings.
+verified quiet-communication shortcut and on-demand diagnostic capture are
+implemented and checked. Next: preserve ongoing need-driven search destinations
+when peer-triggered reconsideration selects the same search again.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -662,3 +663,41 @@ differs). A focused regression confirms quiet ticks expire existing emissions an
 continue age, time and hunger progression. The reception-independence replay also
 continues to pass. Full npm run check passed 666 unit tests in 82 files, server
 check, build and 13 browser tests. No visual behavior or presentation change.
+
+## Checkpoint 15: exact diagnostic run capture
+
+Debug now captures the full simulation and exact active configuration together,
+with capture time and browser user agent. WorkbenchShell retains one serialized
+capture across tab changes and run regeneration; explicit recapture replaces it,
+and page reload discards it. Download keeps a JSON file. Capture labels retain the
+old seed/time so the saved run is distinct from current live state. Copy/download
+failures give visible alternatives, and temporary Blob URLs are cleaned up.
+
+The separate raw live snapshot and captured preview render only while opened.
+This avoids continuously serializing the large raw snapshot behind a closed
+Debug disclosure; inactive tabs already unmount Debug. No whole-app performance
+claim is made. This is diagnostic export, with no importer, restore/migration
+contract or invented source-build identity.
+
+Structure: existing workbench/debug now has three cohesive production files:
+DebugTab (235) code lines composes diagnostics, RunCapture (172) owns capture controls
+and browser resource lifecycle, and run-capture (40) owns exact bundle serialization.
+WorkbenchShell (208 code lines) owns one UI capture alongside its existing observer state.
+No simulation/public Workbench API, threshold or dependency change. Topology and
+Persistence documentation are updated; no new global view-model entry is needed.
+
+Validation: full npm run check passed 671 unit tests in 84 files, server check,
+build and 14 browser tests. Five new unit/rendering tests protect complete
+round-trip precision, immutable retained capture, filename bounds and closed
+preview behavior. The browser regression downloads an actual live rich run,
+advances it, changes tabs and regenerates, then verifies the same captured bytes;
+a replacement matches the new paused state and active configuration. Additional
+inspected screenshots verify preserved old-run labelling and visible clipboard
+failure fallback; no page errors, and the managed test port was released.
+
+Next finding: the crowded demo 600-second run tracing shows short rest periods restore energy
+and then yield normally to hunger, but peer-triggered reconsideration resets
+unreached need-search destinations. Creature 29 changed the point 226 times in one
+98.7s hunger/rest episode, 221 from peer changes, despite choosing the same need.
+The next correction should preserve valid continuing search execution, while
+still allowing resource/danger/other-need choices and arrival to change targets.

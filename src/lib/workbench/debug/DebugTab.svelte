@@ -1,4 +1,6 @@
 <script lang="ts">
+	import RunCapture from './RunCapture.svelte';
+	import type { CapturedRun } from './run-capture';
 	import { formatHabitatDiagnostics } from '$lib/habitat';
 	import {
 		formatCreatureInspection,
@@ -14,9 +16,12 @@
 		config: SimulationConfig;
 		paused: boolean;
 		selectedCreatureId: string | null;
+		capturedRun: CapturedRun | null;
+		onCapture: (value: CapturedRun) => void;
 	};
 
-	let { simulation, config, paused, selectedCreatureId }: Props = $props();
+	let { simulation, config, paused, selectedCreatureId, capturedRun, onCapture }: Props = $props();
+	let snapshotOpen = $state(false);
 
 	const habitatDiagnostics = $derived(formatHabitatDiagnostics(simulation.habitat));
 	const simulationDiagnostics = $derived(
@@ -52,7 +57,7 @@
 	);
 
 	const configJson = $derived(JSON.stringify(config, null, 2));
-	const snapshot = $derived(simulationSnapshot(simulation));
+	const snapshot = $derived(snapshotOpen ? simulationSnapshot(simulation) : null);
 	const environmentJson = $derived(JSON.stringify(simulation.environment, null, 2));
 
 	async function copyText(text: string, label: string) {
@@ -66,6 +71,7 @@
 </script>
 
 <div class="debug" data-testid="debug-tab">
+	<RunCapture {simulation} {config} captured={capturedRun} {onCapture} />
 	<section class="block">
 		<div class="heading-row">
 			<h3>Simulation diagnostics</h3>
@@ -163,12 +169,19 @@
 		<p class="seed" data-testid="debug-seed">{simulation.seed}</p>
 	</section>
 
-	<details class="block">
-		<summary>Serialised simulation snapshot</summary>
-		<div class="heading-row">
-			<button type="button" onclick={() => copyText(snapshot, 'snapshot')}>Copy snapshot</button>
-		</div>
-		<pre data-testid="debug-simulation-snapshot">{snapshot}</pre>
+	<details class="block" bind:open={snapshotOpen} data-testid="debug-live-snapshot">
+		<summary>Serialised simulation snapshot (live)</summary>
+		{#if snapshot !== null}
+			<div class="heading-row">
+				<button
+					type="button"
+					onclick={() => {
+						if (snapshot !== null) void copyText(snapshot, 'snapshot');
+					}}>Copy snapshot</button
+				>
+			</div>
+			<pre data-testid="debug-simulation-snapshot">{snapshot}</pre>
+		{/if}
 	</details>
 </div>
 

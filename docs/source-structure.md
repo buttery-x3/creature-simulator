@@ -152,6 +152,10 @@ src/
             world/
             events/
             debug/
+                DebugTab.svelte
+                RunCapture.svelte
+                run-capture.ts
+                *.spec.ts
 
         SymbolGlyph.svelte
         ThreeViewport.svelte
@@ -590,3 +594,13 @@ There is capacity before the eight-file hard limit. Further independent language
 adaptations would justify a communication view-model subdomain; no speculative
 layer or threshold exception is introduced now. Communication presentation has
 three modules. Unit and rendering tests remain colocated.
+
+### Diagnostic run capture
+
+WorkbenchShell owns a single observer-only serialized capture so it survives tab
+navigation and run regeneration. workbench/debug/RunCapture.svelte owns capture,
+clipboard/download controls, feedback and temporary browser resource cleanup;
+run-capture.ts owns the pure diagnostic bundle serializer. DebugTab owns the
+conditional live raw snapshot display. All three debug files depend on simulation
+public types/entry points only; no simulation state, storage, replay or import
+boundary is added. Capture semantics are documented in architecture.md, Persistence.

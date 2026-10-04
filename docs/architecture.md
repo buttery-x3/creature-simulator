@@ -459,8 +459,20 @@ completion, with the acute competing-need exception described below.
 ### Persistence
 
 Running simulation state is plain serialisable in-memory data. There is **no**
-database, IndexedDB, local storage or schema migration layer. Snapshots and
-experiment history are future concerns.
+database, IndexedDB, local storage or schema migration layer. The Workbench can
+explicitly capture the full state and exact active configuration together as a
+versioned diagnostic JSON bundle, with capture time and browser user-agent metadata.
+No state values are rounded. This export is for inspection and bug reports; it
+provides no import, restore, migration, replay or source-build identity guarantee.
+
+WorkbenchShell retains one serialized capture as observer state across tab changes
+and regeneration until another capture replaces it or the page reloads. Downloading
+keeps a file independently. debug/run-capture.ts owns pure bundle serialization;
+debug/RunCapture.svelte owns capture controls, feedback and temporary Blob URL
+cleanup. DebugTab composes the controls and serializes/renders its separate live
+raw snapshot only while its details are open. Captured JSON previews are also
+conditional on being open. Simulation state and stepping do not depend on captures.
+Experiment history and restorable persistence remain future concerns.
 
 ## Static and dynamic presentation
 

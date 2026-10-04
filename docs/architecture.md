@@ -228,6 +228,10 @@ Search:
 - When `satisfy_hunger` / `satisfy_thirst` is selected with **no** destination
   (search fallback), the action is **`search`** (not `explore`), with a deterministic
   point from the `search` seed stream (`sampleSearchTarget`).
+- Reconsidering the same need with no new resource destination preserves a valid
+  ongoing search point and its sequence index in the executor. Cognition still
+  records a null selected target. Arrival advances the search sequence; changing
+  need, acquiring a resource target, or invalidating the old point can replace it.
 - Remembered resource beliefs use a **point** at the stored observation position and
   **`move`** toward it; sensing/memory updates correct stale beliefs only when near.
 - Currently perceived resources use authoritative **feature** targets (depletion can

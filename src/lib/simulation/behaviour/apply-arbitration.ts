@@ -13,7 +13,7 @@ import { interruptInvestigation } from '../learning/step-signal-learning';
 import type { Creature, SimulationConfig } from '../types';
 import { applyArbitration } from './actions';
 import { type ArbitrationConfig, buildArbitrationInput } from './build-arbitration-input';
-import { ensureSearchTarget, isAtTarget, pointTarget } from './resource-awareness';
+import { ensureSearchTarget, isAtTarget, isTargetValid, pointTarget } from './resource-awareness';
 
 export type ReplanConfig = ArbitrationConfig &
 	Pick<
@@ -189,6 +189,18 @@ export function replanFromArbitration(
 			target = record.selectedTarget;
 		}
 	} else if (applied.action === 'search') {
+		// Reconsidering the same unknown resource does not invalidate an executor destination.
+		// Cognition keeps its null target; arrival still owns advancing the search sequence.
+		if (
+			target === null &&
+			creature.action === 'search' &&
+			creature.intention === applied.intention &&
+			(applied.intention === 'satisfy_hunger' || applied.intention === 'satisfy_thirst') &&
+			creature.target?.kind === 'point' &&
+			isTargetValid(habitat, creature.target)
+		) {
+			target = creature.target;
+		}
 		const search = ensureSearchTarget(
 			{
 				...creature,

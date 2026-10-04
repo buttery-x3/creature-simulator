@@ -24,8 +24,10 @@ fast path is implemented with exact trajectory checks. Useful-companionship disc
 handoffs across three rich 900s runs led to already-known resources. Current work
 separates physical reception from bounded display history for crowded calls. The
 verified quiet-communication shortcut and on-demand diagnostic capture are
-implemented and checked. Next: preserve ongoing need-driven search destinations
-when peer-triggered reconsideration selects the same search again.
+implemented and checked. The need-search continuity correction is implemented and checked: ongoing search
+points survive same-need reconsideration without suppressing interrupts. Next is
+a measured larger-world scenario assessment with the existing local knowledge
+and computational limits explicit.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -701,3 +703,44 @@ unreached need-search destinations. Creature 29 changed the point 226 times in o
 98.7s hunger/rest episode, 221 from peer changes, despite choosing the same need.
 The next correction should preserve valid continuing search execution, while
 still allowing resource/danger/other-need choices and arrival to change targets.
+
+## Checkpoint 16: preserve ongoing need-search destinations
+
+Repeated peer or hearing events could reset a hungry/thirsty creature's random
+search point even when arbitration chose the same need again. The existing
+arbitration-to-execution mapper now keeps a valid ongoing search point in this
+case. Cognition still has a null target for unknown resources. Arrival advances
+the search sequence, while changed needs, known resources, danger and invalid
+points remain free to redirect execution. No utility, ecology or perception
+settings changed; separate four-corner exploration behavior is preserved.
+
+This is a minimal correctness fix in behaviour/apply-arbitration.ts, with no
+new production module, API, state, topology, dependency direction or threshold
+exception. The file has 204 code lines and its replan function 167: the function
+remains under review pressure, and future independently changing execution
+lifecycles should be split by ownership rather than added to this mapper.
+
+The matched crowded 600-second experiment eliminates 15,360/8,894/12,403
+unfinished same-search target replacements across demo/river/drought. Arrival
+retargets continue and net hunger/thirst relief increases in these cases; final
+populations change 3/0/0 to 2/0/0, so this is no survival guarantee. Exact metric
+exclusions, fingerprints and results are in overnight-search-continuity.md.
+Current baseline600 populations are 4/1/5; crowded600 are 2/0/0. Rich900 finishes
+4/4/4, with 6/5/7 births and maximum generation 3 in every seed. Personal approach
+meanings remain in 2/3/2 survivors, with no dictionary inheritance. All nine runs
+respect memory/movement/follow bounds and finite need values; same-runtime
+60-second full-trajectory repeats match. The three overnight-search observation
+reports preserve configuration and measurement limitations.
+
+Integrated browser evidence: natural crowded/demo creature-3 at 55.200→55.233s
+reconsidered on peer perception, kept its unknown-resource cognitive target null,
+kept search index 1 and the physical waypoint, and reduced distance from 4.0835 to
+4.0515. Hunger's actual score 0.8432 beat the competing candidates. Target and
+utility screenshots were inspected without page errors. This browser case is
+independent of the Node trajectories above.
+
+Eleven new runtime cases plus existing step/exploration cases passed (37 focused
+tests), including periodic/peer triggers, arrival, changed needs, resources,
+danger, invalid points and immutable inputs. Types and scoped lint passed.
+Full npm run check passed 682 unit tests in 85 files, server check, build and
+14 browser tests.

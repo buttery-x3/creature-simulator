@@ -460,3 +460,34 @@ extend explicit site data when implemented; it does not justify speculative site
 registries now. Public entry points, dependency directions and thresholds are
 unchanged; the needs function gains an optional recovery multiplier preserving
 existing callers. No substantial file acquires an unrelated algorithm.
+
+### Innate expression resource ownership
+
+The new expression-presentation directory starts with one implementation file and
+an explicit index. Expression cues have a distinct lifecycle from body action
+colors, investigation hops and learned-signal bubbles, which justifies a separate
+resource owner. Shared geometries are allocated once; only currently active
+expressions own per-creature groups/materials. Future additional innate expression
+shapes belong here when required, while expression selection stays in simulation.
+
+CreatureSocial adds the sixth implementation file to workbench/creatures. The
+headroom assessment leaves two slots; the current components each own a concrete
+inspection domain, and no new nested UI directory is warranted yet. CreaturesTab
+remains a substantial composition/identity/perception view and receives only the
+new component wiring. Future independently growing identity, exploration or
+perception views should extract their own complete section rather than enlarge it.
+No thresholds, import-direction rules or existing public contracts change.
+
+### Social simulation ownership
+
+Social introduces an independently changing contact/display domain with four
+implementation files, types and an explicit barrel. Its concrete next consumer
+is lifecycle interaction; no speculative courtship or trust API is added now.
+Cognition/social owns voluntary utility policy; behaviour adds only observation,
+target execution, expiry and injury hooks. Adding peer sensing exposed the
+existing wildlife algorithm inside the sensing coordinator, so wildlife
+perception/encounter provenance moved to a coherent sibling module. The sensing
+function is now 102 code lines, behaviour step 125, simulation step 85 and
+candidate assembly 120. No limits or dependency rules changed. The existing
+large public simulation barrel remains an advisory pressure point; new exports
+are limited to actual social observation consumers.

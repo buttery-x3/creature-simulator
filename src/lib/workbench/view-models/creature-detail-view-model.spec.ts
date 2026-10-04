@@ -25,6 +25,9 @@ describe('creature-detail-view-model', () => {
 
 	it('formats targets without parsing prose diagnostics', () => {
 		expect(formatTargetLabel(null)).toBe('none');
+		expect(formatTargetLabel({ kind: 'creature', creatureId: 'creature-2' })).toBe(
+			'creature:creature-2'
+		);
 		expect(formatTargetLabel({ kind: 'feature', featureId: 'food-0', featureKind: 'food' })).toBe(
 			'food:food-0'
 		);

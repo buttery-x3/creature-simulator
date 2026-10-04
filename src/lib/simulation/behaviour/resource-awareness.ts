@@ -7,6 +7,7 @@
 
 import { featureRect, type Habitat, type HabitatFeature, type Vec2 } from '$lib/habitat';
 import { distanceSquared, sampleSearchTarget } from '../creature-movement';
+import type { PeerObservation } from '../social';
 import { isResourceAvailable } from '../resources/availability';
 import type { Creature, CreatureTarget, SimulationConfig, WildlifeObservation } from '../types';
 
@@ -38,7 +39,8 @@ export function resolveFeature(
 export function isTargetValid(
 	habitat: Habitat,
 	target: CreatureTarget | null,
-	wildlife: readonly WildlifeObservation[] = []
+	wildlife: readonly WildlifeObservation[] = [],
+	peers: readonly PeerObservation[] = []
 ): boolean {
 	if (target === null) {
 		return false;
@@ -46,6 +48,7 @@ export function isTargetValid(
 	if (target.kind === 'point') {
 		return Number.isFinite(target.position.x) && Number.isFinite(target.position.y);
 	}
+	if (target.kind === 'creature') return peers.some((peer) => peer.id === target.creatureId);
 	if (target.kind === 'wildlife')
 		return wildlife.some((w) => w.id === target.wildlifeId && (w.health > 0 || w.foodAmount > 0));
 	if (target.featureKind === 'home') {
@@ -77,13 +80,18 @@ export function isAtTarget(
 	habitat: Habitat,
 	target: CreatureTarget | null,
 	arrivalDistance: number,
-	wildlife: readonly WildlifeObservation[] = []
+	wildlife: readonly WildlifeObservation[] = [],
+	peers: readonly PeerObservation[] = []
 ): boolean {
 	if (!target) {
 		return false;
 	}
 	if (target.kind === 'point') {
 		return distanceSquared(position, target.position) <= arrivalDistance * arrivalDistance;
+	}
+	if (target.kind === 'creature') {
+		const peer = peers.find((p) => p.id === target.creatureId);
+		return !!peer && distanceSquared(position, peer.position) <= arrivalDistance * arrivalDistance;
 	}
 	if (target.kind === 'wildlife') {
 		const animal = wildlife.find((w) => w.id === target.wildlifeId);
@@ -123,7 +131,8 @@ export function movementPoint(
 	habitat: Habitat,
 	target: CreatureTarget | null,
 	fallback: Vec2,
-	wildlife: readonly WildlifeObservation[] = []
+	wildlife: readonly WildlifeObservation[] = [],
+	peers: readonly PeerObservation[] = []
 ): Vec2 {
 	if (!target) {
 		return fallback;
@@ -131,6 +140,8 @@ export function movementPoint(
 	if (target.kind === 'point') {
 		return target.position;
 	}
+	if (target.kind === 'creature')
+		return peers.find((p) => p.id === target.creatureId)?.position ?? fallback;
 	if (target.kind === 'wildlife')
 		return wildlife.find((w) => w.id === target.wildlifeId)?.position ?? fallback;
 	const feature = resolveFeature(habitat, target);

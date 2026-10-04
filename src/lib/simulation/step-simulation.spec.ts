@@ -482,6 +482,8 @@ describe('mixed verbosity population (FLAME-84)', () => {
 			});
 			return {
 				...c,
+				// Displays are on cooldown to isolate the speech-preference contrast.
+				social: { ...c.social, nextExpressionAt: 12 },
 				// Hold curiosity mid so optional investigation does not dominate the
 				// announce-vs-signal split this test attributes to verbosity.
 				curiosity: 0.5,
@@ -565,6 +567,8 @@ describe('mixed curiosity population (FLAME-85)', () => {
 			});
 			return {
 				...c,
+				// Displays are on cooldown to isolate the curiosity contrast.
+				social: { ...c.social, nextExpressionAt: 12 },
 				// Spread curiosity so optional investigation splits the population.
 				curiosity: i / Math.max(1, base.creatures.length - 1),
 				position: { x: origin.x - 1, y: origin.y },

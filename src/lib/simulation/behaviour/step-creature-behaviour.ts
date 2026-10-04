@@ -9,6 +9,7 @@
  * the next step so resource_announcement memory (written post-communication) is visible.
  */
 
+import { advanceSocial } from '../social';
 import type { Habitat } from '$lib/habitat';
 import { stepAnnouncement, type AnnouncementStepConfig } from '../announcement/step-announcement';
 import { hasFreshDangerSignal } from '../cognition/danger/warning-candidates';
@@ -115,7 +116,8 @@ export function stepCreatureBehaviour(
 	habitat: Habitat,
 	config: BehaviourStepConfig,
 	grants: ConsumptionGrants = { food: 0, water: 0 },
-	wildlife: readonly Wildlife[] = []
+	wildlife: readonly Wildlife[] = [],
+	population: readonly Creature[] = []
 ): CreatureBehaviourStepResult {
 	// Snapshot so a deferred post-emit trigger set later this step cannot fire now.
 	const incomingPendingTrigger = creature.pendingArbitrationTrigger;
@@ -128,11 +130,18 @@ export function stepCreatureBehaviour(
 		restRecoveryMultiplier(creature.position, habitat.home, config.arrivalDistance)
 	);
 	let next: Creature = advanceBody({ ...creature, ...needs }, dt, config.ecology);
+	next = { ...next, social: advanceSocial(next.social, dt, timeSeconds) };
+	if (
+		creature.social.expression &&
+		!next.social.expression &&
+		(next.action === 'dance' || next.action === 'cry')
+	)
+		next = { ...next, pendingArbitrationTrigger: 'action_complete' };
 	let emissionRequest: EmissionRequest | null = null;
 
-	const sensed = senseCreature(next, habitat, timeSeconds, config, wildlife);
+	const sensed = senseCreature(next, habitat, timeSeconds, config, wildlife, population);
 	next = sensed.creature;
-	const { perceptionChanged, dangerChanged, wildlifeChanged } = sensed;
+	const { perceptionChanged, dangerChanged, wildlifeChanged, peerChanged } = sensed;
 	const heardWarning =
 		incomingPendingTrigger === 'new_heard_signal_memory' &&
 		hasFreshDangerSignal(next.memory, next.lexicon, timeSeconds);
@@ -174,7 +183,12 @@ export function stepCreatureBehaviour(
 	if (!emissionRequest) {
 		const investigationStale =
 			next.intention === 'investigate_signal' && next.activeInvestigation === null;
-		const targetOk = isTargetValid(habitat, next.target, next.perceivedWildlife);
+		const targetOk = isTargetValid(
+			habitat,
+			next.target,
+			next.perceivedWildlife,
+			next.perceivedPeers
+		);
 		if (!targetOk || investigationStale) {
 			if (next.action === 'search' && next.target?.kind !== 'point' && !investigationStale) {
 				const search = ensureSearchTarget(next, simulationSeed, habitat, config);
@@ -222,6 +236,7 @@ export function stepCreatureBehaviour(
 		incomingPendingTrigger,
 		wildlifeChanged,
 		perceptionChanged,
+		peerChanged,
 		dangerReplanned,
 		emissionRequested: emissionRequest !== null
 	});

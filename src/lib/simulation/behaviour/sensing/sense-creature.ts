@@ -1,21 +1,17 @@
+import { observePeers, updateRelationships, SOCIAL_DEFAULTS } from '../../social';
 import type { Habitat } from '$lib/habitat';
-import { distanceSquared } from '../../creature-movement';
-import { bodyAbility } from '../../ecology/body';
 import type { Wildlife } from '../../ecology/types';
 import {
 	selectExplorationTarget,
 	updateExplorationFromSensing,
 	type ExplorationScoreConfig
 } from '../../exploration';
-import type { Creature, WildlifeObservation } from '../../types';
+import type { Creature } from '../../types';
 import type { BehaviourStepConfig } from '../step-creature-behaviour';
 import { updatePerception } from '../perception';
+import { senseWildlife } from './wildlife-perception';
 import { pointTarget } from '../resource-awareness';
-import {
-	DANGER_MEMORY_LIFETIME_SECONDS,
-	forgetEntries,
-	rememberDangerObservation
-} from '../../memory';
+import { DANGER_MEMORY_LIFETIME_SECONDS, forgetEntries } from '../../memory';
 
 /** Resource and animal sensing share one local clock; exploration remains separate memory. */
 export function senseCreature(
@@ -23,10 +19,14 @@ export function senseCreature(
 	habitat: Habitat,
 	timeSeconds: number,
 	config: BehaviourStepConfig,
-	wildlife: readonly Wildlife[]
+	wildlife: readonly Wildlife[],
+	population: readonly Creature[] = []
 ) {
 	let next = {
 		...creature,
+		perceivedPeers: creature.perceivedPeers.filter(
+			(peer) => timeSeconds - peer.observedAt <= SOCIAL_DEFAULTS.peerFreshnessSeconds
+		),
 		memory: forgetEntries(
 			creature.memory,
 			(entry) =>
@@ -43,58 +43,40 @@ export function senseCreature(
 	let perceptionChanged = false;
 	let dangerChanged = false;
 	let wildlifeChanged = false;
+	let peerChanged = next.perceivedPeers.length !== creature.perceivedPeers.length;
 	if (perceived.sensed) {
-		const previousWildlife = new Map(next.perceivedWildlife.map((animal) => [animal.id, animal]));
-		const observed = wildlife
-			.filter(
-				(w) =>
-					distanceSquared(next.position, w.position) <= config.sensingRadius ** 2 &&
-					(w.health > 0 || w.foodAmount > 0)
+		const peers = observePeers(next, population, timeSeconds, config.sensingRadius);
+		peerChanged =
+			peers
+				.map((peer) => peer.id + ':' + (peer.expression?.id ?? ''))
+				.sort()
+				.join('|') !==
+			creature.perceivedPeers
+				.map((peer) => peer.id + ':' + (peer.expression?.id ?? ''))
+				.sort()
+				.join('|');
+		const elapsed =
+			creature.perception.lastUpdatedAt < 0
+				? 0
+				: Math.min(
+						config.perceptionIntervalSeconds,
+						timeSeconds - creature.perception.lastUpdatedAt
+					);
+		next = {
+			...next,
+			perceivedPeers: peers,
+			social: updateRelationships(
+				next.social,
+				peers,
+				timeSeconds,
+				elapsed,
+				next.hunger < 0.6 && next.thirst < 0.6 && next.energy > 0.4 && next.body.health > 0.6
 			)
-			.map((w) => ({
-				id: w.id,
-				position: { ...w.position },
-				size: w.size,
-				physicality: w.physicality,
-				health: w.health,
-				energy: w.energy,
-				foodAmount: w.foodAmount,
-				observedAt: timeSeconds,
-				firstObservedAt: observationEpisodeStart(
-					next,
-					previousWildlife.get(w.id),
-					w.id,
-					timeSeconds
-				)
-			}));
-		const isThreat = (w: WildlifeObservation) =>
-			w.health > 0 &&
-			bodyAbility({ ...w, nextAttackAt: 0 }, w.energy) > bodyAbility(next.body, next.energy) * 0.65;
-		wildlifeChanged =
-			observed.map((w) => w.id).join() !== next.perceivedWildlife.map((w) => w.id).join();
-		dangerChanged = observed.some(isThreat) || next.perceivedWildlife.some(isThreat);
-		let memory = next.memory;
-		for (const animal of observed) {
-			if (isThreat(animal)) {
-				memory = rememberDangerObservation(memory, {
-					wildlifeId: animal.id,
-					position: animal.position,
-					size: animal.size,
-					physicality: animal.physicality,
-					health: animal.health,
-					energy: animal.energy,
-					rememberedAt: timeSeconds,
-					firstObservedAt: animal.firstObservedAt
-				});
-			} else {
-				// New local evidence can disconfirm danger, including a visible carcass.
-				memory = forgetEntries(
-					memory,
-					(entry) => entry.kind === 'danger_observation' && entry.wildlifeId === animal.id
-				);
-			}
-		}
-		next = { ...next, perceivedWildlife: observed, memory };
+		};
+		const animals = senseWildlife(next, wildlife, timeSeconds, config.sensingRadius);
+		next = animals.creature;
+		wildlifeChanged = animals.wildlifeChanged;
+		dangerChanged = animals.dangerChanged;
 		const foodNow = next.perception.perceivedFoodIds;
 		const waterNow = next.perception.perceivedWaterIds;
 		const foodChanged =
@@ -146,24 +128,5 @@ export function senseCreature(
 		}
 	}
 
-	return { creature: next, perceptionChanged, dangerChanged, wildlifeChanged };
-}
-
-/** Continuous local sight survives shared-memory eviction; unseen episodes still expire. */
-function observationEpisodeStart(
-	creature: Creature,
-	previous: WildlifeObservation | undefined,
-	wildlifeId: string,
-	timeSeconds: number
-): number {
-	if (previous && timeSeconds - previous.observedAt < DANGER_MEMORY_LIFETIME_SECONDS) {
-		return previous.firstObservedAt;
-	}
-	const retained = creature.memory.entries.find(
-		(entry) =>
-			entry.kind === 'danger_observation' &&
-			entry.wildlifeId === wildlifeId &&
-			timeSeconds - entry.rememberedAt < DANGER_MEMORY_LIFETIME_SECONDS
-	);
-	return retained?.kind === 'danger_observation' ? retained.firstObservedAt : timeSeconds;
+	return { creature: next, perceptionChanged, dangerChanged, wildlifeChanged, peerChanged };
 }

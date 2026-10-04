@@ -189,3 +189,12 @@ export {
 export { daylightAt } from './ecology/body';
 export type { BodyState, Wildlife, EcologyConfig, EncounterRecord } from './ecology/types';
 export type { WildlifeObservation } from './types';
+
+export { deriveMood, SOCIAL_DEFAULTS } from './social';
+export type {
+	SocialState,
+	PeerObservation,
+	InnateExpression,
+	Relationship,
+	MoodSnapshot
+} from './social';

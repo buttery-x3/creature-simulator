@@ -2,6 +2,7 @@
  * Apply unified cognition arbitration onto creature execution state.
  */
 
+import { SOCIAL_DEFAULTS } from '../social';
 import type { Habitat } from '$lib/habitat';
 import { arbitrate } from '../cognition/arbitrate';
 import type { ArbitrationTrigger } from '../cognition/types';
@@ -60,8 +61,11 @@ export function replanFromArbitration(
 		record.selectedTarget,
 		record.selectedTarget?.kind === 'wildlife'
 			? config.ecology.encounterDistance
-			: config.arrivalDistance,
-		creature.perceivedWildlife
+			: record.selectedTarget?.kind === 'creature'
+				? SOCIAL_DEFAULTS.comfortDistance
+				: config.arrivalDistance,
+		creature.perceivedWildlife,
+		creature.perceivedPeers
 	);
 	const applied = applyArbitration(creature, record, arrived, config);
 

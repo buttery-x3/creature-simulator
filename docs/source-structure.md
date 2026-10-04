@@ -460,3 +460,32 @@ home and current-point utility through the existing danger policy before returni
 one candidate. Behaviour supplies innate home geometry to cognition and actual
 location recovery to needs; it continues to execute the selected target. These
 are internal simulation modules with no new public barrel exports.
+
+### Innate expression presentation topology
+
+- src/lib/expression-presentation/expressions.ts owns shared arc/drop geometry,
+  per-creature cue reconciliation, simulation-time animation and disposal.
+- src/lib/expression-presentation/index.ts explicitly exports
+  createExpressionPresentation. Viewport consumers use this entry point.
+- viewport/resources.ts creates/disposes the layer; viewport/scene.ts supplies
+  creature snapshots and simulation time.
+- workbench/creatures/CreatureSocial.svelte owns the social inspection section,
+  composed by CreaturesTab. It reads Creature and deriveMood through the public
+  simulation entry point.
+
+This presentation subsystem depends on Three.js and public simulation types only.
+It does not import simulation internals, and simulation has no reverse dependency.
+Co-located expressions.spec.ts protects expiry, pause-stable animation, reconciliation
+and disposal. Existing creature-presentation retains action colors and body/hop
+transforms; expression timing does not move into that module.
+
+Social behavior introduces `simulation/social/`: `types.ts` owns serializable
+identities and displays, `defaults.ts` retention/timing values, `observe-peers.ts`
+local snapshots, `relationships.ts` bounded contact evidence, and `expressions.ts`
+derived mood, experienced pain and selected display execution. Its `index.ts`
+exports explicit internal APIs; the simulation barrel exposes observation types,
+defaults and `deriveMood` for presentation. `cognition/social/candidates.ts` owns
+all social decision policy. `behaviour/sensing/wildlife-perception.ts` extracts
+existing animal sensing and encounter provenance while `sense-creature.ts`
+coordinates resource, animal, peer and exploration sensing. No new dependency
+direction or top-level catch-all directory is introduced.

@@ -6,6 +6,7 @@ type ReconsiderationContext = {
 	incomingPendingTrigger: ArbitrationTrigger | null;
 	wildlifeChanged: boolean;
 	perceptionChanged: boolean;
+	peerChanged?: boolean;
 	dangerReplanned: boolean;
 	emissionRequested: boolean;
 };
@@ -28,5 +29,6 @@ export function reconsiderationTrigger(
 	if (creature.pendingArbitrationTrigger) return creature.pendingArbitrationTrigger;
 	if (context.wildlifeChanged) return 'wildlife_perception_change';
 	if (context.perceptionChanged) return 'relevant_resource_perception_change';
+	if (context.peerChanged) return 'peer_perception_change';
 	return timeSeconds >= creature.nextReconsiderAt ? 'periodic' : null;
 }

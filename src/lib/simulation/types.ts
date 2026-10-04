@@ -30,6 +30,7 @@ import type {
 import type { ExplorationState } from './exploration/types';
 import type { CreatureMemory } from './memory/types';
 import type { BodyState, EcologyConfig, EncounterRecord, Wildlife } from './ecology/types';
+import type { SocialState, PeerObservation } from './social/types';
 import type { EnvironmentState } from './resources/types';
 
 export type {
@@ -88,7 +89,16 @@ export type { ExplorationDiagnosticsView } from './exploration/diagnostics';
 
 /** Current step used to pursue the intention. Distinct from intention. */
 export type CreatureAction =
-	'move' | 'investigate' | 'eat' | 'drink' | 'sleep' | 'explore' | 'search' | 'fight';
+	| 'move'
+	| 'investigate'
+	| 'eat'
+	| 'drink'
+	| 'sleep'
+	| 'explore'
+	| 'search'
+	| 'fight'
+	| 'dance'
+	| 'cry';
 
 /**
  * A single food/water observation in the current perception snapshot.
@@ -133,7 +143,8 @@ export type CreatureTarget =
 			featureKind: Extract<HabitatFeatureKind, 'food' | 'water' | 'home'>;
 	  }
 	| { kind: 'point'; position: Vec2 }
-	| { kind: 'wildlife'; wildlifeId: string };
+	| { kind: 'wildlife'; wildlifeId: string }
+	| { kind: 'creature'; creatureId: string };
 
 /** Bounded history entry for intention/action transitions. */
 export type BehaviourTransition = {
@@ -146,6 +157,9 @@ export type BehaviourTransition = {
 };
 
 export type Creature = {
+	social: SocialState;
+	/** Current locally observable peer identities and broad expressions only. */
+	perceivedPeers: PeerObservation[];
 	body: BodyState;
 	/** Current local snapshot, never a global entity lookup for cognition. */
 	perceivedWildlife: WildlifeObservation[];

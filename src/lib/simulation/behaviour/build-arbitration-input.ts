@@ -90,6 +90,7 @@ export function buildArbitrationInput(
 		timeSeconds,
 		trigger,
 		position: creature.position,
+		social: { state: creature.social, peers: creature.perceivedPeers },
 		physical: {
 			body: creature.body,
 			homePosition: habitat.home.position,

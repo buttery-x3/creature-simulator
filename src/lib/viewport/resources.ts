@@ -14,6 +14,7 @@ import {
 } from '../listener-cue-presentation';
 import { createSignalPresentationResources, clearSignalPresentation } from '../signal-presentation';
 import { createWildlifePresentation } from '$lib/ecology-presentation';
+import { createExpressionPresentation } from '$lib/expression-presentation';
 
 /** One owner creates and releases all scene resources, including selection overlays. */
 export function createViewportResources(scene: THREE.Scene) {
@@ -23,6 +24,7 @@ export function createViewportResources(scene: THREE.Scene) {
 	const signals = createSignalPresentationResources();
 	const listeners = createListenerCuePresentationResources();
 	const wildlife = createWildlifePresentation();
+	const expressions = createExpressionPresentation();
 	const sensingRing = new THREE.Mesh(
 		new THREE.RingGeometry(0.98, 1.02, 48),
 		new THREE.MeshBasicMaterial({
@@ -36,7 +38,7 @@ export function createViewportResources(scene: THREE.Scene) {
 	sensingRing.name = 'sensing-radius-overlay';
 	sensingRing.userData.presentationOnly = true;
 	sensingRing.visible = false;
-	for (const resource of [habitat, creatures, rain, signals, listeners, wildlife])
+	for (const resource of [habitat, creatures, rain, signals, listeners, wildlife, expressions])
 		scene.add(resource.root);
 	scene.add(sensingRing);
 	function dispose() {
@@ -46,9 +48,20 @@ export function createViewportResources(scene: THREE.Scene) {
 		clearSignalPresentation(signals);
 		clearListenerCuePresentation(listeners);
 		wildlife.dispose();
+		expressions.dispose();
 		sensingRing.geometry.dispose();
 		sensingRing.material.dispose();
 		scene.clear();
 	}
-	return { habitat, creatures, rain, signals, listeners, wildlife, sensingRing, dispose };
+	return {
+		habitat,
+		creatures,
+		rain,
+		signals,
+		listeners,
+		wildlife,
+		expressions,
+		sensingRing,
+		dispose
+	};
 }

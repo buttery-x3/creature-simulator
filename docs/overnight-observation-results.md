@@ -1,6 +1,6 @@
 # Overnight physical ecology observation
 
-Run on October 4, 2026 at 10:58 p.m. with `node scripts/overnight-observation.mjs`. Source HEAD: `6d02f2188398c56c6365205dde1a5917f8d86fe5`; working-source SHA-256: `baa8afbb39403ce1f6efbaa5d34417211b94d9e9487ab70fe5dbaf937f475152`.
+Run on October 4, 2026 at 11:09 p.m. with `node scripts/overnight-observation.mjs`. Source HEAD: `7cb2638cfbfc719c5133ccfc641b628ecbc2ff6e`; working-source SHA-256: `414fe2db0ae1b83dcfb30f51a37a5a6b4c49986625cf3b5fc009d23de306c2c4`.
 
 ## Method
 
@@ -14,51 +14,57 @@ This run covers the current physical ecology and danger-behaviour slice: populat
 
 | Seed              | Runtime s | Hunt / flee entries | Creature / wildlife attacks | Carcass consumption events / amount | Living wildlife / carcasses |
 | ----------------- | --------: | ------------------: | --------------------------: | ----------------------------------: | --------------------------: |
-| demo              |    1.2394 |             19 / 60 |                     16 / 28 |                        481 / 4.0001 |                       1 / 3 |
-| overnight-river   |     1.235 |            21 / 307 |                     12 / 36 |                        533 / 4.4374 |                       3 / 0 |
-| overnight-drought |    1.2112 |            15 / 336 |                     14 / 42 |                        495 / 4.1054 |                       2 / 1 |
+| demo              |    1.8424 |             19 / 88 |                     11 / 20 |                         435 / 3.612 |                       2 / 1 |
+| overnight-river   |    1.8474 |             9 / 361 |                      5 / 52 |                        106 / 0.8753 |                       5 / 0 |
+| overnight-drought |    1.6539 |            14 / 275 |                     16 / 33 |                        439 / 3.6535 |                       1 / 2 |
 
 | Seed              | Hunger min–max | Thirst min–max | Energy min–max | Health min–max | Memory max / max capacity |
 | ----------------- | -------------: | -------------: | -------------: | -------------: | ------------------------: |
-| demo              |       0.1083–1 |       0.1109–1 |       0–0.9066 |         0.05–1 |                   16 / 16 |
-| overnight-river   |       0.1122–1 |        0.111–1 |       0–0.9066 |         0.05–1 |                   15 / 15 |
-| overnight-drought |       0.1117–1 |        0.111–1 |       0–0.9067 |         0.05–1 |                   15 / 15 |
+| demo              |       0.1118–1 |       0.1109–1 |       0–0.9065 |       0.4499–1 |                   16 / 16 |
+| overnight-river   |       0.0995–1 |        0.111–1 |       0–0.9065 |         0.05–1 |                   15 / 15 |
+| overnight-drought |       0.1122–1 |        0.111–1 |       0–0.9065 |         0.05–1 |                   15 / 15 |
 
 | Seed              | Hunger ≥.95 creature-s / longest episode s | Thirst ≥.95 creature-s / longest episode s | Energy ≤.05 creature-s | Switches / rapid | Stationary movement max s |
 | ----------------- | -----------------------------------------: | -----------------------------------------: | ---------------------: | ---------------: | ------------------------: |
-| demo              |                       2470.2333 / 264.3667 |                            108.9 / 39.3667 |                   48.9 |       1548 / 565 |                         3 |
-| overnight-river   |                          2768.3667 / 122.7 |                       1414.4667 / 118.7333 |                  201.5 |      2106 / 1050 |                         2 |
-| overnight-drought |                       2721.2333 / 151.5333 |                          1766.2667 / 260.6 |               184.1333 |      2228 / 1120 |                         1 |
+| demo              |                          2555.6 / 257.2667 |                            139.6 / 29.9667 |                  112.1 |       1702 / 701 |                         2 |
+| overnight-river   |                       3466.6667 / 194.2667 |                          1557.7667 / 103.9 |                  249.9 |      2223 / 1140 |                         3 |
+| overnight-drought |                          2859.3333 / 194.4 |                             1437.4 / 125.9 |                92.1667 |       1983 / 911 |                         1 |
 
 ### demo
 
-Actions: move: 3308 (45.9%); search: 2005 (27.8%); explore: 760 (10.6%); sleep: 544 (7.6%); drink: 319 (4.4%); eat: 212 (2.9%); fight: 52 (0.7%).
+Actions: move: 3086 (42.9%); search: 2065 (28.7%); explore: 865 (12.0%); sleep: 539 (7.5%); drink: 330 (4.6%); eat: 208 (2.9%); dance: 64 (0.9%); fight: 43 (0.6%).
 
-Intentions: satisfy_hunger: 2761 (38.3%); investigate_signal: 1642 (22.8%); satisfy_thirst: 926 (12.9%); explore: 760 (10.6%); rest: 659 (9.2%); flee: 208 (2.9%); hunt: 97 (1.3%); avoid_danger: 73 (1.0%); announce_resource: 63 (0.9%); warn_danger: 11 (0.2%).
+Innate expression starts: dance: 65. Maximum retained relationships: 8; current observed peers: 11.
 
-Most frequent rapid transition pairs: rest → satisfy_hunger: 76; warn_danger → flee: 50; rest → investigate_signal: 42; satisfy_thirst → satisfy_hunger: 34; announce_resource → explore: 31.
+Intentions: satisfy_hunger: 2872 (39.9%); investigate_signal: 1427 (19.8%); satisfy_thirst: 882 (12.3%); explore: 865 (12.0%); rest: 657 (9.1%); flee: 188 (2.6%); hunt: 91 (1.3%); avoid_danger: 75 (1.0%); dance: 64 (0.9%); announce_resource: 62 (0.9%); warn_danger: 17 (0.2%).
 
-Final mean hunger/thirst/energy: 0.5739 / 0.4609 / 0.5278; injured creatures: 6/12; food sources: 0. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
+Most frequent rapid transition pairs: rest → satisfy_hunger: 69; warn_danger → flee: 66; dance → explore: 54; satisfy_thirst → satisfy_hunger: 38; rest → investigate_signal: 33.
+
+Final mean hunger/thirst/energy: 0.6312 / 0.4563 / 0.5898; injured creatures: 7/12; food sources: 1. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
 
 ### overnight-river
 
-Actions: move: 3743 (52.0%); search: 2111 (29.3%); sleep: 535 (7.4%); explore: 271 (3.8%); drink: 265 (3.7%); eat: 208 (2.9%); fight: 67 (0.9%).
+Actions: move: 3549 (49.3%); search: 2412 (33.5%); sleep: 527 (7.3%); drink: 258 (3.6%); explore: 237 (3.3%); eat: 174 (2.4%); fight: 32 (0.4%); dance: 8 (0.1%); cry: 2 (0.0%); investigate: 1 (0.0%).
 
-Intentions: satisfy_hunger: 2297 (31.9%); investigate_signal: 1407 (19.5%); satisfy_thirst: 1307 (18.2%); flee: 880 (12.2%); rest: 571 (7.9%); explore: 271 (3.8%); avoid_danger: 223 (3.1%); hunt: 151 (2.1%); warn_danger: 60 (0.8%); announce_resource: 33 (0.5%).
+Innate expression starts: dance: 8; cry: 2. Maximum retained relationships: 8; current observed peers: 11.
 
-Most frequent rapid transition pairs: warn_danger → flee: 232; rest → satisfy_hunger: 93; rest → satisfy_thirst: 62; flee → satisfy_hunger: 59; rest → investigate_signal: 50.
+Intentions: satisfy_hunger: 2655 (36.9%); satisfy_thirst: 1217 (16.9%); flee: 1172 (16.3%); investigate_signal: 958 (13.3%); rest: 565 (7.8%); avoid_danger: 254 (3.5%); explore: 237 (3.3%); hunt: 65 (0.9%); warn_danger: 52 (0.7%); announce_resource: 15 (0.2%); dance: 8 (0.1%); cry: 2 (0.0%).
 
-Final mean hunger/thirst/energy: 0.6868 / 0.5922 / 0.5761; injured creatures: 11/12; food sources: 1. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
+Most frequent rapid transition pairs: warn_danger → flee: 274; rest → satisfy_hunger: 118; flee → satisfy_hunger: 78; rest → satisfy_thirst: 58; avoid_danger → satisfy_hunger: 39.
+
+Final mean hunger/thirst/energy: 0.809 / 0.7519 / 0.2834; injured creatures: 12/12; food sources: 4. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
 
 ### overnight-drought
 
-Actions: move: 3674 (51.0%); search: 1987 (27.6%); sleep: 546 (7.6%); explore: 481 (6.7%); drink: 245 (3.4%); eat: 219 (3.0%); fight: 48 (0.7%).
+Actions: move: 3448 (47.9%); search: 2386 (33.1%); sleep: 536 (7.4%); explore: 277 (3.8%); drink: 272 (3.8%); eat: 206 (2.9%); fight: 69 (1.0%); dance: 5 (0.1%); investigate: 1 (0.0%).
 
-Intentions: satisfy_hunger: 2242 (31.1%); satisfy_thirst: 1498 (20.8%); flee: 1179 (16.4%); rest: 617 (8.6%); avoid_danger: 520 (7.2%); investigate_signal: 515 (7.2%); explore: 481 (6.7%); hunt: 88 (1.2%); warn_danger: 51 (0.7%); announce_resource: 9 (0.1%).
+Innate expression starts: dance: 6. Maximum retained relationships: 8; current observed peers: 11.
 
-Most frequent rapid transition pairs: warn_danger → flee: 262; rest → satisfy_hunger: 90; rest → satisfy_thirst: 68; flee → satisfy_hunger: 62; satisfy_hunger → warn_danger: 49.
+Intentions: satisfy_hunger: 2566 (35.6%); satisfy_thirst: 1413 (19.6%); investigate_signal: 943 (13.1%); flee: 865 (12.0%); rest: 597 (8.3%); avoid_danger: 340 (4.7%); explore: 277 (3.8%); hunt: 129 (1.8%); warn_danger: 60 (0.8%); announce_resource: 5 (0.1%); dance: 5 (0.1%).
 
-Final mean hunger/thirst/energy: 0.7413 / 0.8038 / 0.4704; injured creatures: 10/12; food sources: 2. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
+Most frequent rapid transition pairs: warn_danger → flee: 229; rest → satisfy_hunger: 82; flee → satisfy_hunger: 54; rest → satisfy_thirst: 44; rest → investigate_signal: 44.
+
+Final mean hunger/thirst/energy: 0.7215 / 0.6009 / 0.5025; injured creatures: 9/12; food sources: 3. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
 
 ## Comparison with the acute-needs checkpoint
 
@@ -66,17 +72,17 @@ The same seeds, duration and defaults were measured at checkpoint `6d02f21` (fin
 
 | Seed              | Hunger ≥.95 creature-s before → now | Thirst ≥.95 creature-s before → now | Energy ≤.05 creature-s before → now |
 | ----------------- | ----------------------------------: | ----------------------------------: | ----------------------------------: |
-| demo              |               2837.8333 → 2470.2333 |                    555.4667 → 108.9 |                     293.6333 → 48.9 |
-| overnight-river   |                  4033.9 → 2768.3667 |               4216.5333 → 1414.4667 |                        1839 → 201.5 |
-| overnight-drought |                  3188.9 → 2721.2333 |                  1300.1 → 1766.2667 |                 440.3333 → 184.1333 |
+| demo              |                  2837.8333 → 2555.6 |                    555.4667 → 139.6 |                    293.6333 → 112.1 |
+| overnight-river   |                  4033.9 → 3466.6667 |               4216.5333 → 1557.7667 |                        1839 → 249.9 |
+| overnight-drought |                  3188.9 → 2859.3333 |                     1300.1 → 1437.4 |                  440.3333 → 92.1667 |
 
 ## Determinism and interpretation
 
-Two independent 60-second runs of seed `demo` produced identical complete-state trajectory SHA-256: `1341712af59ed9e716121eb72124bf72a03cb97ba7bf62591733b8c7d88dd055`. Summary metrics also matched after excluding wall-clock runtime.
+Two independent 60-second runs of seed `demo` produced identical complete-state trajectory SHA-256: `1b046a6ca8d381d5d9c576705609d86001d2a8cfeece749f9c2c4fa1c4b69390`. Summary metrics also matched after excluding wall-clock runtime.
 
 All per-step need/health values remained finite and within [0,1]. See the pressure episodes and switching counts above when judging stability: repeatability alone does not establish that creatures meet their needs or that competing intentions are well tuned.
 
-Hunger pressure remains high for 34.3–38.4% of total creature-time. This is substantial unmet need despite hunting; it warrants resource/decision follow-up rather than claiming a balanced ecosystem. Local wildlife can be depleted and severe injuries occur. The rapid-transition pair counts identify competing intentions worth inspecting; they do not justify adding scripted emergency overrides.
+Hunger pressure remains high for 35.5–48.1% of total creature-time. This is substantial unmet need despite hunting; it warrants resource/decision follow-up rather than claiming a balanced ecosystem. Local wildlife can be depleted and severe injuries occur. The rapid-transition pair counts identify competing intentions worth inspecting; they do not justify adding scripted emergency overrides.
 
 ## Reproduction configuration
 

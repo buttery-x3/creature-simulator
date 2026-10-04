@@ -71,6 +71,9 @@ function run(api, seed, seconds, hashTrajectory = false) {
 		maxMemoryEntries: 0,
 		maxMemoryCapacity: 0,
 		memoryBoundViolations: 0,
+		maxRelationships: 0,
+		maxObservedPeers: 0,
+		expressionStarts: {},
 		highHungerCreatureSeconds: 0,
 		highThirstCreatureSeconds: 0,
 		lowEnergyCreatureSeconds: 0,
@@ -124,6 +127,27 @@ function run(api, seed, seconds, hashTrajectory = false) {
 			stats.maxMemoryCapacity = Math.max(stats.maxMemoryCapacity, creature.memory.capacity);
 			if (creature.memory.entries.length > creature.memory.capacity)
 				stats.memoryBoundViolations += 1;
+			stats.maxRelationships = Math.max(
+				stats.maxRelationships,
+				creature.social.relationships.length
+			);
+			stats.maxObservedPeers = Math.max(stats.maxObservedPeers, creature.perceivedPeers.length);
+			assert.ok(creature.social.relationships.length <= api.SOCIAL_DEFAULTS.relationshipCapacity);
+			assert.ok(creature.perceivedPeers.length <= api.SOCIAL_DEFAULTS.peerCapacity);
+			for (const relationship of creature.social.relationships) {
+				assert.ok(
+					Number.isFinite(relationship.familiarity) &&
+						relationship.familiarity >= 0 &&
+						relationship.familiarity <= 1
+				);
+				assert.ok(
+					Number.isFinite(relationship.liking) &&
+						relationship.liking >= -1 &&
+						relationship.liking <= 1
+				);
+			}
+			if (creature.social.expression?.startedAt === state.timeSeconds)
+				increment(stats.expressionStarts, creature.social.expression.kind);
 			const hungry = creature.hunger >= 0.95;
 			const thirsty = creature.thirst >= 0.95;
 			prior.hungerRun = hungry ? prior.hungerRun + config.fixedDt : 0;
@@ -260,6 +284,12 @@ function report(results, repeat, metadata) {
 			`### ${row.seed}`,
 			'',
 			`Actions: ${distribution(row.actionSamples)}.`,
+			'',
+			`Innate expression starts: ${
+				Object.entries(row.expressionStarts)
+					.map(([kind, count]) => `${kind}: ${count}`)
+					.join('; ') || 'none'
+			}. Maximum retained relationships: ${row.maxRelationships}; current observed peers: ${row.maxObservedPeers}.`,
 			'',
 			`Intentions: ${distribution(row.intentionSamples)}.`,
 			'',

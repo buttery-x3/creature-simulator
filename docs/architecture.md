@@ -576,3 +576,51 @@ at 75%. Ecology owns this location policy, cognition receives only innate home
 geometry and local danger evidence, and behaviour supplies the recovery rate.
 Acute competing needs and local danger can reconsider local sleep through the
 existing arbitration paths.
+
+### Innate expression presentation
+
+The expression-presentation subsystem visualizes authoritative social expression
+records independently of arbitrary learned symbols. Golden rotating arcs identify
+dance; paired blue teardrops identify cry. Animation phase and expiry use simulation
+time, so pausing freezes cues. Rendering never creates expressions, changes mood,
+updates relationships, or interprets symbols. Viewport resource ownership creates
+and disposes this layer beside creature, wildlife and signal layers.
+
+CreatureSocial in the Workbench presents the public deriveMood result, the creature's
+current expression, its local peer snapshots and bounded personal relationships.
+Peer rows expose observed location/expression only. Relationship values are personal
+and need not be symmetric. Existing saved arbitration remains the explanation of
+why approach-peer, dance or cry won.
+
+## Local relationships and innate expression
+
+Social state is personal and bounded: at most eight remembered identities,
+forgotten after 180 seconds without contact. The common pre-step population
+snapshot supplies at most 16 nearest local peers with identity, position and
+visible display only. A sensing pass integrates only consecutive observed contact,
+never elapsed absence. Comfortable contact and a distinct witnessed dance can
+raise liking; no helpfulness or blame is inferred from unrelated resource finds
+or a nearby wildlife injury. Received injury updates personal pain with decay.
+
+Mood derives from the geometric mean of four welfare satisfactions, experienced
+pain and familiar company. It is not a social need. Approach, dance and cry are
+optional utility candidates with bounded scores. Approach requires a fresh local
+peer and completes at comfortable separation; it cannot follow hidden movement.
+Displays cost energy once, last one second and have a twelve-second start
+cooldown. New visible identities/displays request ordinary reconsideration;
+urgent physiology and danger can interrupt. Physical travel and stationary
+danger penalties also apply to these optional activities.
+
+Innate displays do not emit or teach learned symbols. Sender identity remains
+absent from retained heard-signal cognition. Source-specific trust, assistance
+and courtship are not yet implemented. All relationship and display state is
+authoritative simulation data; rendering consumes it without selecting actions.
+
+### Runtime reproducibility scope
+
+Fixed-step behavior is deterministic for the tested build and JavaScript runtime.
+Browser UI and isolated browser replay match, but Node and Chromium can diverge
+in low floating-point bits by 30 seconds and make different later decisions.
+Trace evidence must record its runtime; Node event timestamps are not guaranteed
+browser replay timestamps. This observed numerical portability limit does not
+justify claiming rendering changes authoritative state.

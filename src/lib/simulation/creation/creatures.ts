@@ -9,6 +9,7 @@ import { createExplorationState, selectExplorationTarget } from '../exploration'
 import { emptyLexicon } from '../learning/lexicon-resolution';
 import { createEmptyAssociations } from '../learning/signal-associations';
 import { createEmptyMemory, sampleMemoryCapacity } from '../memory/create-memory';
+import { emptySocialState } from '../social';
 import { createBody } from '../ecology';
 import type { Creature, SimulationConfig, SimulationState } from '../types';
 import { SimulationCreationError } from './validation';
@@ -112,6 +113,8 @@ export function createCreatures(
 		const curiosity = sampleCuriosity(config.seed, id);
 
 		const draft: Creature = {
+			social: emptySocialState(),
+			perceivedPeers: [],
 			id,
 			body: createBody(config.seed, id),
 			perceivedWildlife: [],

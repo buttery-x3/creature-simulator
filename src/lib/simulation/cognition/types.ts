@@ -16,6 +16,7 @@
  * not a separate “continue” intention kind and not a commitment lock.
  */
 
+import type { SocialState, PeerObservation } from '../social/types';
 import type { Vec2 } from '$lib/habitat';
 import type { CreatureLexicon, SymbolAssociation } from '../learning/types';
 import type { CreatureMemory } from '../memory/types';
@@ -25,6 +26,9 @@ import type { CreatureTarget, WildlifeObservation } from '../types';
 
 /** What the creature is trying to accomplish (distinct from low-level action). */
 export type IntentionKind =
+	| 'approach_peer'
+	| 'dance'
+	| 'cry'
 	| 'warn_danger'
 	| 'avoid_danger'
 	| 'flee'
@@ -41,6 +45,7 @@ export type IntentionKind =
  * they never map 1:1 to a forced intention.
  */
 export type ArbitrationTrigger =
+	| 'peer_perception_change'
 	| 'wildlife_perception_change'
 	| 'danger_perception_change'
 	| 'initial'
@@ -66,6 +71,12 @@ export type CandidateFactor = {
 
 /** Stable reason codes for candidate validity, scoring and selection. */
 export type CandidateReasonCode =
+	| 'social_opportunity'
+	| 'no_social_opportunity'
+	| 'expression_cooldown'
+	| 'expression_active'
+	| 'peer_affinity'
+	| 'observed_distress'
 	| 'local_rest'
 	| 'danger_aware_route'
 	| 'remembered_danger'
@@ -107,6 +118,7 @@ export type CandidateReasonCode =
 
 /** Diagnostic reference for the candidate’s evidence/target source. */
 export type CandidateReference =
+	| { kind: 'creature'; creatureId: string }
 	| { kind: 'wildlife'; wildlifeId: string }
 	| { kind: 'feature'; featureId: string; resourceKind: 'food' | 'water' | 'home' }
 	| { kind: 'heard_signal'; emissionId: string; symbolId: string }
@@ -182,6 +194,7 @@ export type CognitionConfig = {
  * no opportunity lifecycle objects.
  */
 export type ArbitrationInput = {
+	social?: { state: SocialState; peers: readonly PeerObservation[] };
 	speechReady?: boolean;
 	symbolAssociations?: readonly SymbolAssociation[];
 	/** Optional only for resource-only pure consumers; runtime always supplies this snapshot. */
@@ -238,6 +251,9 @@ export const INTENTION_TIE_BREAK_ORDER: readonly IntentionKind[] = [
 	'rest',
 	'investigate_signal',
 	'announce_resource',
+	'approach_peer',
+	'dance',
+	'cry',
 	'explore'
 ] as const;
 

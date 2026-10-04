@@ -80,6 +80,7 @@ export function formatTargetLabel(target: CreatureTarget | null): string {
 	if (target.kind === 'point') {
 		return `point (${target.position.x.toFixed(2)}, ${target.position.y.toFixed(2)})`;
 	}
+	if (target.kind === 'creature') return `creature:${target.creatureId}`;
 	if (target.kind === 'wildlife') return `wildlife:${target.wildlifeId}`;
 	return `${target.featureKind}:${target.featureId}`;
 }

@@ -15,8 +15,8 @@
 ## Current work
 
 Physical ecology, grounded danger language and acute-need scoring are implemented
-and checked. The current increment allows locally chosen rest away from home,
-addressing observed exhaustion before relationships and innate expression.
+and checked. Locally chosen rest away from home is also checked. The current increment adds
+bounded relationships and innate expression before lifecycle.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -198,3 +198,52 @@ cohesive owners, with shared risk scoring applied once. Both ecology directories
 have four implementation modules; behaviour root remains at eight. No public
 boundary, dependency-direction or threshold changes. Next: bounded relationships
 and innate expression, followed by lifecycle.
+
+## Checkpoint 5: relationships and innate expression
+
+Implemented: local peer identities, up to eight personal relationships,
+familiarity from real co-presence, liking from comfortable encounters and
+distinct observed dances, and mood derived from welfare/pain/company.
+Voluntary approach, dance and cry compete through ordinary arbitration.
+Approach stops at one unit or loses contact; displays last one second and
+share a twelve-second start cooldown with a 0.004 energy cost. No social-need
+meter, automatic help, peer blame, copied dictionary or source-trust shortcut.
+
+Three 600-second natural runs observed 65/8/6 dances and 0/2/0 cries, bounded
+relationships (maximum eight), and at most eleven observed peers. No natural
+approach was observed in these pressured default runs. Controlled tests cover
+approach and survival competition; observations do not prove cooperation.
+Full quality gate passed: 528 unit tests, server check, build and 10 browser
+tests. Two older trait-only experiments now hold displays on cooldown so they
+continue isolating verbosity/curiosity instead of accidentally measuring the
+new social alternatives.
+
+Controlled affinity evidence: 120 seconds of actual local contact at fixed
+positions (movement and physiological drift disabled for that experiment) builds
+familiarity/liking; after movement resumes, the familiar peer is approached and
+the matched stranger is not. No relationship value or successful translation is
+preset in this comparison. Natural default runs remain reported separately.
+
+Structure: the social domain owns bounded contact, mood and display state;
+cognition/social owns optional choice. Wildlife sensing was extracted before
+enlarging the sensing coordinator. Peer targets resolve only from fresh local
+snapshots. Expression presentation has its own lifecycle owner. Behaviour and
+source boundaries retain their direction and limits; the creature inspector
+directory now has six implementation files, leaving two slots.
+
+Browser validation: natural demo dances at 0.233s showed gold arcs; at about
+32s the inspector showed differing learned familiarity/liking alongside separate
+symbol evidence. River creature 10 cried at 594.033s, with visible blue tears and
+intensity 0.88. Screenshots were inspected; there were no page errors.
+
+Reproducibility limit discovered during observation: the browser UI and isolated
+browser core are byte-identical at initialization, step 1 and step 900. Node and
+browser agree initially, then differ in low floating-point bits by step 900
+(e.g. x=9.651572396897771 versus 9.65157239689777). By step 17166 their decisions
+and positions differ. Browser-core replay reproduces the browser trajectory;
+this is not a UI/renderer/config mutation. Headless trace hashes are reproducible
+within the tested runtime, not a cross-runtime bit-exact promise. Browser event
+times should be observed there rather than copied from Node traces.
+
+Next: complete lifecycle with growth, reciprocal voluntary courtship, independent
+offspring learning and actual mortality; remove the temporary injury floor.

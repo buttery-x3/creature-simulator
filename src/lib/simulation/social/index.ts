@@ -1,0 +1,18 @@
+export type {
+	ExpressionKind,
+	InnateExpression,
+	PeerObservation,
+	Relationship,
+	SocialState,
+	MoodSnapshot
+} from './types';
+export { SOCIAL_DEFAULTS } from './defaults';
+export { emptySocialState, updateRelationships } from './relationships';
+export { observePeers } from './observe-peers';
+export {
+	advanceSocial,
+	deriveMood,
+	recordInjury,
+	executeExpression,
+	type MoodInput
+} from './expressions';

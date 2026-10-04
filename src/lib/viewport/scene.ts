@@ -86,6 +86,7 @@ export function createViewportScene(host: HTMLDivElement, onSelect: (id: string 
 		reconcileRainPresentation(resources.rain, snapshot.weather, habitat.bounds);
 		reconcileCreatures(resources.creatures, creatures, selectedCreatureId, timeSeconds);
 		resources.wildlife.update(wildlife);
+		resources.expressions.update(creatures, timeSeconds);
 		const selected = creatures.find((c) => c.id === selectedCreatureId);
 		resources.sensingRing.visible = !!selected;
 		if (selected) {
@@ -107,6 +108,7 @@ export function createViewportScene(host: HTMLDivElement, onSelect: (id: string 
 		scene.background = appearance.background;
 		Object.assign(renderer.domElement.dataset, {
 			creatureCount: String(creatures.length),
+			expressionCount: String(resources.expressions.byId.size),
 			habitatBuildCount: String(habitatBuildCount),
 			creatureStructureVersion: String(resources.creatures.structureVersion),
 			signalStructureVersion: String(resources.signals.structureVersion),

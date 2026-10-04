@@ -9,6 +9,7 @@ import { createExplorationState } from './exploration';
 import { emptyLexicon } from './learning/lexicon-resolution';
 import { createEmptyAssociations } from './learning/signal-associations';
 import { createEmptyMemory } from './memory/create-memory';
+import { emptySocialState } from './social';
 import type { Creature } from './types';
 
 const DEFAULT_TEST_BOUNDS = { width: 20, height: 14 };
@@ -18,6 +19,8 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 	const exploration = overrides.exploration ?? createExplorationState(DEFAULT_TEST_BOUNDS, 2);
 	return {
 		id: 'creature-0',
+		social: emptySocialState(),
+		perceivedPeers: [],
 		body: { size: 1, physicality: 1, health: 1, nextAttackAt: 0 },
 		perceivedWildlife: [],
 		position: { x: 0, y: 0 },

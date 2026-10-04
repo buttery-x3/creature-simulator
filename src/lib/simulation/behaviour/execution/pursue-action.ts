@@ -1,3 +1,4 @@
+import { executeExpression, SOCIAL_DEFAULTS } from '../../social';
 import type { Habitat } from '$lib/habitat';
 import {
 	stepAnnouncement,
@@ -51,11 +52,13 @@ export function pursueAction(
 	config: BehaviourStepConfig,
 	request: EmissionRequest | null
 ): CreatureBehaviourStepResult {
-	let next = creature;
+	let next = executeExpression(creature, timeSeconds);
 	let emissionRequest = request;
 	const announcementConfig = config as AnnouncementStepConfig;
 	// 7. Pursue action — no movement while eating/drinking/sleeping/investigating
 	if (
+		next.action === 'dance' ||
+		next.action === 'cry' ||
 		next.action === 'eat' ||
 		next.action === 'drink' ||
 		next.action === 'sleep' ||
@@ -95,7 +98,13 @@ export function pursueAction(
 
 	if (next.action === 'fight') next = { ...next, action: 'move' };
 	const fallback = next.action === 'search' ? next.searchTarget : next.position;
-	const destination = movementPoint(habitat, next.target, fallback, next.perceivedWildlife);
+	const destination = movementPoint(
+		habitat,
+		next.target,
+		fallback,
+		next.perceivedWildlife,
+		next.perceivedPeers
+	);
 	const moved = moveToward(next, destination, dt, habitat.bounds, config);
 	next = { ...next, ...moved };
 
@@ -132,10 +141,19 @@ export function pursueAction(
 			next.position,
 			habitat,
 			next.target,
-			next.target?.kind === 'wildlife' ? config.ecology.encounterDistance : config.arrivalDistance,
-			next.perceivedWildlife
+			next.target?.kind === 'wildlife'
+				? config.ecology.encounterDistance
+				: next.target?.kind === 'creature'
+					? SOCIAL_DEFAULTS.comfortDistance
+					: config.arrivalDistance,
+			next.perceivedWildlife,
+			next.perceivedPeers
 		)
 	) {
+		if (next.intention === 'approach_peer') {
+			next = replan(next, habitat, timeSeconds, 'action_complete', config, simulationSeed);
+			return { creature: executeExpression(next, timeSeconds), emissionRequest };
+		}
 		const transition = transitionToConsumptive(next, timeSeconds, config);
 		if (transition) {
 			next = { ...next, ...transition };

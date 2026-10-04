@@ -13,6 +13,7 @@
 	import CreatureRoster from './CreatureRoster.svelte';
 	import CreatureBehaviour from './CreatureBehaviour.svelte';
 	import CreatureEcology from './CreatureEcology.svelte';
+	import CreatureSocial from './CreatureSocial.svelte';
 	import CreatureLanguage from './CreatureLanguage.svelte';
 
 	type Props = {
@@ -262,6 +263,7 @@
 		{/if}
 
 		<CreatureEcology creature={selectedCreature} timeSeconds={simulation.timeSeconds} />
+		<CreatureSocial creature={selectedCreature} timeSeconds={simulation.timeSeconds} />
 
 		<CreatureBehaviour creature={selectedCreature} {investigation} />
 

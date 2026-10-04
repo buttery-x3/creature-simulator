@@ -15,6 +15,7 @@
  * via ordinary arbitration (no pending opportunity / curiosity gate).
  */
 
+import { recordInjury } from './social';
 import { stepWildlife, resolveEncounters } from './ecology';
 import { stepCreatureBehaviour } from './behaviour/step-creature-behaviour';
 import { stepCommunication } from './communication/step-communication';
@@ -156,7 +157,8 @@ export function stepSimulation(
 			habitat,
 			config,
 			grants,
-			wildlife
+			wildlife,
+			state.creatures
 		);
 		if (result.emissionRequest) {
 			emissionRequests.push(result.emissionRequest);
@@ -165,13 +167,21 @@ export function stepSimulation(
 	});
 
 	const encountered = resolveEncounters(wildlife, creatures, timeSeconds, dt, config);
+	const beforeInjury = new Map(creatures.map((creature) => [creature.id, creature.body.health]));
+	const afterPain = encountered.creatures.map((creature) => ({
+		...creature,
+		social: recordInjury(
+			creature.social,
+			Math.max(0, (beforeInjury.get(creature.id) ?? creature.body.health) - creature.body.health)
+		)
+	}));
 
 	// Stable request order by sender id (not array iteration accidents).
 	emissionRequests.sort((a, b) => (a.senderId < b.senderId ? -1 : a.senderId > b.senderId ? 1 : 0));
 
 	// Resource observations from this step's sensing (available food + water geography).
 	const afterObservationMemory = applyResourceObservationMemories(
-		encountered.creatures,
+		afterPain,
 		habitat,
 		timeSeconds,
 		config

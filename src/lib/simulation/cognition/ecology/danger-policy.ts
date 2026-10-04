@@ -81,6 +81,8 @@ export function retreatFrom(position: Vec2, origin: Vec2, bounds: WorldBounds): 
 function destinationFor(input: ArbitrationInput, candidate: IntentionCandidate): Vec2 | null {
 	const target = candidate.target;
 	if (target?.kind === 'point') return target.position;
+	if (target?.kind === 'creature')
+		return input.social?.peers.find((p) => p.id === target.creatureId)?.position ?? null;
 	if (target?.kind !== 'feature') return null;
 	if (target.featureKind === 'home') return input.physical?.homePosition ?? null;
 	const visible = [...input.availableFood, ...input.availableWater].find(
@@ -139,7 +141,7 @@ export function applyDangerRouteRisk(
 					Math.min(1.5, Math.max(0, danger.opponentAbility / Math.max(0.05, ability) - 0.65)) *
 					Math.max(
 						routeExposure(input.position, destination, danger),
-						candidate.intention === 'rest'
+						['rest', 'dance', 'cry'].includes(candidate.intention)
 							? danger.confidence /
 									(1 + Math.sqrt(distanceSquared(destination, danger.position)) / 2)
 							: 0

@@ -4,6 +4,8 @@ test('inspects founder lifecycle and advances its authoritative age while paused
 	page
 }) => {
 	await page.goto('/');
+	// The canvas is created on mount, after client event handlers are attached.
+	await expect(page.getByTestId('three-canvas')).toBeVisible();
 	await page.getByTestId('simulation-pause-resume').click();
 	await page.getByTestId('workbench-tab-creatures').click();
 	await page.getByTestId('creature-select-creature-0').click();

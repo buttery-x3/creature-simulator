@@ -14,6 +14,8 @@ test('captures exact active run once, downloads it unchanged after live advance 
 	page
 }) => {
 	await page.goto('/');
+	// The canvas is created on mount, after client event handlers are attached.
+	await expect(page.getByTestId('three-canvas')).toBeVisible();
 	await page.getByTestId('simulation-pause-resume').click();
 	await page.getByTestId('simulation-scenario').selectOption('resource-rich');
 	await page.getByTestId('habitat-seed-input').fill('capture-source');

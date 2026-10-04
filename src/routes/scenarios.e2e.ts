@@ -12,6 +12,8 @@ test('stages scenario changes, applies32 founders and preserves an active run on
 	page
 }) => {
 	await page.goto('/');
+	// The canvas is created on mount, after client event handlers are attached.
+	await expect(page.getByTestId('three-canvas')).toBeVisible();
 	await page.getByTestId('simulation-pause-resume').click();
 	const selector = page.getByTestId('simulation-scenario');
 	const active = page.getByTestId('simulation-active-scenario');
@@ -42,6 +44,8 @@ test('uses active rich resource cadence in animation and single steps, and reset
 	page
 }) => {
 	await page.goto('/');
+	// The canvas is created on mount, after client event handlers are attached.
+	await expect(page.getByTestId('three-canvas')).toBeVisible();
 	await page.getByTestId('simulation-pause-resume').click();
 	await page.getByTestId('simulation-scenario').selectOption('resource-rich');
 	await page.getByTestId('habitat-regenerate').click();
@@ -99,6 +103,8 @@ test('frames the larger single-home habitat and runs its active configuration', 
 	page.on('pageerror', (error) => errors.push(error.message));
 	await page.setViewportSize({ width: 1440, height: 1000 });
 	await page.goto('/');
+	// The canvas is created on mount, after client event handlers are attached.
+	await expect(page.getByTestId('three-canvas')).toBeVisible();
 	await page.getByTestId('simulation-pause-resume').click();
 	await page.getByTestId('simulation-scenario').selectOption('larger-world');
 	await page.getByTestId('habitat-regenerate').click();

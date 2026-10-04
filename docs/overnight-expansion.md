@@ -630,6 +630,17 @@ no sender identity/context in retained fields, and no page errors. Port 8125 was
 released. Next: a measured quiet-communication fast path, only if full trajectory
 comparison and paired timing support it.
 
+Post-fix 600-second observations (source af9ab61, after the behavior-preserving
+quiet shortcut) are saved separately in overnight-reception-baseline-observations.md
+and overnight-reception-crowded-observations.md. Baseline final populations across
+demo/river/drought are 2/4/0, births 2/0/0; drought extinction occurs at 473.3s.
+Crowded final populations are 3/0/0, births 1/0/1; river/drought extinctions occur
+at 523.367/530.733s. Memory, encounter, pending-trace and following limits hold,
+all need/health values stay finite, and 60-second complete-trajectory repeats
+match within this Node runtime. All six runs have at most two consecutive sampled
+seconds of stationary movement. These outcomes do not establish better survival;
+startup reception changes alter later choices. Historical reports remain intact.
+
 ## Checkpoint 14: quiet communication orchestration
 
 After communication has expired active signals and produced its current-step

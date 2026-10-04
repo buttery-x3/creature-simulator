@@ -25,6 +25,7 @@ import { senseCreature } from './sensing/sense-creature';
 import { pursueAction, applyAnnouncementEnd } from './execution/pursue-action';
 import type { Wildlife } from '../ecology/types';
 import { advanceBody } from '../ecology/body';
+import { restRecoveryMultiplier } from '../ecology/rest';
 import { ensureSearchTarget, isTargetValid } from './resource-awareness';
 
 /** Result of one creature behaviour step, including optional emission handoff. */
@@ -119,7 +120,13 @@ export function stepCreatureBehaviour(
 	// Snapshot so a deferred post-emit trigger set later this step cannot fire now.
 	const incomingPendingTrigger = creature.pendingArbitrationTrigger;
 
-	const needs = advanceNeeds(creature, dt, config, grants);
+	const needs = advanceNeeds(
+		creature,
+		dt,
+		config,
+		grants,
+		restRecoveryMultiplier(creature.position, habitat.home, config.arrivalDistance)
+	);
 	let next: Creature = advanceBody({ ...creature, ...needs }, dt, config.ecology);
 	let emissionRequest: EmissionRequest | null = null;
 

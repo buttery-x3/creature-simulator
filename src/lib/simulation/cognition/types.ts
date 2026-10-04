@@ -66,6 +66,7 @@ export type CandidateFactor = {
 
 /** Stable reason codes for candidate validity, scoring and selection. */
 export type CandidateReasonCode =
+	| 'local_rest'
 	| 'danger_aware_route'
 	| 'remembered_danger'
 	| 'learned_danger'
@@ -189,6 +190,7 @@ export type ArbitrationInput = {
 		wildlife: readonly WildlifeObservation[];
 		bounds: WorldBounds;
 		homePosition?: Vec2;
+		homeSize?: { width: number; height: number };
 		ecology: EcologyConfig;
 	};
 	timeSeconds: number;

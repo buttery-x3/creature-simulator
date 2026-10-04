@@ -446,7 +446,7 @@ or goal-switch margin. Event triggers (`pendingArbitrationTrigger`) request
 reconsideration without prescribing the winner. Invalid targets and finished
 eat/drink/sleep/investigation actions force immediate replan. Consumptive
 eat/drink/sleep suppress ordinary periodic reconsideration until recovery
-completion (deliberately atomic physical actions).
+completion, with the acute competing-need exception described below.
 
 ### Persistence
 
@@ -558,3 +558,21 @@ shows raw and effective quality. Night rest preference tapers over the upper
 Recovery remains persistent under ordinary conditions; an acute different need
 can request arbitration on the existing reconsideration timer. No action is
 selected by this trigger, and local danger retains its immediate path.
+
+### Rest destination and recovery
+
+One rest candidate compares the innate home with the creature's exact current
+position. Home utility reflects travel effort; local utility reflects slower
+recovery, with exhaustion reducing willingness to travel. Both options receive
+the same known-danger policy before selection, including stationary exposure at
+the destination as well as route exposure. The chosen candidate exposes both
+option scores and its travel, quality and recovery factors. There is no search
+for hidden safe locations or additional rest intention.
+
+Physical execution accepts the selected finite point and sleeps on arrival.
+Recovery depends on the actual resting location: the home footprint, including
+the existing arrival tolerance, recovers at the normal rate; outdoors recovers
+at 75%. Ecology owns this location policy, cognition receives only innate home
+geometry and local danger evidence, and behaviour supplies the recovery rate.
+Acute competing needs and local danger can reconsider local sleep through the
+existing arbitration paths.

@@ -58,7 +58,8 @@ export function advanceNeeds(
 	creature: Pick<Creature, 'hunger' | 'thirst' | 'energy' | 'action'>,
 	dt: number,
 	rates: NeedRates,
-	grants: ConsumptionGrants = { food: 0, water: 0 }
+	grants: ConsumptionGrants = { food: 0, water: 0 },
+	sleepRecoveryMultiplier = 1
 ): { hunger: number; thirst: number; energy: number } {
 	const action: CreatureAction = creature.action;
 	let { hunger, thirst, energy } = creature;
@@ -79,7 +80,7 @@ export function advanceNeeds(
 	}
 
 	if (action === 'sleep') {
-		energy += rates.sleepRecoveryPerSecond * dt;
+		energy += rates.sleepRecoveryPerSecond * sleepRecoveryMultiplier * dt;
 	} else {
 		energy -= rates.energyDrainPerSecond * dt;
 	}

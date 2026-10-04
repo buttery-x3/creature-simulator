@@ -93,6 +93,7 @@ export function buildArbitrationInput(
 		physical: {
 			body: creature.body,
 			homePosition: habitat.home.position,
+			homeSize: habitat.home.size,
 			wildlife: creature.perceivedWildlife,
 			bounds: habitat.bounds,
 			ecology: config.ecology

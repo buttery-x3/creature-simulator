@@ -14,9 +14,9 @@
 
 ## Current work
 
-Physical ecology and grounded danger language are implemented and checked.
-The next increment corrects an observed acute-need utility trap before adding
-relationships and innate expression. See the completed checkpoints below.
+Physical ecology, grounded danger language and acute-need scoring are implemented
+and checked. The current increment allows locally chosen rest away from home,
+addressing observed exhaustion before relationships and innate expression.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -165,3 +165,36 @@ Targeted river trace: 744 low-energy rest/travel samples versus 18 rest/sleep
 samples. One exhausted creature spent 105 seconds without sleeping while home
 remained 2.86–15.9 units away. Movement worked and water was locally known;
 mandatory home recovery is the concrete next limitation.
+
+## Checkpoint 4: rest where recovery is possible
+
+The current increment gives the existing rest intention two destination options:
+innately known home or the creature's exact current location. Shared local
+danger knowledge penalizes travel and lingering exposure before selecting one.
+Home has full recovery; outdoor sleep recovers energy at 75% of that rate.
+There is no global safe-place search or guaranteed refuge. Exhaustion reduces
+willingness to travel for better recovery; all rest choices still compete with
+other utility candidates.
+
+Validation: full `npm run check` passed (495 unit tests, server check, production
+build, 10 browser tests). Three 600-second runs remain deterministic and bounded.
+Exhaustion fell from 294/1839/440 to 49/202/184 creature-seconds across demo, river
+and drought; exhausted home travel was zero. Hunger fell in all three runs.
+Thirst improved in demo/river but worsened in drought (1300 to 1766 creature-
+seconds). No survival or ecological balance is claimed. The maximum stationary
+movement proxy was 3 seconds, with no persistent pursuit stall.
+
+Defaults: outdoor recovery multiplier 0.75; home travel effort weight 0.04 per
+unit, scaled by fatigue. Rest site scores and recovery multipliers are visible
+in saved candidate factors. No global safety inference or safe-location search.
+
+Browser observation at 132.233 simulated seconds showed creature 1 sleeping at
+a point outside home, with local score 0.595 versus home 0.527 and recovery 0.750.
+Creature 3 simultaneously slept at home with recovery 1.000; creature 11 still
+chose travel home. Screenshots were inspected and no page errors occurred.
+
+Structure: rest destination policy and physical recovery geometry have separate
+cohesive owners, with shared risk scoring applied once. Both ecology directories
+have four implementation modules; behaviour root remains at eight. No public
+boundary, dependency-direction or threshold changes. Next: bounded relationships
+and innate expression, followed by lifecycle.

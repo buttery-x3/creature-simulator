@@ -432,7 +432,7 @@ convention.
 - cognition/danger/warning-candidates.ts owns warning emission utility, learned
   avoidance utility and freshness policy.
 - cognition/ecology/danger-policy.ts owns shared retreat geometry and local or
-  remembered route-risk evidence.
+  remembered route-risk evidence, including stationary exposure for rest.
 - behaviour/execution/danger-expression.ts constructs a selected warning request;
   it never assigns symbol meanings or selects an intention.
 - learning/reception-learning.ts owns listener-local coincident evidence and calls
@@ -452,3 +452,11 @@ Acute physiological priority adds `cognition/ecology/need-priority.ts` for the
 pure urgency curve and resource-need scoring. `behaviour/execution/reconsideration.ts`
 owns event/periodic trigger selection, preserving `stepCreatureBehaviour` as the
 orchestrator and the existing public simulation API.
+
+Local rest adds `ecology/rest.ts`, which owns home-footprint distance and physical
+recovery by location using habitat geometry and plain data. The independent
+destination policy lives in `cognition/ecology/rest-candidate.ts`: it compares
+home and current-point utility through the existing danger policy before returning
+one candidate. Behaviour supplies innate home geometry to cognition and actual
+location recovery to needs; it continues to execute the selected target. These
+are internal simulation modules with no new public barrel exports.

@@ -20,12 +20,12 @@ const reportPath = path.resolve(
 const duration = Number(process.argv[3] ?? 600);
 assert.ok(Number.isFinite(duration) && duration > 0, 'Duration must be positive and finite');
 const seeds = ['demo', 'overnight-river', 'overnight-drought'];
-// Historical 600-second physical-slice measurements, retained in checkpoint c73806b.
+// Historical 600-second acute-need measurements, retained in checkpoint 6d02f21.
 // Values are observational comparisons, never pass/fail thresholds or tuning targets.
-const physicalBaseline = {
-	demo: { rapid: 258, fleeRest: 42, hunger: 2696.0667, thirst: 7.7 },
-	'overnight-river': { rapid: 767, fleeRest: 281, hunger: 2578.2, thirst: 321.5667 },
-	'overnight-drought': { rapid: 1423, fleeRest: 444, hunger: 2671.4, thirst: 72.0667 }
+const previousBaseline = {
+	demo: { hunger: 2837.8333, thirst: 555.4667, exhaustion: 293.6333 },
+	'overnight-river': { hunger: 4033.9, thirst: 4216.5333, exhaustion: 1839 },
+	'overnight-drought': { hunger: 3188.9, thirst: 1300.1, exhaustion: 440.3333 }
 };
 const fields = ['hunger', 'thirst', 'energy', 'health'];
 const rounded = (value) => Number(value.toFixed(4));
@@ -74,6 +74,7 @@ function run(api, seed, seconds, hashTrajectory = false) {
 		highHungerCreatureSeconds: 0,
 		highThirstCreatureSeconds: 0,
 		lowEnergyCreatureSeconds: 0,
+		exhaustedHomeTravelCreatureSeconds: 0,
 		longestHighHungerSeconds: 0,
 		longestHighThirstSeconds: 0,
 		intentionSwitches: 0,
@@ -130,6 +131,14 @@ function run(api, seed, seconds, hashTrajectory = false) {
 			stats.highHungerCreatureSeconds += hungry ? config.fixedDt : 0;
 			stats.highThirstCreatureSeconds += thirsty ? config.fixedDt : 0;
 			stats.lowEnergyCreatureSeconds += creature.energy <= 0.05 ? config.fixedDt : 0;
+			if (
+				creature.energy <= 0.05 &&
+				creature.intention === 'rest' &&
+				creature.action === 'move' &&
+				creature.target?.kind === 'feature' &&
+				creature.target.featureKind === 'home'
+			)
+				stats.exhaustedHomeTravelCreatureSeconds += config.fixedDt;
 			stats.longestHighHungerSeconds = Math.max(stats.longestHighHungerSeconds, prior.hungerRun);
 			stats.longestHighThirstSeconds = Math.max(stats.longestHighThirstSeconds, prior.thirstRun);
 			if (creature.intention !== prior.intention) {
@@ -186,6 +195,7 @@ function run(api, seed, seconds, hashTrajectory = false) {
 		'highHungerCreatureSeconds',
 		'highThirstCreatureSeconds',
 		'lowEnergyCreatureSeconds',
+		'exhaustedHomeTravelCreatureSeconds',
 		'longestHighHungerSeconds',
 		'longestHighThirstSeconds'
 	])
@@ -259,25 +269,22 @@ function report(results, repeat, metadata) {
 				.map(([pair, count]) => `${pair}: ${count}`)
 				.join('; ')}.`,
 			'',
-			`Final mean hunger/thirst/energy: ${row.final.meanHunger} / ${row.final.meanThirst} / ${row.final.meanEnergy}; injured creatures: ${row.final.injuredCreatures}/${row.final.population}; food sources: ${row.final.foodSources}. Memory bound violations: ${row.memoryBoundViolations}; saturated encounter-history steps: ${row.saturatedEncounterSteps}.`
+			`Final mean hunger/thirst/energy: ${row.final.meanHunger} / ${row.final.meanThirst} / ${row.final.meanEnergy}; injured creatures: ${row.final.injuredCreatures}/${row.final.population}; food sources: ${row.final.foodSources}. Exhausted travel home: ${row.exhaustedHomeTravelCreatureSeconds} creature-seconds. Memory bound violations: ${row.memoryBoundViolations}; saturated encounter-history steps: ${row.saturatedEncounterSteps}.`
 		);
 	if (duration === 600) {
 		lines.push(
 			'',
-			'## Comparison with the physical checkpoint',
+			'## Comparison with the acute-needs checkpoint',
 			'',
-			'The historical measurements were recorded with the same seeds, duration and defaults and retained in commit `c73806b` (source fingerprint `214932dedb5419bf5cdb0e00abae5af10eeba2c785fbdbac8464d51d78620139`). This compares complete evolving systems, including communication changes; it does not isolate danger memory as the sole cause. Reduced immediate flee/rest reversals can coexist with worse thirst or food access.',
+			'The same seeds, duration and defaults were measured at checkpoint `6d02f21` (fingerprint `5e14deb60a18ded70dc723bedfed66053de6c56a6edc5f089f2e1a44be938acd`). This compares complete evolving trajectories; changes in one decision policy can alter later encounters and evidence. No improvement is assumed.',
 			'',
-			'| Seed | Rapid switches before → now | Rapid flee↔rest before → now | Hunger ≥.95 creature-s before → now | Thirst ≥.95 creature-s before → now |',
-			'| --- | ---: | ---: | ---: | ---: |'
+			'| Seed | Hunger ≥.95 creature-s before → now | Thirst ≥.95 creature-s before → now | Energy ≤.05 creature-s before → now |',
+			'| --- | ---: | ---: | ---: |'
 		);
 		for (const row of results) {
-			const old = physicalBaseline[row.seed];
-			const fleeRest =
-				(row.rapidTransitionPairs['flee → rest'] ?? 0) +
-				(row.rapidTransitionPairs['rest → flee'] ?? 0);
+			const old = previousBaseline[row.seed];
 			lines.push(
-				`| ${row.seed} | ${old.rapid} → ${row.rapidIntentionSwitches} | ${old.fleeRest} → ${fleeRest} | ${old.hunger} → ${row.highHungerCreatureSeconds} | ${old.thirst} → ${row.highThirstCreatureSeconds} |`
+				`| ${row.seed} | ${old.hunger} → ${row.highHungerCreatureSeconds} | ${old.thirst} → ${row.highThirstCreatureSeconds} | ${old.exhaustion} → ${row.lowEnergyCreatureSeconds} |`
 			);
 		}
 	}

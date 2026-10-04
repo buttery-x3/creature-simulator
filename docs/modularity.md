@@ -401,7 +401,7 @@ A future issue may add proportional checks when repository growth makes them use
 
 ## Overnight expansion disposition
 
-Physical ecology creates a new domain responsibility, owned by ecology (three
+Physical ecology creates a new domain responsibility, owned by ecology (four
 implementation modules plus types and barrel). Creation previously combined
 configuration, validation and assembly in a substantial file; these now live in
 three creation modules, with a small public orchestration facade. The existing
@@ -443,3 +443,20 @@ scoring responsibility. Event/periodic trigger selection moves out of the growin
 behaviour step into `behaviour/execution/reconsideration.ts` before extending
 recovery reconsideration. Behaviour root remains at eight implementation files.
 There are no threshold, public-boundary or dependency-direction changes.
+
+### Local-rest follow-up
+
+Rest destination selection is extracted from candidate assembly into
+`cognition/ecology/rest-candidate.ts` before adding travel and recovery quality.
+It reuses the existing danger policy for both alternatives, avoiding duplicate
+risk formulas or scoring the selected rest twice. `ecology/rest.ts` owns physical
+home-footprint geometry and recovery, which have both cognition and execution
+consumers. Behaviour only passes location context and accepts a finite rest point.
+
+Ecology and cognition/ecology each contain four implementation modules; behaviour
+root remains at eight, with no added root file. These additions have substantial
+headroom and one policy responsibility each. Future rest-site construction can
+extend explicit site data when implemented; it does not justify speculative site
+registries now. Public entry points, dependency directions and thresholds are
+unchanged; the needs function gains an optional recovery multiplier preserving
+existing callers. No substantial file acquires an unrelated algorithm.

@@ -118,9 +118,15 @@ describe('local remembered danger utility', () => {
 		};
 		expect(arbitrate(hunter).selectedIntention).toBe('hunt');
 		const away = { ...input, physical: { ...input.physical!, homePosition: { x: 8, y: 0 } } };
-		const candidate = buildCandidates({ ...away, memory: createEmptyMemory(8) }).find(
+		const rest = buildCandidates({ ...away, memory: createEmptyMemory(8) }).find(
 			(candidate) => candidate.intention === 'rest'
 		)!;
+		// Moving away remains unpenalised; resting there now also assesses stationary exposure.
+		const candidate = {
+			...rest,
+			intention: 'satisfy_thirst' as const,
+			target: { kind: 'point' as const, position: { x: 8, y: 0 } }
+		};
 		expect(applyDangerRouteRisk(away, [candidate])[0]).toEqual(candidate);
 	});
 

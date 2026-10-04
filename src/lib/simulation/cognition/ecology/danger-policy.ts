@@ -137,7 +137,13 @@ export function applyDangerRouteRisk(
 			...evidence.map(
 				(danger) =>
 					Math.min(1.5, Math.max(0, danger.opponentAbility / Math.max(0.05, ability) - 0.65)) *
-					routeExposure(input.position, destination, danger)
+					Math.max(
+						routeExposure(input.position, destination, danger),
+						candidate.intention === 'rest'
+							? danger.confidence /
+									(1 + Math.sqrt(distanceSquared(destination, danger.position)) / 2)
+							: 0
+					)
 			)
 		);
 		if (risk === 0) return candidate;

@@ -118,7 +118,7 @@ function intentionHasConcreteDestination(
 		return true;
 	}
 	if (
-		(intention === 'satisfy_hunger' || intention === 'satisfy_thirst') &&
+		(intention === 'satisfy_hunger' || intention === 'satisfy_thirst' || intention === 'rest') &&
 		target?.kind === 'point'
 	) {
 		return Number.isFinite(target.position.x) && Number.isFinite(target.position.y);

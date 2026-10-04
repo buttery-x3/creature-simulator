@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SimulationState } from '$lib/simulation';
+	import type { SimulationScenarioId, SimulationState } from '$lib/simulation';
 	import { buildOverviewViewModel } from '../view-models/overview-view-model';
 	import RunControls from './RunControls.svelte';
 	import PopulationLifecycle from './PopulationLifecycle.svelte';
@@ -7,6 +7,9 @@
 	type Props = {
 		simulation: SimulationState;
 		seedInput: string;
+		scenarioInput: SimulationScenarioId;
+		activeScenario: SimulationScenarioId;
+		onScenarioInput: (scenario: SimulationScenarioId) => void;
 		errorMessage: string | null;
 		paused: boolean;
 		speed: number;
@@ -22,6 +25,9 @@
 	let {
 		simulation,
 		seedInput,
+		scenarioInput,
+		activeScenario,
+		onScenarioInput,
 		errorMessage,
 		paused,
 		speed,
@@ -43,6 +49,9 @@
 <div class="overview" data-testid="overview-tab">
 	<RunControls
 		{seedInput}
+		{scenarioInput}
+		{activeScenario}
+		{onScenarioInput}
 		activeSeed={simulation.seed}
 		timeSeconds={simulation.timeSeconds}
 		{paused}

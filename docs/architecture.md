@@ -719,3 +719,22 @@ The inspector reports binding, pending/confirmed/contradicted/unobserved outcome
 measured movement/contact and the actual response opportunity. It never labels an
 unlearned glyph as a correctly understood command. Approach adds no follow chain,
 remote target resolution, go/stop grammar or universal command vocabulary.
+
+## Reproducible observation scenarios
+
+`creation/scenarios.ts` composes fixed starting configurations from the default
+configuration. Its public `scenarioSimulationConfig(seed, scenario)` and
+`SIMULATION_SCENARIOS` metadata are shared by the route controls and the headless
+observation harness. Baseline is unchanged. More food, fewer predators starts 12
+founders with 8 food sources, caps food at 12, attempts food spawn every 8 seconds,
+and starts 2 wildlife. Population stress starts 32 founders with baseline resources
+and wildlife. All retain the explicit 64-creature computational cap. Scenario names
+never enter cognition, and these presets add no runtime population correction.
+
+The route owns one active configuration alongside the simulation. Playback,
+single-step, viewport and inspector use that same configuration. Seed/scenario
+controls stage the next run; Regenerate applies them and Random seed applies the
+staged scenario. Reset restores the active seed/scenario and discards drafts. New
+configuration and state are prepared before replacing the active pair, so invalid
+input leaves the running experiment intact. The animation callback reads the
+current active configuration instead of capturing the initial one.

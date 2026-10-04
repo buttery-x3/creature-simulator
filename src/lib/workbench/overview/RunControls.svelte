@@ -1,6 +1,10 @@
 <script lang="ts">
+	import { SIMULATION_SCENARIOS, type SimulationScenarioId } from '$lib/simulation';
 	type Props = {
 		seedInput: string;
+		scenarioInput: SimulationScenarioId;
+		activeScenario: SimulationScenarioId;
+		onScenarioInput: (scenario: SimulationScenarioId) => void;
 		activeSeed: string;
 		timeSeconds: number;
 		paused: boolean;
@@ -19,6 +23,9 @@
 
 	let {
 		seedInput,
+		scenarioInput,
+		activeScenario,
+		onScenarioInput,
 		activeSeed,
 		timeSeconds,
 		paused,
@@ -58,6 +65,23 @@
 		/>
 	</label>
 
+	<label class="field" for="simulation-scenario"
+		><span>Scenario for next run</span>
+		<select
+			id="simulation-scenario"
+			data-testid="simulation-scenario"
+			value={scenarioInput}
+			onchange={(event) => onScenarioInput(event.currentTarget.value as SimulationScenarioId)}
+		>
+			{#each SIMULATION_SCENARIOS as scenario (scenario.id)}<option value={scenario.id}
+					>{scenario.label}</option
+				>{/each}
+		</select>
+	</label>
+	<p class="scenario-hint">
+		{SIMULATION_SCENARIOS.find((scenario) => scenario.id === scenarioInput)?.description} Apply with Regenerate
+		or a new random seed.
+	</p>
 	<div class="actions">
 		<button type="button" data-testid="simulation-pause-resume" onclick={onTogglePause}>
 			{paused ? 'Resume' : 'Pause'}
@@ -95,6 +119,12 @@
 			<dd>{activeSeed}</dd>
 		</div>
 		<div>
+			<dt>Active scenario</dt>
+			<dd data-testid="simulation-active-scenario" data-scenario-id={activeScenario}>
+				{SIMULATION_SCENARIOS.find((scenario) => scenario.id === activeScenario)?.label}
+			</dd>
+		</div>
+		<div>
 			<dt>Status</dt>
 			<dd>{paused ? 'paused' : 'running'}</dd>
 		</div>
@@ -110,6 +140,12 @@
 </section>
 
 <style>
+	.scenario-hint {
+		margin: 0;
+		font-size: 0.75rem;
+		color: #94a3b8;
+		line-height: 1.35;
+	}
 	.run-controls {
 		display: flex;
 		flex-direction: column;

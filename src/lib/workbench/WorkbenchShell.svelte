@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SimulationConfig, SimulationState } from '$lib/simulation';
+	import type { SimulationScenarioId, SimulationConfig, SimulationState } from '$lib/simulation';
 	import CommunicationTab from './communication/CommunicationTab.svelte';
 	import CreaturesTab from './creatures/CreaturesTab.svelte';
 	import DebugTab from './debug/DebugTab.svelte';
@@ -17,6 +17,9 @@
 	type Props = {
 		simulation: SimulationState;
 		seedInput: string;
+		scenarioInput: SimulationScenarioId;
+		activeScenario: SimulationScenarioId;
+		onScenarioInput: (scenario: SimulationScenarioId) => void;
 		errorMessage: string | null;
 		config: SimulationConfig;
 		paused: boolean;
@@ -37,6 +40,9 @@
 	let {
 		simulation,
 		seedInput,
+		scenarioInput,
+		activeScenario,
+		onScenarioInput,
 		errorMessage,
 		config,
 		paused,
@@ -105,6 +111,9 @@
 			<OverviewTab
 				{simulation}
 				{seedInput}
+				{scenarioInput}
+				{activeScenario}
+				{onScenarioInput}
 				{errorMessage}
 				{paused}
 				{onSeedInput}

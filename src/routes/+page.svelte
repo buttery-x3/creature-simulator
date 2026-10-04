@@ -2,57 +2,16 @@
 	import { onMount } from 'svelte';
 	import ThreeViewport from '$lib/ThreeViewport.svelte';
 	import { WorkbenchShell, type WorkbenchTabId } from '$lib/workbench';
-	import { HabitatGenerationError, type Habitat } from '$lib/habitat';
+	import type { Habitat } from '$lib/habitat';
 	import {
 		advanceSimulation,
 		stepSimulation,
 		daylightAt,
 		createSimulation,
-		defaultSimulationConfig,
-		SimulationCreationError,
-		type SimulationConfig,
+		scenarioSimulationConfig,
+		type SimulationScenarioId,
 		type SimulationState
 	} from '$lib/simulation';
-
-	// Independent copy so UI mutations never share nested size-range objects.
-	const simulationConfigBase = defaultSimulationConfig('demo');
-
-	function configForSeed(seed: string): SimulationConfig {
-		return {
-			...simulationConfigBase,
-			seed,
-			habitat: {
-				...simulationConfigBase.habitat,
-				homeSize: { ...simulationConfigBase.habitat.homeSize },
-				foodSize: { ...simulationConfigBase.habitat.foodSize },
-				waterSize: { ...simulationConfigBase.habitat.waterSize }
-			},
-			movementSpeed: { ...simulationConfigBase.movementSpeed }
-		};
-	}
-
-	function tryCreateSimulation(seed: string): {
-		simulation: SimulationState;
-		error: string | null;
-	} {
-		try {
-			return {
-				simulation: createSimulation(configForSeed(seed)),
-				error: null
-			};
-		} catch (error) {
-			const message =
-				error instanceof SimulationCreationError || error instanceof HabitatGenerationError
-					? error.message
-					: error instanceof Error
-						? error.message
-						: 'Simulation creation failed';
-			return {
-				simulation: createSimulation(configForSeed('demo')),
-				error: message
-			};
-		}
-	}
 
 	/** UI-only random seed; not used on the generation path. */
 	function randomSeed(): string {
@@ -61,10 +20,13 @@
 		return `seed-${bytes[0]!.toString(36)}-${bytes[1]!.toString(36)}`;
 	}
 
-	const initial = tryCreateSimulation('demo');
-	let simulation = $state(initial.simulation);
-	let seedInput = $state(initial.simulation.seed);
-	let errorMessage = $state<string | null>(initial.error);
+	const initialConfig = scenarioSimulationConfig('demo', 'baseline');
+	let activeConfig = $state(initialConfig);
+	let simulation = $state(createSimulation(initialConfig));
+	let seedInput = $state(initialConfig.seed);
+	let scenarioInput = $state<SimulationScenarioId>('baseline');
+	let activeScenario = $state<SimulationScenarioId>('baseline');
+	let errorMessage = $state<string | null>(null);
 	let paused = $state(false);
 	let speed = $state(1);
 	/** Presentation-only selection; never written into simulation state. */
@@ -86,52 +48,37 @@
 		}
 	}
 
-	function regenerate(): void {
-		const seed = seedInput.trim();
-		if (seed.length === 0) {
+	function replaceRun(seed: string, scenario: SimulationScenarioId): void {
+		const trimmedSeed = seed.trim();
+		if (!trimmedSeed) {
 			errorMessage = 'Seed must be a non-empty string.';
 			return;
 		}
-
 		try {
-			simulation = createSimulation(configForSeed(seed));
-			seedInput = simulation.seed;
+			// Prepare both values before publishing either; failures preserve the current run.
+			const nextConfig = scenarioSimulationConfig(trimmedSeed, scenario);
+			const nextSimulation = createSimulation(nextConfig);
+			activeConfig = nextConfig;
+			simulation = nextSimulation;
+			activeScenario = scenario;
+			scenarioInput = scenario;
+			seedInput = nextSimulation.seed;
 			errorMessage = null;
 			accumulator = 0;
 			lastFrameMs = null;
-			clearStaleSelection(simulation);
+			clearStaleSelection(nextSimulation);
 		} catch (error) {
-			errorMessage =
-				error instanceof SimulationCreationError || error instanceof HabitatGenerationError
-					? error.message
-					: error instanceof Error
-						? error.message
-						: 'Simulation creation failed';
+			errorMessage = error instanceof Error ? error.message : 'Simulation creation failed';
 		}
 	}
-
+	function regenerate(): void {
+		replaceRun(seedInput, scenarioInput);
+	}
 	function useRandomSeed(): void {
-		seedInput = randomSeed();
-		regenerate();
+		replaceRun(randomSeed(), scenarioInput);
 	}
-
 	function resetSimulation(): void {
-		const seed = simulation.seed;
-		seedInput = seed;
-		try {
-			simulation = createSimulation(configForSeed(seed));
-			errorMessage = null;
-			accumulator = 0;
-			lastFrameMs = null;
-			clearStaleSelection(simulation);
-		} catch (error) {
-			errorMessage =
-				error instanceof SimulationCreationError || error instanceof HabitatGenerationError
-					? error.message
-					: error instanceof Error
-						? error.message
-						: 'Simulation reset failed';
-		}
+		replaceRun(simulation.seed, activeScenario);
 	}
 
 	function togglePause(): void {
@@ -141,7 +88,7 @@
 
 	function stepOnce(): void {
 		if (!paused) return;
-		simulation = stepSimulation(simulation, simulationConfigBase);
+		simulation = stepSimulation(simulation, activeConfig);
 		accumulator = 0;
 		clearStaleSelection(simulation);
 	}
@@ -155,15 +102,13 @@
 	}
 
 	onMount(() => {
-		const config = simulationConfigBase;
-
 		function frame(nowMs: number): void {
 			if (lastFrameMs === null) {
 				lastFrameMs = nowMs;
 			} else if (!paused) {
 				const elapsed = Math.min(0.1, (nowMs - lastFrameMs) / 1000);
 				lastFrameMs = nowMs;
-				const result = advanceSimulation(simulation, elapsed * speed, accumulator, config);
+				const result = advanceSimulation(simulation, elapsed * speed, accumulator, activeConfig);
 				accumulator = result.accumulator;
 				if (result.stepsTaken > 0) {
 					// Always adopt the stepped state, including habitat resource amounts.
@@ -203,22 +148,27 @@
 				{habitat}
 				{creatures}
 				wildlife={simulation.wildlife}
-				daylight={daylightAt(simulation.timeSeconds, simulationConfigBase.ecology)}
+				daylight={daylightAt(simulation.timeSeconds, activeConfig.ecology)}
 				activeEmissions={simulation.activeEmissions}
 				timeSeconds={simulation.timeSeconds}
 				weather={simulation.environment.weather}
 				{selectedCreatureId}
-				sensingRadius={simulationConfigBase.sensingRadius}
-				hearingRadius={simulationConfigBase.hearingRadius}
-				investigationDistanceScale={simulationConfigBase.investigationDistanceScale}
+				sensingRadius={activeConfig.sensingRadius}
+				hearingRadius={activeConfig.hearingRadius}
+				investigationDistanceScale={activeConfig.investigationDistanceScale}
 				onSelectCreature={selectCreature}
 			/>
 		</section>
 		<WorkbenchShell
 			{simulation}
 			{seedInput}
+			{scenarioInput}
+			{activeScenario}
+			onScenarioInput={(value) => {
+				scenarioInput = value;
+			}}
 			{errorMessage}
-			config={configForSeed(simulation.seed)}
+			config={activeConfig}
 			{paused}
 			{speed}
 			onSpeedChange={(value) => {

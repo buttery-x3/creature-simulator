@@ -209,3 +209,9 @@ export type {
 	MovementResponse
 } from './learning/movement';
 export { MOVEMENT_DEFAULTS } from './learning/movement';
+
+export {
+	scenarioSimulationConfig,
+	SIMULATION_SCENARIOS,
+	type SimulationScenarioId
+} from './creation/scenarios';

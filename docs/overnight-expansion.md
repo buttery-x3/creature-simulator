@@ -17,8 +17,9 @@
 Physical ecology, grounded danger language, acute-need scoring, local rest,
 bounded relationships and innate expression are implemented and checked. Lifecycle
 and population turnover are implemented and observed, including natural births
-and eventual extinction. Grounded approach learning is also implemented and observed; next is easier
-reproducible observation across resource and population conditions.
+and eventual extinction. Grounded approach learning and reproducible scenario presets
+are implemented and observed. Next is voluntary visible companionship/following
+and clearer observation of personal meanings across generations.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -418,3 +419,37 @@ Validation: full npm run check passed 606 unit tests, server check, build and
 60s full-state trajectory matched. Next: deepen the
 observed learning/turnover interactions and make reproducible observation scenarios
 easier to run; go/stop and extended following remain future supported concepts.
+
+## Checkpoint 9: reproducible observation presets
+
+Added Baseline, More food/fewer predators, and Population stress (32) presets.
+They share one configuration factory between browser and headless runs. Rich
+conditions change only initial food to 8, food cap to 12, spawn interval to 8s and
+wildlife count to 2. Crowded changes only founder count to 32. The population cap
+remains 64. Choosing a preset stages it; Regenerate applies it, Random seed uses
+it, and Reset restores the active run's seed and preset. Playback, stepping,
+viewport and diagnostics all use the active configuration. Failed regeneration
+leaves the current run intact.
+
+Three rich 900s observations finished with 6/1/3 creatures, 9/3/7 births and highest
+generations 3/2/2. Learned approach calls numbered 18/36/34, with 3/1/2 assigned
+survivors. Three crowded 600s observations finished with 3/0/1 creatures and
+1/0/1 births; river became extinct at 584.967s. This is pressure evidence, not a
+promise of balanced survival. Both preset batches passed bounded-state checks
+and identical 60s full-state repeats. Full configuration, methodology and results
+are in overnight-resource-rich-observations.md and overnight-crowded-observations.md.
+The earlier baseline report remains a separate recorded experiment.
+
+Validation: full npm run check passed 620 unit tests, server check, build and
+13 browser tests. New tests cover exact preset overrides, independent nested
+configs, deterministic creation, food cadence and active-vs-draft controls.
+Three browser screenshots were inspected with no page errors. Actual playback
+and single-step both followed the selected 8s spawn cadence.
+
+Structure: creation gains one cohesive configuration module (four implementation
+files total), exposed by the existing simulation barrel. Existing route and
+workbench control contracts gain scenario inputs; no new subsystem, dependency
+rule, threshold or topology exception. Route creation paths were consolidated;
+its implementation shrank. Simulation behavior is unchanged apart from explicit
+starting configuration. Next: voluntary visible companionship/following grounded
+in recent encounters, plus clearer observation of personal meanings across generations.

@@ -546,3 +546,15 @@ learning-history types change shape; every in-repository consumer is migrated.
 No threshold, import-direction or repository-rule exceptions are required. Tests
 remain colocated, including sequence controls, actual learning/response/re-emission,
 call-plan execution and Svelte evidence-panel rendering.
+
+### Observation scenario configuration
+
+Existing simulation/creation owns scenarios.ts as its fourth implementation file:
+fixed preset metadata and fresh configuration composition, with no runtime policy.
+The simulation public barrel exports scenarioSimulationConfig, SimulationScenarioId
+and SIMULATION_SCENARIOS. Tests remain colocated. The route composes run replacement
+and maintains active configuration; existing workbench overview controls only stage
+and display choices. The observation script consumes the same simulation entry point.
+No new subsystem, dependency direction or threshold exception is needed. Creation
+has room before its six-file review trigger. Route replacement removes duplicated
+creation paths; UI files retain their established control/composition responsibilities.

@@ -1,7 +1,7 @@
 /**
  * Reproducible headless ecology observation; opens no server port.
- * Usage: node scripts/overnight-observation.mjs [REPORT_PATH] [SIMULATED_SECONDS]
- * Default: three fixed seeds, 600 seconds each, normal fixedDt; 60-second determinism repeat.
+ * Usage: node scripts/overnight-observation.mjs [REPORT_PATH] [SIMULATED_SECONDS] [SCENARIO]
+ * Default: baseline, three fixed seeds, 600 seconds each, normal fixedDt; 60-second determinism repeat.
  * Reports observations rather than asserting ecological success or lifecycle outcomes.
  */
 import assert from 'node:assert/strict';
@@ -18,6 +18,7 @@ const reportPath = path.resolve(
 	process.argv[2] ?? path.join(root, 'docs/overnight-observation-results.md')
 );
 const duration = Number(process.argv[3] ?? 600);
+const scenario = process.argv[4] ?? 'baseline';
 assert.ok(Number.isFinite(duration) && duration > 0, 'Duration must be positive and finite');
 const seeds = ['demo', 'overnight-river', 'overnight-drought'];
 const fields = ['hunger', 'thirst', 'energy', 'health'];
@@ -46,7 +47,7 @@ function sourceFingerprint() {
 }
 
 function run(api, seed, seconds, hashTrajectory = false) {
-	const config = api.defaultSimulationConfig(seed);
+	const config = api.scenarioSimulationConfig(seed, scenario);
 	let state = api.createSimulation(config);
 	const stats = {
 		seed,
@@ -151,7 +152,8 @@ function run(api, seed, seconds, hashTrajectory = false) {
 				.length === config.recentSimulationEmissionHistoryLimit
 		)
 			stats.saturatedEmissionSteps += 1;
-		for (const emission of state.recentEmissions) {
+		// Positive lifetime preserves every new emission here, without diagnostic-history truncation.
+		for (const emission of state.activeEmissions) {
 			if (
 				emission.emittedAt !== state.timeSeconds ||
 				emission.contextDetail !== 'approach' ||
@@ -378,13 +380,15 @@ function report(results, repeat, metadata) {
 	const lines = [
 		'# Overnight lifecycle and ecology observation',
 		'',
-		`Run on ${metadata.date} with \`node scripts/overnight-observation.mjs\`. Source HEAD: \`${metadata.head}\`; working-source SHA-256: \`${metadata.sourceFingerprint}\`.`,
+		`Run on ${metadata.date} with \`node scripts/overnight-observation.mjs ${path.relative(root, reportPath).replaceAll('\\', '/')} ${duration} ${scenario}\`. Source HEAD: \`${metadata.head}\`; working-source SHA-256: \`${metadata.sourceFingerprint}\`.`,
+		'',
+		`Scenario preset: \`${scenario}\`. The full creation configuration is recorded below; a preset changes initial experiment configuration only and adds no runtime rescue.`,
 		'',
 		'## Method',
 		'',
-		`Three fixed seeds, default configuration and fixed timestep, ${duration} simulated seconds per seed. Vite SSR loads the authoritative simulation in middleware mode without opening a listening port. Runtime includes stepping and measurement, excludes module loading. Action/intention distributions sample each creature once per simulated second; extrema, need-duration and encounter totals are accumulated every step. Alive creature-seconds integrate the post-step living population at each fixed timestep; need percentages use this same changing-population denominator. Empty-population final means are null.`,
+		`Three fixed seeds, the ${scenario} creation preset and default fixed timestep, ${duration} simulated seconds per seed. Vite SSR loads the authoritative simulation in middleware mode without opening a listening port. Runtime includes stepping and measurement, excludes module loading. Action/intention distributions sample each creature once per simulated second; extrema, need-duration and encounter totals are accumulated every step. Alive creature-seconds integrate the post-step living population at each fixed timestep; need percentages use this same changing-population denominator. Empty-population final means are null.`,
 		'',
-		'Encounter, death-cause, failed-courtship, movement-learning and approach-call counters select records whose timestamp equals the current step, rather than counting the same bounded history repeatedly. Learning records are also deduplicated by listener, emission and outcome within the step; emissions by ID. Saturated history steps make detail totals lower bounds, and learning immediately preceding same-step death can be absent from survivor history. Binding counts sample only the latest binding per listener per step. Birth/death totals instead use live ID additions/removals and are not truncated by event-history capacity. Hunt/flee entries count actual intention changes into those states. “Rapid switches” means successive intention changes within two seconds; it is a diagnostic proxy, not proof of pathological oscillation. “Stationary movement” means consecutive one-second observations moving less than 0.02 units while action is move/search/explore; it can include turning or edge effects.',
+		'Encounter, death-cause, failed-courtship, movement-learning and approach-call counters select records whose timestamp equals the current step, rather than counting the same bounded history repeatedly. Learning records are also deduplicated by listener, emission and outcome within the step; emissions by ID. Approach-call totals are exact: they use newly emitted active events, which have validated positive lifetime and no count cap. Recent-emission history saturation remains a separate diagnostic and does not truncate these totals. Other retained detail totals can be lower bounds when their histories saturate; learning immediately preceding same-step death can also be absent from survivor history. Binding counts sample only the latest binding per listener per step. Birth/death totals instead use live ID additions/removals and are not truncated by event-history capacity. Hunt/flee entries count actual intention changes into those states. “Rapid switches” means successive intention changes within two seconds; it is a diagnostic proxy, not proof of pathological oscillation. “Stationary movement” means consecutive one-second observations moving less than 0.02 units while action is move/search/explore; it can include turning or edge effects.',
 		'',
 		'This run includes growth, reciprocal courtship, birth, ageing and mortality. Population decline or extinction is reported directly; no rescue or ecological success criterion is imposed. Historical fixed-population pressure totals are not comparable to these dynamic-population measurements and are intentionally omitted. Movement outcomes concern any heard form paired with local motion, including resource or danger emissions; approach-call counts concern only the observer-labelled approach emission context. A confirmed sequence is local evidence, not proof of the sender intention.',
 		'',
@@ -504,6 +508,10 @@ const server = await createServer({
 });
 try {
 	const api = await server.ssrLoadModule('/src/lib/simulation/index.ts');
+	assert.ok(
+		api.SIMULATION_SCENARIOS.some((preset) => preset.id === scenario),
+		`Unknown scenario '${scenario}'. Choose ${api.SIMULATION_SCENARIOS.map((preset) => preset.id).join(', ')}`
+	);
 	const runs = seeds.map((seed) => run(api, seed, duration));
 	const repeatSeconds = Math.min(60, duration);
 	const first = run(api, seeds[0], repeatSeconds, true).stats;
@@ -527,6 +535,7 @@ try {
 		head: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
 		sourceFingerprint: fingerprint,
 		runtime: `Node ${process.version}`,
+		scenario,
 		config: runs[0].config
 	};
 	const reportText = report(
@@ -540,7 +549,12 @@ try {
 	);
 	console.log(
 		JSON.stringify(
-			{ reportPath, runs: runs.map((run) => run.stats), repeatSha256: first.trajectorySha256 },
+			{
+				reportPath,
+				scenario,
+				runs: runs.map((run) => run.stats),
+				repeatSha256: first.trajectorySha256
+			},
 			null,
 			2
 		)

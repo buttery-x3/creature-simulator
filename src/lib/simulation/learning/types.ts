@@ -10,9 +10,14 @@ import type { Vec2 } from '$lib/habitat';
 import type { SymbolId } from '../communication/types';
 
 /** Controlled semantic meanings currently resolved into the personal lexicon. */
-export type LexiconMeaning = 'food' | 'water' | 'danger';
+export type LexiconMeaning = 'food' | 'water' | 'danger' | 'approach';
 
-export const LEXICON_MEANINGS: readonly LexiconMeaning[] = ['food', 'water', 'danger'] as const;
+export const LEXICON_MEANINGS: readonly LexiconMeaning[] = [
+	'food',
+	'water',
+	'danger',
+	'approach'
+] as const;
 
 /**
  * Per-symbol raw meaning evidence for one creature.
@@ -64,6 +69,9 @@ export type LearningOutcome =
 	| 'food_evidence'
 	| 'water_evidence'
 	| 'danger_evidence'
+	| 'approach_evidence'
+	| 'approach_contradicted'
+	| 'approach_unobserved'
 	| 'mixed_evidence'
 	| 'no_evidence'
 	| 'interrupted';

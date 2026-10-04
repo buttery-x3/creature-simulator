@@ -4,6 +4,7 @@ import type { PeerObservation, Relationship, SocialState } from './types';
 export function emptySocialState(): SocialState {
 	return {
 		relationships: [],
+		movementCall: null,
 		expression: null,
 		expressionSequence: 0,
 		nextExpressionAt: 0,

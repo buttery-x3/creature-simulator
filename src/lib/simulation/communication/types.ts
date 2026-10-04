@@ -17,11 +17,11 @@ export const DEFAULT_SYMBOL_INVENTORY: readonly SymbolId[] = [
 ] as const;
 
 /** Why an emission was requested (developer context — not symbol meaning). */
-export type EmissionContext = 'resource_discovered' | 'danger_observed';
+export type EmissionContext = 'resource_discovered' | 'danger_observed' | 'approach_started';
 
 export type ResourceDiscoveryDetail = 'food' | 'water';
 
-export type SignalContextDetail = ResourceDiscoveryDetail | 'danger';
+export type SignalContextDetail = ResourceDiscoveryDetail | 'danger' | 'approach';
 
 /** How the emitter chose its symbol (developer diagnostics only). */
 export type SymbolSelectionMode =

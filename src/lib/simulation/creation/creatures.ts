@@ -6,6 +6,7 @@ import { pointTarget } from '../behaviour/resource-awareness';
 import { selectPreferredSymbol } from '../communication/emission';
 import { sampleSearchTarget } from '../creature-movement';
 import { createExplorationState, selectExplorationTarget } from '../exploration';
+import { emptyMovementLearningState } from '../learning/movement';
 import { emptyLexicon } from '../learning/lexicon-resolution';
 import { createEmptyAssociations } from '../learning/signal-associations';
 import { createEmptyMemory, sampleMemoryCapacity } from '../memory/create-memory';
@@ -154,6 +155,7 @@ function createCreature(
 	const bodyScale = birth ? config.lifecycle.newbornBodyScale : 1;
 	const draft: Creature = {
 		lifecycle,
+		movementLearning: emptyMovementLearningState(),
 		social: emptySocialState(),
 		perceivedPeers: [],
 		id,

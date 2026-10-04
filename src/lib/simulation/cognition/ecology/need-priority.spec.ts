@@ -79,7 +79,7 @@ describe('acute need utility', () => {
 				memory,
 				currentIntention: 'investigate_signal',
 				currentTarget: { kind: 'point', position: { x: 2, y: 0 } },
-				lexicon: { food: interpreted ? 'glyph-0' : null, water: null, danger: null }
+				lexicon: { food: interpreted ? 'glyph-0' : null, water: null, danger: null, approach: null }
 			});
 			expect(record.selectedIntention).toBe('satisfy_thirst');
 			expect(

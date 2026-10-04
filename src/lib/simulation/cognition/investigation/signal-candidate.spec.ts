@@ -30,7 +30,7 @@ function input(overrides: Partial<ArbitrationInput> = {}): ArbitrationInput {
 		availableFood: [],
 		availableWater: [],
 		memory,
-		lexicon: { food: 'glyph-0', water: 'glyph-1', danger: null },
+		lexicon: { food: 'glyph-0', water: 'glyph-1', danger: null, approach: null },
 		currentIntention: null,
 		currentTarget: null,
 		homeFeatureId: 'home',
@@ -71,7 +71,7 @@ describe('listener-local meaning and unresolved needs', () => {
 			hunger: 0.1,
 			thirst: 0.8,
 			curiosity,
-			lexicon: { food: 'glyph-1', water: 'glyph-0', danger: null }
+			lexicon: { food: 'glyph-1', water: 'glyph-0', danger: null, approach: null }
 		});
 		expect(arbitrate(i).selectedIntention).toBe('investigate_signal');
 		expect(investigation(i).reference).toMatchObject({ emissionId: 'old-food' });
@@ -81,9 +81,12 @@ describe('listener-local meaning and unresolved needs', () => {
 		const before = structuredClone(original);
 		const swapped = {
 			...original,
-			lexicon: { food: 'glyph-1' as const, water: 'glyph-0' as const, danger: null }
+			lexicon: { food: 'glyph-1' as const, water: 'glyph-0' as const, danger: null, approach: null }
 		};
-		const cleared = { ...original, lexicon: { food: null, water: null, danger: null } };
+		const cleared = {
+			...original,
+			lexicon: { food: null, water: null, danger: null, approach: null }
+		};
 		expect(investigation(original).target).toEqual({ kind: 'point', position: { x: -8, y: 0 } });
 		expect(investigation(swapped).target).toEqual({ kind: 'point', position: { x: 8, y: 0 } });
 		expect(investigation(cleared).reference).toMatchObject({ emissionId: 'new-water' });
@@ -95,9 +98,11 @@ describe('listener-local meaning and unresolved needs', () => {
 		expect(original).toEqual(before);
 	});
 	it('keeps unknown and known mismatched signals eligible with generic information value', () => {
-		const unknown = investigation(input({ lexicon: { food: null, water: null, danger: null } }));
+		const unknown = investigation(
+			input({ lexicon: { food: null, water: null, danger: null, approach: null } })
+		);
 		const mismatch = investigation(
-			input({ lexicon: { food: null, water: 'glyph-1', danger: null } })
+			input({ lexicon: { food: null, water: 'glyph-1', danger: null, approach: null } })
 		);
 		expect(mismatch.valid).toBe(true);
 		expect(mismatch.baseScore).toBe(unknown.baseScore);
@@ -108,7 +113,10 @@ describe('listener-local meaning and unresolved needs', () => {
 		expect(mismatch.signalEvaluations?.[0].informationFloor).toBeGreaterThan(0);
 	});
 	it('preserves optional unknown curiosity for sated creatures', () => {
-		const i = input({ hunger: 0.1, lexicon: { food: null, water: null, danger: null } });
+		const i = input({
+			hunger: 0.1,
+			lexicon: { food: null, water: null, danger: null, approach: null }
+		});
 		expect(arbitrate(i).selectedIntention).toBe('explore');
 		expect(arbitrate({ ...i, curiosity: 1 }).selectedIntention).toBe('investigate_signal');
 	});
@@ -204,7 +212,7 @@ describe('listener-local meaning and unresolved needs', () => {
 	});
 	it('breaks equal scores by newer sequence then emission ID, independent of array storage', () => {
 		const i = input({
-			lexicon: { food: null, water: null, danger: null },
+			lexicon: { food: null, water: null, danger: null, approach: null },
 			config: { ...DEFAULT_COGNITION_CONFIG, signalRecencyBoostMax: 0 }
 		});
 		expect(investigation(i).reference).toMatchObject({ emissionId: 'new-water' });
@@ -214,5 +222,69 @@ describe('listener-local meaning and unresolved needs', () => {
 		expect(
 			investigation({ ...i, memory: { ...i.memory, entries: [...i.memory.entries].reverse() } })
 		).toEqual(expected);
+	});
+});
+
+describe('learned approach has no stale-origin fallback', () => {
+	function oneSignal(lexicon: ArbitrationInput['lexicon']) {
+		const memory = rememberHeardSignal(createEmptyMemory(16), {
+			rememberedAt: 1,
+			emissionId: 'heard-earlier',
+			symbolId: 'glyph-0',
+			origin: { x: -8, y: 0 }
+		});
+		return input({ timeSeconds: 100, curiosity: 1, hunger: 0.9, memory, lexicon });
+	}
+	it('excludes known approach even with high curiosity, unmet hunger and expired or absent peer response', () => {
+		const known = oneSignal({ food: null, water: null, danger: null, approach: 'glyph-0' });
+		const candidate = investigation(known);
+		expect(candidate).toMatchObject({
+			valid: false,
+			target: null,
+			reference: null,
+			score: 0,
+			rejectionReason: 'approach_requires_visible_peer',
+			reasonCodes: ['approach_requires_visible_peer']
+		});
+		expect(candidate.signalEvaluations).toEqual([
+			expect.objectContaining({
+				interpretation: 'approach',
+				selected: false,
+				semanticContribution: 0
+			})
+		]);
+		expect(arbitrate(known).selectedIntention).not.toBe('investigate_signal');
+	});
+	it('keeps the identical sound investigable when unknown or personally learned as food', () => {
+		const unknown = investigation(
+			oneSignal({ food: null, water: null, danger: null, approach: null })
+		);
+		const food = investigation(
+			oneSignal({ food: 'glyph-0', water: null, danger: null, approach: null })
+		);
+		expect(unknown).toMatchObject({
+			valid: true,
+			target: { kind: 'point', position: { x: -8, y: 0 } }
+		});
+		expect(unknown.signalEvaluations![0]!.interpretation).toBe('unknown');
+		expect(food).toMatchObject({ valid: true, target: unknown.target });
+		expect(food.signalEvaluations![0]).toMatchObject({ interpretation: 'food', selected: true });
+		expect(food.baseScore).toBeGreaterThan(unknown.baseScore);
+	});
+	it('retains unknown alternatives while excluding approach, and explains all local-response exclusions', () => {
+		const mixed = input({
+			lexicon: { food: null, water: null, danger: null, approach: 'glyph-1' }
+		});
+		expect(investigation(mixed).reference).toMatchObject({ emissionId: 'old-food' });
+		const excluded = investigation({
+			...mixed,
+			lexicon: { food: null, water: null, danger: 'glyph-0', approach: 'glyph-1' }
+		});
+		expect(excluded.valid).toBe(false);
+		expect(excluded.reasonCodes).toEqual([
+			'approach_requires_visible_peer',
+			'danger_requires_avoidance'
+		]);
+		expect(excluded.signalEvaluations?.every((row) => !row.selected)).toBe(true);
 	});
 });

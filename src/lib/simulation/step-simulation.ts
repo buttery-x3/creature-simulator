@@ -17,6 +17,7 @@
  */
 
 import { advancePopulationLife, finalizePopulation } from './lifecycle/population';
+import { releaseInterruptedMovementResponse } from './behaviour/execution/movement-expression';
 import { recordInjury } from './social';
 import { stepWildlife, resolveEncounters } from './ecology';
 import { stepCreatureBehaviour } from './behaviour/step-creature-behaviour';
@@ -27,6 +28,7 @@ import {
 	applyHeardSignalMemories,
 	applyResourceObservationMemories
 } from './memory/apply-sensory-memory';
+import { hearMovementLearning } from './learning/movement';
 import { learnFromLocalDangerReception } from './learning';
 import { emptyGrant, stepResources } from './resources';
 import type { Creature, SimulationConfig, SimulationState } from './types';
@@ -172,7 +174,7 @@ export function stepSimulation(
 		if (result.emissionRequest) {
 			emissionRequests.push(result.emissionRequest);
 		}
-		return result.creature;
+		return releaseInterruptedMovementResponse(creature, result.creature, timeSeconds);
 	});
 
 	const aged = advancePopulationLife(creatures, dt, timeSeconds, config.lifecycle);
@@ -244,9 +246,24 @@ export function stepSimulation(
 	);
 
 	// Request reconsideration for listeners that gained heard_signal this step.
+	const afterMovementLearning = afterHeardMemory.map((creature) =>
+		hearMovementLearning(
+			creature,
+			creature.recentHeard
+				.filter((signal) => signal.heardAt === timeSeconds)
+				.map(({ emissionId, symbolId, origin, heardAt }) => ({
+					emissionId,
+					symbolId,
+					origin,
+					heardAt
+				})),
+			timeSeconds,
+			config
+		)
+	);
 	const withReconsider = requestArbitrationForNewHeardSignals(
 		afterAnnouncementMemory,
-		afterHeardMemory
+		afterMovementLearning
 	);
 
 	return {

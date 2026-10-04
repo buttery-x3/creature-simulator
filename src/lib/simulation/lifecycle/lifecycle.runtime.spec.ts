@@ -71,7 +71,7 @@ describe('lifecycle integration', () => {
 		expect(child.body.size).toBeCloseTo(
 			child.lifecycle.adultBody.size * config.lifecycle.newbornBodyScale
 		);
-		expect(child.lexicon).toEqual({ food: null, water: null, danger: null });
+		expect(child.lexicon).toEqual({ food: null, water: null, danger: null, approach: null });
 		expect(child.memory.entries).toEqual([]);
 		expect(child.social.relationships).toEqual([]);
 		expect(child.exploration.map.lastFullySensedAt.every((t) => t === null)).toBe(true);

@@ -201,3 +201,11 @@ export type {
 
 export type { LifeState, LifecycleConfig, LifeEvent } from './lifecycle/types';
 export { isMature } from './lifecycle';
+
+export type {
+	MovementLearningState,
+	MovementEncounter,
+	MovementTrace,
+	MovementResponse
+} from './learning/movement';
+export { MOVEMENT_DEFAULTS } from './learning/movement';

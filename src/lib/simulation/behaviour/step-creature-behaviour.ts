@@ -9,6 +9,7 @@
  * the next step so resource_announcement memory (written post-communication) is visible.
  */
 
+import { requestMovementCall } from './execution/movement-expression';
 import { advanceSocial } from '../social';
 import type { Habitat } from '$lib/habitat';
 import { stepAnnouncement, type AnnouncementStepConfig } from '../announcement/step-announcement';
@@ -243,6 +244,11 @@ export function stepCreatureBehaviour(
 	});
 	if (trigger) next = replan(next, habitat, timeSeconds, trigger, config, simulationSeed);
 
+	if (!emissionRequest) {
+		const call = requestMovementCall(next, timeSeconds);
+		next = call.creature;
+		emissionRequest = call.emissionRequest;
+	}
 	const pursued = pursueAction(
 		next,
 		dt,

@@ -29,6 +29,13 @@ export type Relationship = {
 };
 
 export type SocialState = {
+	/** Last executed selected call plan; one per approach episode plus a cooldown. */
+	movementCall: {
+		peerId: string;
+		intention: 'approach_peer' | 'court_peer';
+		intentionStartedAt: number;
+		timeSeconds: number;
+	} | null;
 	relationships: Relationship[];
 	expression: InnateExpression | null;
 	expressionSequence: number;

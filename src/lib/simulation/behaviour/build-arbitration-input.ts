@@ -91,7 +91,11 @@ export function buildArbitrationInput(
 		timeSeconds,
 		trigger,
 		position: creature.position,
-		social: { state: creature.social, peers: creature.perceivedPeers },
+		social: {
+			state: creature.social,
+			peers: creature.perceivedPeers,
+			response: creature.movementLearning.response
+		},
 		lifecycle: { state: creature.lifecycle, config: config.lifecycle },
 		physical: {
 			body: creature.body,
@@ -115,6 +119,7 @@ export function buildArbitrationInput(
 			creature.lastEmissionAt < 0 ||
 			timeSeconds - creature.lastEmissionAt >= config.emissionCooldownSeconds,
 		currentIntention: creature.intention,
+		currentIntentionStartedAt: creature.intentionStartedAt,
 		currentTarget: creature.target,
 		homeFeatureId: habitat.home.id,
 		config: cognitionConfigFromSimulation(config)

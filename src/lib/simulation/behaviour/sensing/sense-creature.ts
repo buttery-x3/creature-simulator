@@ -1,3 +1,4 @@
+import { observeMovementLearning } from '../../learning/movement';
 import { observePeers, updateRelationships, SOCIAL_DEFAULTS } from '../../social';
 import type { Habitat } from '$lib/habitat';
 import type { Wildlife } from '../../ecology/types';
@@ -79,6 +80,9 @@ export function senseCreature(
 				next.hunger < 0.6 && next.thirst < 0.6 && next.energy > 0.4 && next.body.health > 0.6
 			)
 		};
+		next = observeMovementLearning(next, timeSeconds, config);
+		peerChanged ||=
+			next.movementLearning.response?.emissionId !== creature.movementLearning.response?.emissionId;
 		const animals = senseWildlife(next, wildlife, timeSeconds, config.sensingRadius);
 		next = animals.creature;
 		wildlifeChanged = animals.wildlifeChanged;

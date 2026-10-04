@@ -1,7 +1,13 @@
 /** Listener-local signal policy. Memory supplies evidence; cognition ranks uncertain information. */
+import { LEXICON_MEANINGS } from '../../learning';
 import { listHeardSignalMemories } from '../../memory/query';
 import type { HeardSignalMemory } from '../../memory/types';
-import type { ArbitrationInput, IntentionCandidate, SignalEvaluation } from '../types';
+import type {
+	ArbitrationInput,
+	CandidateReasonCode,
+	IntentionCandidate,
+	SignalEvaluation
+} from '../types';
 import { curiosityToInvestigationWeight } from './curiosity-weight';
 
 /** At most 0.20: exceeds the 0.04 recency range, below strong actionable needs/rest. */
@@ -16,13 +22,7 @@ function evaluateSignal(
 ): SignalEvaluation {
 	const { config, lexicon } = input;
 	const interpretation =
-		lexicon.food === memory.symbolId
-			? 'food'
-			: lexicon.water === memory.symbolId
-				? 'water'
-				: lexicon.danger === memory.symbolId
-					? 'danger'
-					: 'unknown';
+		LEXICON_MEANINGS.find((meaning) => lexicon[meaning] === memory.symbolId) ?? 'unknown';
 	const hungerUnresolved = input.hunger >= config.seekFoodThreshold && foodKnowledge === 'none';
 	const thirstUnresolved = input.thirst >= config.seekWaterThreshold && waterKnowledge === 'none';
 	const recency = Math.min(
@@ -74,8 +74,17 @@ export function buildSignalCandidate(
 				b.sequence - a.sequence ||
 				(a.emissionId < b.emissionId ? -1 : a.emissionId > b.emissionId ? 1 : 0)
 		);
-	// A learned warning is uncertain hazard evidence, never a request to approach its origin.
-	const best = signalEvaluations.find((e) => e.interpretation !== 'danger');
+	// Warning and movement interpretations have separate local response policies.
+	// Neither licenses travel to an old emission origin after that response expires.
+	const best = signalEvaluations.find(
+		(e) => e.interpretation !== 'danger' && e.interpretation !== 'approach'
+	);
+	const rejected: CandidateReasonCode[] = [];
+	if (signalEvaluations.some((entry) => entry.interpretation === 'approach'))
+		rejected.push('approach_requires_visible_peer');
+	if (signalEvaluations.some((entry) => entry.interpretation === 'danger'))
+		rejected.push('danger_requires_avoidance');
+	if (!signalEvaluations.length) rejected.push('no_heard_signal');
 	if (best) best.selected = true;
 	return {
 		intention: 'investigate_signal',
@@ -110,13 +119,11 @@ export function buildSignalCandidate(
 					...(best.informationFloor > 0 ? ['need_information_value' as const] : []),
 					...(best.semanticContribution > 0 ? ['semantic_relevance' as const] : [])
 				]
-			: ['no_heard_signal'],
+			: rejected,
 		...(best
 			? {}
 			: {
-					rejectionReason: signalEvaluations.length
-						? ('danger_requires_avoidance' as const)
-						: ('no_heard_signal' as const)
+					rejectionReason: rejected[0]
 				}),
 		signalEvaluations
 	};

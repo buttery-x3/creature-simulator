@@ -44,7 +44,7 @@ describe('stepAnnouncement integration', () => {
 			target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
 			nextReconsiderAt: 999,
 			movementSpeed: 0,
-			lexicon: { food: 'glyph-3', water: null, danger: null },
+			lexicon: { food: 'glyph-3', water: null, danger: null, approach: null },
 			preferredSymbolId: 'glyph-0'
 		});
 
@@ -451,7 +451,7 @@ describe('stepAnnouncement integration', () => {
 				target: { kind: 'feature', featureId: food.id, featureKind: 'food' },
 				nextReconsiderAt: 999,
 				movementSpeed: 0.5,
-				lexicon: { food: 'glyph-0', water: null, danger: null },
+				lexicon: { food: 'glyph-0', water: null, danger: null, approach: null },
 				preferredSymbolId: 'glyph-0'
 			});
 

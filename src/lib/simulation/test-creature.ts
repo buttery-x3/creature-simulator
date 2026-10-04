@@ -6,6 +6,7 @@
 import { emptyPerception } from './behaviour/perception';
 import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 import { createExplorationState } from './exploration';
+import { emptyMovementLearningState } from './learning/movement';
 import { emptyLexicon } from './learning/lexicon-resolution';
 import { createEmptyAssociations } from './learning/signal-associations';
 import { createEmptyMemory } from './memory/create-memory';
@@ -26,6 +27,7 @@ export function testCreature(overrides: Partial<Creature> = {}): Creature {
 			overrides.body ?? { size: 1, physicality: 1 },
 			DEFAULT_LIFECYCLE_CONFIG
 		),
+		movementLearning: emptyMovementLearningState(),
 		social: emptySocialState(),
 		perceivedPeers: [],
 		body: { size: 1, physicality: 1, health: 1, nextAttackAt: 0 },

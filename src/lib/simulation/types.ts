@@ -30,6 +30,7 @@ import type {
 import type { ExplorationState } from './exploration/types';
 import type { CreatureMemory } from './memory/types';
 import type { BodyState, EcologyConfig, EncounterRecord, Wildlife } from './ecology/types';
+import type { MovementLearningState } from './learning/movement';
 import type { SocialState, PeerObservation } from './social/types';
 import type { LifeState, LifecycleConfig, LifeEvent } from './lifecycle/types';
 import type { EnvironmentState } from './resources/types';
@@ -159,6 +160,7 @@ export type BehaviourTransition = {
 };
 
 export type Creature = {
+	movementLearning: MovementLearningState;
 	lifecycle: LifeState;
 	social: SocialState;
 	/** Current locally observable peer identities and broad expressions only. */

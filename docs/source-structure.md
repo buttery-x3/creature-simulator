@@ -521,3 +521,28 @@ cognition, diagnostic and workbench consumers use those declared meanings rather
 than replicating strength/count fields. No production file, directory or dependency
 boundary is added by this representation change. Public symbol-association and
 learning-history types change shape; every in-repository consumer is migrated.
+
+### Learned movement extension
+
+- simulation/learning/movement is a named internal sensory-sequence subdomain:
+  types/defaults declare bounded records and timing; observations owns hearing
+  origin binding, trace progression and response lifetime; evidence applies actual
+  outcomes through existing association and lexicon APIs. Four implementation files
+  leave capacity before the six-file review trigger. Additional independent motion
+  concepts must reassess observation-policy ownership before growing this module.
+- cognition/social/movement-policy.ts compares movement call plans and learned
+  response bonuses. Existing social and courtship candidate builders call it before
+  selecting their best local peer. It owns no transmission or temporal evidence.
+- behaviour/execution/movement-expression.ts executes selected calls and releases
+  interrupted responses. Sensing and fixed-step communication coordinators invoke
+  learning hooks, using only the recipient's actual current observations/heard data.
+- Existing CreatureLanguage.svelte owns the sequence inspector inside its learning
+  responsibility (about 305 code lines). No eighth creature-inspector file is added;
+  further independent language displays should reassess a named inspector boundary.
+- Public simulation exports add movement state/trace/response types and defaults.
+  External consumers still use the simulation barrel. Existing population diagnostics
+  now construct/format all declared meanings through one record-based path.
+
+No threshold, import-direction or repository-rule exceptions are required. Tests
+remain colocated, including sequence controls, actual learning/response/re-emission,
+call-plan execution and Svelte evidence-panel rendering.

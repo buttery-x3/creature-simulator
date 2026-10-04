@@ -3,7 +3,12 @@ import { selectContextSymbol } from './symbol-selection';
 import { DEFAULT_SYMBOL_INVENTORY } from './types';
 import type { LexiconAssignmentRow } from './symbol-selection';
 
-const emptyLexicon: LexiconAssignmentRow = { food: null, water: null, danger: null };
+const emptyLexicon: LexiconAssignmentRow = {
+	food: null,
+	water: null,
+	danger: null,
+	approach: null
+};
 
 describe('selectContextSymbol', () => {
 	it('emits the resolved food lexicon assignment for food context', () => {
@@ -13,7 +18,7 @@ describe('selectContextSymbol', () => {
 			emissionCount: 0,
 			contextDetail: 'food',
 			inventory: DEFAULT_SYMBOL_INVENTORY,
-			lexicon: { food: 'glyph-2', water: 'glyph-1', danger: null },
+			lexicon: { food: 'glyph-2', water: 'glyph-1', danger: null, approach: null },
 			preferredSymbolId: 'glyph-0'
 		});
 		expect(result.symbolId).toBe('glyph-2');
@@ -30,7 +35,7 @@ describe('selectContextSymbol', () => {
 			emissionCount: 0,
 			contextDetail: 'water',
 			inventory: DEFAULT_SYMBOL_INVENTORY,
-			lexicon: { food: 'glyph-2', water: 'glyph-1', danger: null },
+			lexicon: { food: 'glyph-2', water: 'glyph-1', danger: null, approach: null },
 			preferredSymbolId: 'glyph-0'
 		});
 		expect(result.symbolId).toBe('glyph-1');
@@ -60,7 +65,7 @@ describe('selectContextSymbol', () => {
 			emissionCount: 3,
 			contextDetail: 'food',
 			inventory: DEFAULT_SYMBOL_INVENTORY,
-			lexicon: { food: null, water: 'glyph-0', danger: null },
+			lexicon: { food: null, water: 'glyph-0', danger: null, approach: null },
 			preferredSymbolId: 'glyph-0'
 		});
 		expect(result.evidence.mode).toBe('exploratory');
@@ -92,7 +97,7 @@ describe('selectContextSymbol', () => {
 			emissionCount: 0,
 			contextDetail: 'food',
 			inventory: DEFAULT_SYMBOL_INVENTORY,
-			lexicon: { food: 'glyph-3', water: 'glyph-1', danger: null },
+			lexicon: { food: 'glyph-3', water: 'glyph-1', danger: null, approach: null },
 			preferredSymbolId: 'glyph-0'
 		});
 		expect(result.symbolId).toBe('glyph-3');
@@ -127,7 +132,7 @@ describe('selectContextSymbol', () => {
 			emissionCount: 1,
 			contextDetail: 'water',
 			inventory: ['glyph-0'] as const,
-			lexicon: { food: 'glyph-0', water: null, danger: null },
+			lexicon: { food: 'glyph-0', water: null, danger: null, approach: null },
 			preferredSymbolId: 'glyph-0'
 		});
 		// Only one symbol, already assigned to food → exploratory pool falls back to inventory.
@@ -149,7 +154,7 @@ describe('danger symbol production', () => {
 	it('uses its personal exclusive danger assignment', () => {
 		const result = selectContextSymbol({
 			...input,
-			lexicon: { food: 'glyph-0', water: 'glyph-1', danger: 'glyph-3' }
+			lexicon: { food: 'glyph-0', water: 'glyph-1', danger: 'glyph-3', approach: null }
 		});
 		expect(result.symbolId).toBe('glyph-3');
 		expect(result.evidence.mode).toBe('learned_lexicon');
@@ -157,7 +162,7 @@ describe('danger symbol production', () => {
 	it('explores reproducibly among symbols not assigned to resources', () => {
 		const request = {
 			...input,
-			lexicon: { food: 'glyph-0' as const, water: 'glyph-1' as const, danger: null }
+			lexicon: { food: 'glyph-0' as const, water: 'glyph-1' as const, danger: null, approach: null }
 		};
 		const result = selectContextSymbol(request);
 		expect(['glyph-2', 'glyph-3']).toContain(result.symbolId);
@@ -168,11 +173,53 @@ describe('danger symbol production', () => {
 		const result = selectContextSymbol({
 			...input,
 			contextDetail: 'food',
-			lexicon: { food: null, water: 'glyph-1', danger: 'glyph-0' }
+			lexicon: { food: null, water: 'glyph-1', danger: 'glyph-0', approach: null }
 		});
 		expect(['glyph-2', 'glyph-3']).toContain(result.symbolId);
 		expect(
 			result.evidence.candidates.find((candidate) => candidate.symbolId === 'glyph-0')?.note
 		).toBe('assigned_other_meaning');
+	});
+});
+
+describe('approach symbol production', () => {
+	it('uses its personal approach assignment and protects it during other exploration', () => {
+		const request = {
+			simulationSeed: 'approach-production',
+			creatureId: 'speaker',
+			emissionCount: 0,
+			contextDetail: 'approach' as const,
+			inventory: DEFAULT_SYMBOL_INVENTORY,
+			preferredSymbolId: 'glyph-0' as const,
+			lexicon: { ...emptyLexicon, approach: 'glyph-3' as const }
+		};
+		const known = selectContextSymbol(request);
+		expect(known.symbolId).toBe('glyph-3');
+		expect(known.evidence.mode).toBe('learned_lexicon');
+		const food = selectContextSymbol({ ...request, contextDetail: 'food' });
+		expect(food.symbolId).not.toBe('glyph-3');
+		expect(
+			food.evidence.candidates.find((candidate) => candidate.symbolId === 'glyph-3')?.note
+		).toBe('assigned_other_meaning');
+	});
+	it('explores an arbitrary unassigned form when approach has no personal meaning', () => {
+		const request = {
+			simulationSeed: 'unknown-approach',
+			creatureId: 'speaker',
+			emissionCount: 0,
+			contextDetail: 'approach' as const,
+			inventory: DEFAULT_SYMBOL_INVENTORY,
+			preferredSymbolId: 'glyph-0' as const,
+			lexicon: {
+				...emptyLexicon,
+				food: 'glyph-0' as const,
+				water: 'glyph-1' as const,
+				danger: 'glyph-2' as const
+			}
+		};
+		const result = selectContextSymbol(request);
+		expect(result.symbolId).toBe('glyph-3');
+		expect(result.evidence.mode).toBe('exploratory');
+		expect(selectContextSymbol(request)).toEqual(result);
 	});
 });

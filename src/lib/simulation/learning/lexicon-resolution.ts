@@ -58,7 +58,7 @@ function isEligible(
 	const count = countFor(row, meaning);
 	return (
 		strength >= config.lexiconAssignmentMinStrength &&
-		count >= config.lexiconAssignmentMinEvidenceCount
+		count >= Math.max(config.lexiconAssignmentMinEvidenceCount, meaning === 'approach' ? 2 : 0)
 	);
 }
 

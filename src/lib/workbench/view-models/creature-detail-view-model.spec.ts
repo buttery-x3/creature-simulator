@@ -184,12 +184,13 @@ describe('creature-detail-view-model', () => {
 it('keeps lexicon assignments and counts evidence across all meanings and symbols', () => {
 	const state = createSimulation(defaultSimulationConfig('meaning-rows'));
 	const creature = state.creatures[0];
-	creature.lexicon = { food: 'glyph-0', water: 'glyph-1', danger: 'glyph-2' };
+	creature.lexicon = { food: 'glyph-0', water: 'glyph-1', danger: 'glyph-2', approach: 'glyph-3' };
 	creature.symbolAssociations[0].evidence.food.count = 2;
 	creature.symbolAssociations[1].evidence.water.count = 3;
 	creature.symbolAssociations[2].evidence.danger.count = 4;
+	creature.symbolAssociations[3].evidence.approach.count = 5;
 	const row = buildRosterRows([creature])[0];
 	expect(row.lexicon).toEqual(creature.lexicon);
 	expect(row.lexicon).not.toBe(creature.lexicon);
-	expect(evidenceRowCount(creature)).toBe(9);
+	expect(evidenceRowCount(creature)).toBe(14);
 });

@@ -26,7 +26,8 @@ function row(
 		evidence: {
 			food: { strength: food, count: foodN },
 			water: { strength: water, count: waterN },
-			danger: { strength: 0, count: 0 }
+			danger: { strength: 0, count: 0 },
+			approach: { strength: 0, count: 0 }
 		},
 
 		dangerEvidenceEpisodes: []
@@ -157,7 +158,12 @@ describe('resolveCreatureLexicon', () => {
 			DEFAULT_SYMBOL_INVENTORY,
 			config
 		);
-		expect(before.lexicon).toEqual({ food: 'glyph-2', water: 'glyph-1', danger: null });
+		expect(before.lexicon).toEqual({
+			food: 'glyph-2',
+			water: 'glyph-1',
+			danger: null,
+			approach: null
+		});
 
 		const after = resolveCreatureLexicon(
 			evidence({
@@ -178,7 +184,8 @@ describe('resolveCreatureLexicon', () => {
 			evidence: {
 				food: { strength: Number.NaN, count: 5 },
 				water: { strength: Number.POSITIVE_INFINITY, count: 5 },
-				danger: { strength: 0, count: 0 }
+				danger: { strength: 0, count: 0 },
+				approach: { strength: 0, count: 0 }
 			},
 
 			dangerEvidenceEpisodes: []
@@ -191,8 +198,8 @@ describe('resolveCreatureLexicon', () => {
 describe('diffLexiconChanges', () => {
 	it('records only meanings that changed', () => {
 		const entries = diffLexiconChanges(
-			{ food: 'glyph-0', water: null, danger: null },
-			{ food: 'glyph-1', water: 'glyph-2', danger: null },
+			{ food: 'glyph-0', water: null, danger: null, approach: null },
+			{ food: 'glyph-1', water: 'glyph-2', danger: null, approach: null },
 			{
 				timeSeconds: 3,
 				assignmentScore: 1.2,
@@ -239,7 +246,12 @@ describe('three-meaning exclusivity', () => {
 			}
 		];
 		const resolved = resolveCreatureLexicon(rows, DEFAULT_SYMBOL_INVENTORY, config);
-		expect(resolved.lexicon).toEqual({ food: 'glyph-0', water: 'glyph-1', danger: 'glyph-2' });
+		expect(resolved.lexicon).toEqual({
+			food: 'glyph-0',
+			water: 'glyph-1',
+			danger: 'glyph-2',
+			approach: null
+		});
 		expect(resolved.score).toBeCloseTo(2.5);
 		expect(rows[0]!.evidence.danger.strength).toBe(1);
 	});
@@ -252,14 +264,16 @@ describe('three-meaning exclusivity', () => {
 					...emptyAssociation('glyph-0').evidence,
 					food: { strength: 0.4, count: 1 },
 					water: { strength: 0.6, count: 1 },
-					danger: { strength: 0.9, count: 1 }
+					danger: { strength: 0.9, count: 1 },
+					approach: { strength: 0, count: 0 }
 				}
 			}
 		];
 		expect(resolveCreatureLexicon(rows, DEFAULT_SYMBOL_INVENTORY, config).lexicon).toEqual({
 			food: null,
 			water: null,
-			danger: 'glyph-0'
+			danger: 'glyph-0',
+			approach: null
 		});
 	});
 });

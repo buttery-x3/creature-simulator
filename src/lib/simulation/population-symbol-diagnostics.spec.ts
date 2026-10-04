@@ -11,7 +11,7 @@ import { DEFAULT_SYMBOL_INVENTORY } from './communication/types';
 
 function emptySelectionEvidence(
 	symbolId: SignalEmission['symbolId'],
-	context: 'food' | 'water' | 'danger',
+	context: SignalEmission['contextDetail'],
 	mode: SignalEmission['selectionEvidence']['mode'] = 'exploratory'
 ): SignalEmission['selectionEvidence'] {
 	return {
@@ -40,7 +40,12 @@ function emission(
 		origin: { x: 0, y: 0 },
 		emittedAt: partial.emittedAt,
 		expiresAt: partial.emittedAt + 1,
-		context: partial.contextDetail === 'danger' ? 'danger_observed' : 'resource_discovered',
+		context:
+			partial.contextDetail === 'danger'
+				? 'danger_observed'
+				: partial.contextDetail === 'approach'
+					? 'approach_started'
+					: 'resource_discovered',
 		contextDetail: partial.contextDetail,
 		symbolSelectionReason: 'test',
 		selectionEvidence: emptySelectionEvidence(partial.symbolId, partial.contextDetail),
@@ -60,7 +65,8 @@ function assoc(
 		evidence: {
 			food: { strength: food, count: foodN },
 			water: { strength: water, count: waterN },
-			danger: { strength: 0, count: 0 }
+			danger: { strength: 0, count: 0 },
+			approach: { strength: 0, count: 0 }
 		},
 		dangerEvidenceEpisodes: []
 	};
@@ -75,19 +81,19 @@ describe('buildPopulationSymbolDiagnostics', () => {
 				symbolAssociations: inventory.map((id) =>
 					id === 'glyph-1' ? assoc(id, 0.8, 0) : assoc(id, 0, 0)
 				),
-				lexicon: { food: 'glyph-1', water: null, danger: null }
+				lexicon: { food: 'glyph-1', water: null, danger: null, approach: null }
 			}),
 			testCreature({
 				id: 'b',
 				symbolAssociations: inventory.map((id) =>
 					id === 'glyph-1' ? assoc(id, 0.4, 0) : assoc(id, 0, 0)
 				),
-				lexicon: { food: 'glyph-1', water: null, danger: null }
+				lexicon: { food: 'glyph-1', water: null, danger: null, approach: null }
 			}),
 			testCreature({
 				id: 'c',
 				symbolAssociations: inventory.map((id) => assoc(id, 0, 0)),
-				lexicon: { food: null, water: null, danger: null }
+				lexicon: { food: null, water: null, danger: null, approach: null }
 			})
 		];
 		const base = createSimulation({ ...defaultSimulationConfig('pop-fix'), creatureCount: 0 });
@@ -248,14 +254,15 @@ it('separates personal danger assignments and evidence from observer-only sender
 	const state = createSimulation(config);
 	state.creatures = [
 		testCreature({
-			lexicon: { food: null, water: null, danger: 'glyph-2' },
+			lexicon: { food: null, water: null, danger: 'glyph-2', approach: null },
 			symbolAssociations: [
 				{
 					...assoc('glyph-2', 0, 0),
 					evidence: {
 						food: { strength: 0, count: 0 },
 						water: { strength: 0, count: 0 },
-						danger: { strength: 0.6, count: 2 }
+						danger: { strength: 0.6, count: 2 },
+						approach: { strength: 0, count: 0 }
 					},
 					dangerEvidenceEpisodes: ['a', 'b']
 				}
@@ -275,4 +282,32 @@ it('separates personal danger assignments and evidence from observer-only sender
 	expect(result.food.creaturesContributingEvidence).toBe(0);
 	expect(formatPopulationSymbolDiagnostics(result)).toContain('danger:');
 	expect(JSON.stringify(state)).toBe(before);
+});
+
+it('includes approach in population evidence and emission summaries without declaring a shared meaning', () => {
+	const config = defaultSimulationConfig('approach-summary');
+	const state = createSimulation(config);
+	const evidence = assoc('glyph-3', 0, 0);
+	evidence.evidence.approach = { strength: 0.5, count: 2 };
+	state.creatures = [
+		testCreature({
+			lexicon: { food: null, water: null, danger: null, approach: 'glyph-3' },
+			symbolAssociations: [evidence]
+		})
+	];
+	state.timeSeconds = 5;
+	state.recentEmissions = [
+		emission({ id: 'call', symbolId: 'glyph-1', contextDetail: 'approach', emittedAt: 4 })
+	];
+	const result = buildPopulationSymbolDiagnostics(state, config);
+	const row = result.approach.associations.find(
+		(association) => association.symbolId === 'glyph-3'
+	)!;
+	expect(row.meanStrength).toBe(0.5);
+	expect(row.creaturesAssigned).toBe(1);
+	expect(result.approach.mostEmittedSymbolId).toBe('glyph-1');
+	expect(result.food.creaturesContributingEvidence).toBe(0);
+	expect(formatPopulationSymbolDiagnostics(result)).toContain(
+		'approach: highest mean evidence=glyph-3'
+	);
 });

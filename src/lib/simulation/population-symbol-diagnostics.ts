@@ -10,7 +10,7 @@
  */
 
 import type { SignalEmission, SymbolId } from './communication/types';
-import type { LexiconMeaning } from './learning/types';
+import { LEXICON_MEANINGS, type LexiconMeaning } from './learning/types';
 import type { Creature, SimulationConfig, SimulationState, SymbolAssociation } from './types';
 
 export type SymbolContextAssociationSummary = {
@@ -72,10 +72,7 @@ export type PopulationSymbolDiagnostics = {
 	windowSeconds: number;
 	creatureCount: number;
 	inventory: readonly SymbolId[];
-	food: ContextPopulationSummary;
-	water: ContextPopulationSummary;
-	danger: ContextPopulationSummary;
-};
+} & Record<LexiconMeaning, ContextPopulationSummary>;
 
 export type PopulationDiagnosticsConfig = Pick<
 	SimulationConfig,
@@ -361,35 +358,25 @@ export function buildPopulationSymbolDiagnostics(
 ): PopulationSymbolDiagnostics {
 	const inventory = config.symbolInventory;
 	const windowSeconds = config.recentEmissionDiagnosticsWindowSeconds;
+	const contexts = Object.fromEntries(
+		LEXICON_MEANINGS.map((context) => [
+			context,
+			buildContextSummary(
+				state.creatures,
+				state.recentEmissions,
+				inventory,
+				context,
+				state.timeSeconds,
+				windowSeconds
+			)
+		])
+	) as Record<LexiconMeaning, ContextPopulationSummary>;
 	return {
 		timeSeconds: state.timeSeconds,
 		windowSeconds,
 		creatureCount: state.creatures.length,
 		inventory,
-		food: buildContextSummary(
-			state.creatures,
-			state.recentEmissions,
-			inventory,
-			'food',
-			state.timeSeconds,
-			windowSeconds
-		),
-		danger: buildContextSummary(
-			state.creatures,
-			state.recentEmissions,
-			inventory,
-			'danger',
-			state.timeSeconds,
-			windowSeconds
-		),
-		water: buildContextSummary(
-			state.creatures,
-			state.recentEmissions,
-			inventory,
-			'water',
-			state.timeSeconds,
-			windowSeconds
-		)
+		...contexts
 	};
 }
 
@@ -404,7 +391,8 @@ export function formatPopulationSymbolDiagnostics(
 		`  t=${diagnostics.timeSeconds.toFixed(3)}s window=${diagnostics.windowSeconds.toFixed(1)}s creatures=${diagnostics.creatureCount}`
 	];
 
-	for (const ctx of [diagnostics.food, diagnostics.water, diagnostics.danger] as const) {
+	for (const meaning of LEXICON_MEANINGS) {
+		const ctx = diagnostics[meaning];
 		lines.push(
 			`  ${ctx.context}: highest mean evidence=${ctx.highestMeanAssociationSymbolId ?? 'none'}` +
 				` most assigned in lexicon=${ctx.mostAssignedSymbolId ?? 'none'}` +

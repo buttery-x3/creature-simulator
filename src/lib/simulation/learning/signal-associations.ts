@@ -116,7 +116,7 @@ export function applyNoEvidenceReduction(
 	const { associations: next, association, index } = getOrCreateAssociation(associations, symbolId);
 	const before = snapshotAssociationStrengths(association);
 	if (amount > 0) {
-		for (const meaning of LEXICON_MEANINGS)
+		for (const meaning of ['food', 'water', 'danger'] as const)
 			association.evidence[meaning].strength = clampStrength(
 				association.evidence[meaning].strength - amount,
 				config

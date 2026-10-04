@@ -87,8 +87,8 @@ describe('signal investigation helpers', () => {
 			symbolId: 'glyph-0' as const,
 			emissionId: 'em-1',
 			reason: 'test',
-			before: { food: 0, water: 0, danger: 0 },
-			after: { food: 0, water: 0, danger: 0 }
+			before: { food: 0, water: 0, danger: 0, approach: 0 },
+			after: { food: 0, water: 0, danger: 0, approach: 0 }
 		};
 		const history = appendLearningHistory(
 			[

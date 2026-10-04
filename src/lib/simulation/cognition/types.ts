@@ -16,10 +16,11 @@
  * not a separate “continue” intention kind and not a commitment lock.
  */
 
+import type { MovementResponse } from '../learning/movement';
 import type { LifeState, LifecycleConfig } from '../lifecycle';
 import type { SocialState, PeerObservation } from '../social/types';
 import type { Vec2 } from '$lib/habitat';
-import type { CreatureLexicon, SymbolAssociation } from '../learning/types';
+import type { CreatureLexicon, LexiconMeaning, SymbolAssociation } from '../learning/types';
 import type { CreatureMemory } from '../memory/types';
 import type { BodyState, EcologyConfig } from '../ecology/types';
 import type { WorldBounds } from '$lib/habitat';
@@ -81,6 +82,8 @@ export type CandidateReasonCode =
 	| 'expression_cooldown'
 	| 'expression_active'
 	| 'peer_affinity'
+	| 'learned_approach_prediction'
+	| 'approach_call_plan'
 	| 'observed_distress'
 	| 'local_rest'
 	| 'danger_aware_route'
@@ -89,6 +92,7 @@ export type CandidateReasonCode =
 	| 'warning_opportunity'
 	| 'no_warning_evidence'
 	| 'danger_requires_avoidance'
+	| 'approach_requires_visible_peer'
 	| 'local_danger'
 	| 'night_rest'
 	| 'hunting_payoff'
@@ -135,7 +139,7 @@ export type SignalEvaluation = {
 	symbolId: string;
 	origin: Vec2;
 	sequence: number;
-	interpretation: 'food' | 'water' | 'danger' | 'unknown';
+	interpretation: LexiconMeaning | 'unknown';
 	hungerPressure: number;
 	thirstPressure: number;
 	foodKnowledge: 'visible' | 'remembered' | 'none';
@@ -201,7 +205,11 @@ export type CognitionConfig = {
 export type ArbitrationInput = {
 	/** Own life state only; partner eligibility remains independently chosen. */
 	lifecycle?: { state: LifeState; config: LifecycleConfig };
-	social?: { state: SocialState; peers: readonly PeerObservation[] };
+	social?: {
+		state: SocialState;
+		peers: readonly PeerObservation[];
+		response?: MovementResponse | null;
+	};
 	speechReady?: boolean;
 	symbolAssociations?: readonly SymbolAssociation[];
 	/** Optional only for resource-only pure consumers; runtime always supplies this snapshot. */
@@ -238,6 +246,7 @@ export type ArbitrationInput = {
 	/** Listener-local resolved assignments; never raw evidence or speaker context. */
 	lexicon: Readonly<CreatureLexicon>;
 	currentIntention: IntentionKind | null;
+	currentIntentionStartedAt?: number;
 	currentTarget: CreatureTarget | null;
 	/** Innate home feature id for rest targeting. */
 	homeFeatureId: string;

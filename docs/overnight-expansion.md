@@ -17,7 +17,8 @@
 Physical ecology, grounded danger language, acute-need scoring, local rest,
 bounded relationships and innate expression are implemented and checked. Lifecycle
 and population turnover are implemented and observed, including natural births
-and eventual extinction. The next increment is grounded social movement learning.
+and eventual extinction. Grounded approach learning is also implemented and observed; next is easier
+reproducible observation across resource and population conditions.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -266,7 +267,7 @@ experiment values. Newborn size/physicality grow from half an independent seeded
 adult baseline to full size at 90 seconds; founders start 90–240 seconds old.
 Deprivation at need>=0.95 has45s hunger/25s thirst grace, then damages health at
 0.004/0.006 per second. Exposure decays at2s/s when relieved. Senescence starts
-at 540 seconds and damages health at0.004/s; maximum age 900 seconds prevents
+at 540 seconds and damages health at 0.004/s; maximum age 900 seconds prevents
 sleep healing from making creatures immortal. The injury floor is removed.
 
 The population cap 64 is disclosed as a computational limit. A completed pair at
@@ -352,3 +353,68 @@ were normalized; decisions, learning, positions, offspring and histories matched
 The archived-source comparison and hashes are retained in the ignored local
 .svelte-kit/evidence-migration directory. This is evidence for the representation
 migration, not a cross-runtime reproducibility claim.
+
+## Checkpoint 8: learned local approach
+
+Implemented a fourth meaning, approach: a personally learned prediction of local
+closing interaction, not a universal come/follow command. A heard glyph is paired
+only with a uniquely visible peer near its origin; no hidden sender identity,
+intention or emission label enters the learner. The peer's own closing movement
+and comfortable contact must be observed. Two distinct retained encounters are
+required for assignment. Listener-only movement, absent hearing and ambiguous
+source controls do not teach successful approach. Missing or incomplete sight is
+unobserved, while fully watched stationary/withdrawing context gives approach-only
+counterevidence. Food/water/danger evidence stays independent and may compete.
+
+Cognition owns both a modest learned-response bonus and a silent-versus-calling
+movement plan. The actual score factors expose those choices. Affiliation and own
+condition still matter; urgent thirst or danger can win. Responses expire from
+original hearing, are spent on arrival/loss/interruption, and cannot extend through
+call spam. Learned approach does not chase a stale sound origin. Calls occur only
+under a selected plan, once per selected approach/court episode plus 12s cooldown;
+a response to that peer cannot echo a call back. The same actually trained learner
+later re-emits its acquired arbitrary glyph through real communication in a test.
+
+Defaults: 16 encounter records, 4 pending traces, 4s observation/response window,
+12s absence to end an encounter, 0.25 origin-binding radius, 0.35 peer closing travel,
+1 unit contact distance, 0.5s comfortable contact at own comfort>=0.65. Confirmations
+reinforce by the existing 0.25; contradiction reduces approach strength by 0.1.
+Response bonus is capped at 0.12 before confidence/condition/affiliation factors;
+calling benefit 0.06×verbosity×affiliation minus 0.01 effort remains in ordinary
+utility. Overall approach/court optional score remains capped at 0.6 before existing
+continuity/risk rules. All bounds and numeric states passed extended observation.
+
+Natural 600s Node runs (demo/river/drought): 22/11/9 approach calls, of which 0/0/2
+used the sender's learned approach glyph. Observed sequence outcomes were
+24/11/28 confirmed, 94/54/81 contradicted and 258/212/243 unobserved. Peak assigned
+approach carriers were 2/1/4; none remained assigned at the end. These outcomes
+include learning from any heard glyph paired with motion, not only sender-labelled
+approach calls. Final populations were 5/1/0, births 3/1/2, highest generations 2/1/1;
+drought became extinct at 587.733s. Surviving demo generations 1 and 2 held personally
+learned water/danger meanings. No transmission or stable convention is guaranteed.
+Max encounters 13/11/11 and pending 4; no bound violation or saturated recorded history.
+
+Browser: all four trace outcomes and bound/ambiguous/unseen sources occurred
+naturally. At 4.267s creature 2 had a confirmed observation of creature 1, closing
+0.36327 units, closest distance 0.27000 and comfortable contact 0.50s; its lexicon
+still remained unassigned, correctly separating one observation from a meaning.
+At 50.267s creature 0 showed approach=glyph2, strength 0.750 and count 3. Seven
+screenshots were inspected; the fourth column fitted and no page errors occurred.
+The binding label now says Latest local binding so it is not confused with an
+expanded older peer trace.
+
+Structure: learning/movement is a named bounded observation-state subdomain with
+four implementation modules. Movement policy and execution each have explicit
+owners; the main sensory/step coordinators only invoke them. No file limits,
+directory limits, dependencies or repository rules were raised. The sequence
+coordinator is about 300 code lines; new independent motion concepts should split
+policy there before repeated growth. Existing CreatureLanguage remains cohesive
+at 305 lines; no eighth inspector file was added. Population diagnostics became
+meaning-driven and shrank. Public simulation call shapes remain unchanged; new
+serialized movement state/types and the fourth meaning are exposed deliberately.
+
+Validation: full npm run check passed 606 unit tests, server check, build and
+11 browser tests. All three 600s runs held memory/sequence bounds and the repeated
+60s full-state trajectory matched. Next: deepen the
+observed learning/turnover interactions and make reproducible observation scenarios
+easier to run; go/stop and extended following remain future supported concepts.

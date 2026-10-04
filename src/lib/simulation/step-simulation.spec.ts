@@ -273,7 +273,7 @@ describe('announce_resource same-step race (successful emit)', () => {
 			movementSpeed: 0,
 			nextReconsiderAt: 999,
 			preferredSymbolId: 'glyph-0',
-			lexicon: { food: 'glyph-0', water: null, danger: null }
+			lexicon: { food: 'glyph-0', water: null, danger: null, approach: null }
 		});
 		let state: SimulationState = {
 			...base,
@@ -353,7 +353,7 @@ describe('announce_resource end-to-end (unified intentions)', () => {
 			nextReconsiderAt: 0,
 			pendingArbitrationTrigger: 'relevant_resource_perception_change',
 			preferredSymbolId: 'glyph-0',
-			lexicon: { food: 'glyph-0', water: null, danger: null }
+			lexicon: { food: 'glyph-0', water: null, danger: null, approach: null }
 		});
 
 		let state: SimulationState = {

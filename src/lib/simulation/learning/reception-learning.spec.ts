@@ -59,7 +59,7 @@ function hear(
 	const sender = testCreature({
 		id: 'speaker',
 		emissionCount: count,
-		lexicon: { food: null, water: null, danger: null, [context]: 'glyph-2' }
+		lexicon: { food: null, water: null, danger: null, [context]: 'glyph-2', approach: null }
 	});
 	const { state } = stepCommunication(
 		{ ...world, creatures: [sender, receiver] },
@@ -137,7 +137,12 @@ describe('listener-local danger reception learning', () => {
 		};
 		const next = learn(hear(receiver, 1, 'water'));
 		expect(association(next)).toMatchObject({
-			evidence: { food: { strength: 0.25 }, danger: { strength: 0.25 }, water: { strength: 0 } }
+			evidence: {
+				food: { strength: 0.25 },
+				danger: { strength: 0.25 },
+				water: { strength: 0 },
+				approach: { strength: 0, count: 0 }
+			}
 		});
 		expect(next.recentLearning.at(-1)?.outcome).toBe('mixed_evidence');
 		expect(next.lexicon.food).toBe('glyph-2');

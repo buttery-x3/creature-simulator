@@ -259,10 +259,10 @@
 			</table>
 		{/if}
 		<p class="hint">
-			Learning outcomes (recent history): danger={vm.completedOutcomes.danger_evidence}, food={vm
-				.completedOutcomes.food_evidence}, water={vm.completedOutcomes.water_evidence}, mixed={vm
-				.completedOutcomes.mixed_evidence}, none={vm.completedOutcomes.no_evidence}, interrupted={vm
-				.completedOutcomes.interrupted}
+			Learning outcomes (recent history):
+			{#each Object.entries(vm.completedOutcomes).filter(([key]) => key !== 'source') as [outcome, count], index (outcome)}{index
+					? ', '
+					: ''}{outcome.replaceAll('_', ' ')}={count}{/each}
 		</p>
 	</section>
 </div>

@@ -18,6 +18,39 @@ function stepComm(...args: Parameters<typeof stepCommunication>): SimulationStat
 	return stepCommunication(...args).state;
 }
 
+it('transmits an approach symbol without copying the sender context or interpretation', () => {
+	const config = defaultSimulationConfig('approach-hearing');
+	const state = createSimulation(config);
+	const speaker = testCreature({
+		id: 'speaker',
+		lexicon: { food: null, water: null, danger: null, approach: 'glyph-3' }
+	});
+	const listener = testCreature({ id: 'listener', position: { x: 1, y: 0 } });
+	const before = structuredClone(listener);
+	const result = stepCommunication(
+		{ ...state, creatures: [speaker, listener] },
+		[
+			{
+				senderId: speaker.id,
+				origin: speaker.position,
+				context: 'approach_started',
+				contextDetail: 'approach'
+			}
+		],
+		0,
+		config
+	);
+	const received = result.state.creatures[1];
+	const heard = received.recentHeard[0];
+	expect(result.emittedThisStep[0].contextDetail).toBe('approach');
+	expect(heard.symbolId).toBe('glyph-3');
+	expect(heard).not.toHaveProperty('contextDetail');
+	expect(heard).not.toHaveProperty('selectionEvidence');
+	expect(received.lexicon).toEqual(before.lexicon);
+	expect(received.symbolAssociations).toEqual(before.symbolAssociations);
+	expect(received.intention).toBe(before.intention);
+});
+
 function testSelectionEvidence(
 	symbolId: SymbolId,
 	context: ResourceDiscoveryDetail = 'food'
@@ -264,7 +297,7 @@ describe('stepCommunication', () => {
 			id: 'creature-0',
 			position: { x: 0, y: 0 },
 			preferredSymbolId: 'glyph-1',
-			lexicon: { food: 'glyph-0', water: 'glyph-3', danger: null },
+			lexicon: { food: 'glyph-0', water: 'glyph-3', danger: null, approach: null },
 			lastEmissionAt: -1
 		});
 		let state = bareState({ creatures: [sender], timeSeconds: 1, seed: 'context-symbol' });
@@ -288,7 +321,7 @@ describe('stepCommunication', () => {
 		const senderAfter = {
 			...state.creatures[0]!,
 			lastEmissionAt: -1,
-			lexicon: { food: 'glyph-0' as const, water: 'glyph-3' as const, danger: null }
+			lexicon: { food: 'glyph-0' as const, water: 'glyph-3' as const, danger: null, approach: null }
 		};
 		state = {
 			...state,
@@ -494,7 +527,7 @@ describe('discovery integration via stepSimulation', () => {
 			id: 'creature-0',
 			position: { x: 0, y: 0 },
 			preferredSymbolId: 'glyph-0',
-			lexicon: { food: 'glyph-3', water: null, danger: null }
+			lexicon: { food: 'glyph-3', water: null, danger: null, approach: null }
 		});
 		const state = bareState({ creatures: [sender], timeSeconds: 1, seed: 'lexicon-emit' });
 		const next = stepComm(
@@ -524,7 +557,7 @@ describe('discovery integration via stepSimulation', () => {
 							? {
 									...c,
 									lastEmissionAt: -1,
-									lexicon: { food: 'glyph-3', water: null, danger: null },
+									lexicon: { food: 'glyph-3', water: null, danger: null, approach: null },
 									preferredSymbolId: 'glyph-0'
 								}
 							: c
@@ -557,12 +590,18 @@ describe('discovery integration via stepSimulation', () => {
 			evidence: {
 				food: { strength: 0.5, count: 1 },
 				water: { strength: 0.25, count: 1 },
-				danger: { strength: 0, count: 0 }
+				danger: { strength: 0, count: 0 },
+				approach: { strength: 0, count: 0 }
 			},
 
 			dangerEvidenceEpisodes: []
 		}));
-		const lexicon = { food: 'glyph-0' as const, water: 'glyph-1' as const, danger: null };
+		const lexicon = {
+			food: 'glyph-0' as const,
+			water: 'glyph-1' as const,
+			danger: null,
+			approach: null
+		};
 		const sender = testCreature({
 			id: 'creature-0',
 			position: { x: 0, y: 0 },

@@ -66,7 +66,8 @@ describe('symbol associations', () => {
 				evidence: {
 					food: { strength: 0.4, count: 1 },
 					water: { strength: 0.2, count: 1 },
-					danger: { strength: 0, count: 0 }
+					danger: { strength: 0, count: 0 },
+					approach: { strength: 0, count: 0 }
 				},
 				dangerEvidenceEpisodes: []
 			}
@@ -88,7 +89,7 @@ it('bounds independent danger episode provenance and ignores repeated confirmati
 			associations,
 			'glyph-0',
 			{
-				meanings: { food: false, water: false, danger: true },
+				meanings: { food: false, water: false, danger: true, approach: false },
 				dangerEpisodes: [`animal:${episode}`],
 				amount: 0.1
 			},
@@ -99,7 +100,7 @@ it('bounds independent danger episode provenance and ignores repeated confirmati
 		associations,
 		'glyph-0',
 		{
-			meanings: { food: false, water: false, danger: true },
+			meanings: { food: false, water: false, danger: true, approach: false },
 			dangerEpisodes: ['animal:19'],
 			amount: 0.1
 		},
@@ -113,7 +114,7 @@ it('bounds independent danger episode provenance and ignores repeated confirmati
 
 it('does not repeatedly learn when simultaneous episode candidates exceed provenance capacity', () => {
 	const options = {
-		meanings: { food: false, water: false, danger: true },
+		meanings: { food: false, water: false, danger: true, approach: false },
 		dangerEpisodes: Array.from({ length: 12 }, (_, index) => `animal-${index}:1`),
 		amount: 0.25
 	};
@@ -145,8 +146,8 @@ it('updates partial meaning evidence without mutating its source or scalar histo
 		clamp
 	);
 	expect(row.evidence.food).toEqual({ strength: 0, count: 0 });
-	expect(update.before).toEqual({ food: 0, water: 0.7, danger: 0.4 });
-	expect(update.after).toEqual({ food: 0.25, water: 0.7, danger: 0.4 });
+	expect(update.before).toEqual({ food: 0, water: 0.7, danger: 0.4, approach: 0 });
+	expect(update.after).toEqual({ food: 0.25, water: 0.7, danger: 0.4, approach: 0 });
 	expect(update.associations[0]!.evidence.water).toEqual(row.evidence.water);
 	expect(update.associations[0]!.evidence.danger).toEqual(row.evidence.danger);
 	update.associations[0]!.evidence.food.strength = 1;
@@ -159,10 +160,10 @@ it('preserves evidence counts and source records when confidence falls', () => {
 	row.evidence.water = { strength: 0.2, count: 3 };
 	row.evidence.danger = { strength: 0.1, count: 1 };
 	const update = applyNoEvidenceReduction([row], 'glyph-0', 0.25, clamp);
-	expect(update.before).toEqual({ food: 0.4, water: 0.2, danger: 0.1 });
-	expect(update.after).toEqual({ food: 0.15000000000000002, water: 0, danger: 0 });
+	expect(update.before).toEqual({ food: 0.4, water: 0.2, danger: 0.1, approach: 0 });
+	expect(update.after).toEqual({ food: 0.15000000000000002, water: 0, danger: 0, approach: 0 });
 	expect(Object.values(update.associations[0]!.evidence).map((entry) => entry.count)).toEqual([
-		2, 3, 1
+		2, 3, 1, 0
 	]);
 	expect(row.evidence.food.strength).toBe(0.4);
 });

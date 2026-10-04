@@ -1,3 +1,4 @@
+import { withMovementPlan } from '../social/movement-policy';
 import { reproductionEligible } from '../../lifecycle';
 import { SOCIAL_DEFAULTS } from '../../social';
 import type { ArbitrationInput, CandidateReasonCode, IntentionCandidate } from '../types';
@@ -74,8 +75,7 @@ export function buildCourtshipCandidate(input: ArbitrationInput): IntentionCandi
 			COURTSHIP_UTILITY.maximum,
 			(COURTSHIP_UTILITY.baseline + COURTSHIP_UTILITY.bondWeight * bond) * condition
 		);
-		if (best.valid && score <= best.baseScore) continue;
-		best = {
+		const candidate = withMovementPlan(input, {
 			...unavailable('no_reproductive_opportunity'),
 			valid: true,
 			score,
@@ -90,7 +90,8 @@ export function buildCourtshipCandidate(input: ArbitrationInput): IntentionCandi
 			],
 			reasonCodes: ['reproductive_opportunity'],
 			rejectionReason: undefined
-		};
+		});
+		if (!best.valid || candidate.baseScore > best.baseScore) best = candidate;
 	}
 	return best;
 }

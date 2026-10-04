@@ -58,3 +58,21 @@ export {
 } from './step-signal-learning';
 
 export { learnFromLocalDangerReception } from './reception-learning';
+
+export {
+	MOVEMENT_DEFAULTS,
+	emptyMovementLearningState,
+	observeMovementLearning,
+	hearMovementLearning,
+	consumeMovementResponse
+} from './movement';
+export type {
+	MovementLearningState,
+	MovementLearningConfig,
+	MovementHeardSignal,
+	MovementEncounter,
+	MovementTrace,
+	MovementTraceStatus,
+	MovementResponse,
+	MovementBinding
+} from './movement';

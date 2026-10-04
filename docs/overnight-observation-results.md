@@ -1,92 +1,104 @@
 # Overnight lifecycle and ecology observation
 
-Run on October 4, 2026 at 11:35 p.m. with `node scripts/overnight-observation.mjs`. Source HEAD: `b517e3d7d2875fe5c58fb5d65a87c368c6dbb88b`; working-source SHA-256: `5f3e03aa6c5c4598ac9f517d76f85febadb133dff436d0ccd65916de6a8d47ab`.
+Run on October 5, 2026 at 12:00 a.m. with `node scripts/overnight-observation.mjs`. Source HEAD: `9aee1c6ac91bb816c2abd2736b36454c537b7db6`; working-source SHA-256: `014859d1089bd79e7c91bebe21d7cc3e16a767a5569b229a269171836f1a6b08`.
 
 ## Method
 
 Three fixed seeds, default configuration and fixed timestep, 600 simulated seconds per seed. Vite SSR loads the authoritative simulation in middleware mode without opening a listening port. Runtime includes stepping and measurement, excludes module loading. Action/intention distributions sample each creature once per simulated second; extrema, need-duration and encounter totals are accumulated every step. Alive creature-seconds integrate the post-step living population at each fixed timestep; need percentages use this same changing-population denominator. Empty-population final means are null.
 
-Encounter, death-cause and failed-courtship counters select records whose timestamp equals the current step, rather than counting the same bounded history repeatedly. A saturated history step makes these detail totals lower bounds. Birth/death totals instead use live ID additions/removals and are not truncated by event-history capacity. Hunt/flee entries count actual intention changes into those states. “Rapid switches” means successive intention changes within two seconds; it is a diagnostic proxy, not proof of pathological oscillation. “Stationary movement” means consecutive one-second observations moving less than 0.02 units while action is move/search/explore; it can include turning or edge effects.
+Encounter, death-cause, failed-courtship, movement-learning and approach-call counters select records whose timestamp equals the current step, rather than counting the same bounded history repeatedly. Learning records are also deduplicated by listener, emission and outcome within the step; emissions by ID. Saturated history steps make detail totals lower bounds, and learning immediately preceding same-step death can be absent from survivor history. Binding counts sample only the latest binding per listener per step. Birth/death totals instead use live ID additions/removals and are not truncated by event-history capacity. Hunt/flee entries count actual intention changes into those states. “Rapid switches” means successive intention changes within two seconds; it is a diagnostic proxy, not proof of pathological oscillation. “Stationary movement” means consecutive one-second observations moving less than 0.02 units while action is move/search/explore; it can include turning or edge effects.
 
-This run includes growth, reciprocal courtship, birth, ageing and mortality. Population decline or extinction is reported directly; no rescue or ecological success criterion is imposed. Historical fixed-population pressure totals are not comparable to these dynamic-population measurements and are intentionally omitted.
+This run includes growth, reciprocal courtship, birth, ageing and mortality. Population decline or extinction is reported directly; no rescue or ecological success criterion is imposed. Historical fixed-population pressure totals are not comparable to these dynamic-population measurements and are intentionally omitted. Movement outcomes concern any heard form paired with local motion, including resource or danger emissions; approach-call counts concern only the observer-labelled approach emission context. A confirmed sequence is local evidence, not proof of the sender intention.
 
 ## Results
 
 | Seed              | Population initial / final / min–max | Births / deaths | Max generation | Alive creature-s | First extinction s |
 | ----------------- | -----------------------------------: | --------------: | -------------: | ---------------: | -----------------: |
-| demo              |                        12 / 4 / 4–14 |          2 / 10 |              1 |        6916.9333 |               none |
-| overnight-river   |                        12 / 0 / 0–12 |          0 / 12 |              0 |        4121.9667 |           580.2667 |
-| overnight-drought |                        12 / 0 / 0–12 |          0 / 12 |              0 |        3920.5333 |           463.7333 |
+| demo              |                        12 / 5 / 5–14 |          3 / 10 |              2 |             6683 |               none |
+| overnight-river   |                        12 / 1 / 1–12 |          1 / 12 |              1 |        4083.9667 |               none |
+| overnight-drought |                        12 / 0 / 0–12 |          2 / 14 |              1 |        5169.1333 |           587.7333 |
 
 | Seed              | Runtime s | Hunt / flee entries | Creature / wildlife attacks | Carcass consumption events / amount | Living wildlife / carcasses |
 | ----------------- | --------: | ------------------: | --------------------------: | ----------------------------------: | --------------------------: |
-| demo              |    3.1222 |             19 / 97 |                     16 / 18 |                        402 / 3.3424 |                       2 / 1 |
-| overnight-river   |    1.6538 |             3 / 225 |                      0 / 31 |                               0 / 0 |                       6 / 0 |
-| overnight-drought |    1.5867 |            12 / 270 |                      6 / 28 |                         254 / 2.108 |                       4 / 0 |
+| demo              |    2.8424 |            22 / 107 |                     17 / 23 |                        679 / 5.6486 |                       1 / 0 |
+| overnight-river   |    1.5802 |             1 / 250 |                      3 / 37 |                         71 / 0.5917 |                       5 / 0 |
+| overnight-drought |    1.8712 |            18 / 259 |                      9 / 32 |                        345 / 2.8613 |                       3 / 0 |
 
 | Seed              | Hunger min–max | Thirst min–max | Energy min–max | Health min–max | Memory max / max capacity |
 | ----------------- | -------------: | -------------: | -------------: | -------------: | ------------------------: |
-| demo              |       0.0956–1 |       0.1109–1 |       0–0.9065 |            0–1 |                   16 / 16 |
-| overnight-river   |       0.1119–1 |        0.111–1 |       0–0.9066 |            0–1 |                   15 / 15 |
-| overnight-drought |       0.1125–1 |       0.1113–1 |       0–0.9051 |            0–1 |                   15 / 15 |
+| demo              |       0.1117–1 |       0.1109–1 |       0–0.9066 |            0–1 |                   16 / 16 |
+| overnight-river   |       0.1117–1 |        0.111–1 |       0–0.9066 |            0–1 |                   16 / 16 |
+| overnight-drought |       0.1119–1 |        0.111–1 |       0–0.9066 |            0–1 |                   15 / 15 |
 
 | Seed              | Hunger ≥.95 creature-s / longest episode s | Thirst ≥.95 creature-s / longest episode s | Energy ≤.05 creature-s | Switches / rapid | Stationary movement max s |
 | ----------------- | -----------------------------------------: | -----------------------------------------: | ---------------------: | ---------------: | ------------------------: |
-| demo              |                       2447.7667 / 255.9333 |                             73.9 / 17.1333 |               110.9333 |       1712 / 730 |                         3 |
-| overnight-river   |                       1196.8667 / 114.0333 |                        912.8333 / 107.1667 |                94.4667 |       1244 / 642 |                         2 |
-| overnight-drought |                       1056.2333 / 106.2667 |                          1381.2333 / 141.5 |                93.8333 |       1380 / 737 |                         2 |
+| demo              |                          1998.3667 / 188.9 |                            113.8333 / 19.6 |                  115.6 |       1773 / 764 |                         2 |
+| overnight-river   |                              944.1 / 110.2 |                         960.5667 / 92.9667 |                88.0667 |       1344 / 688 |                         1 |
+| overnight-drought |                             1409.3 / 155.2 |                       1068.9333 / 153.1333 |                   54.5 |       1737 / 923 |                         2 |
+
+| Seed              | Approach calls / learned calls | Confirmed / contradicted / unobserved sequences | Approach carriers final / max | Encounter / pending max | Bound violations |
+| ----------------- | -----------------------------: | ----------------------------------------------: | ----------------------------: | ----------------------: | ---------------: |
+| demo              |                         22 / 0 |                                   24 / 94 / 258 |                         0 / 2 |                  13 / 4 |                0 |
+| overnight-river   |                         11 / 0 |                                   11 / 54 / 212 |                         0 / 1 |                  11 / 4 |                0 |
+| overnight-drought |                          9 / 2 |                                   28 / 81 / 243 |                         0 / 4 |                  11 / 4 |                0 |
 
 ### demo
 
-Death causes: deprivation: 5 (50.0%); age: 4 (40.0%); injury: 1 (10.0%). Courtship failures: timeout: 2 (100.0%). Saturated lifecycle-history steps: 0.
+Death causes: deprivation: 6 (60.0%); age: 4 (40.0%). Courtship failures: timeout: 4 (100.0%). Saturated lifecycle-history steps: 0.
 
-High hunger / high thirst / exhaustion: 35.388% / 1.0684% / 1.6038% of alive creature-time.
+Latest local source bindings: unseen: 1277 (68.7%); bound: 498 (26.8%); ambiguous: 79 (4.3%); budget: 4 (0.2%). Saturated learning / emission history steps: 0 / 0. Final retained meaning carriers by generation: generation 0, alive 3, food 3, water 3, danger 3, approach 0; generation 1, alive 1, food 0, water 1, danger 1, approach 0; generation 2, alive 1, food 0, water 1, danger 1, approach 0. These are personal assignments among survivors, not inherited meanings or a population dictionary.
 
-Actions: move: 2743 (39.7%); search: 2088 (30.2%); explore: 765 (11.1%); sleep: 519 (7.5%); drink: 315 (4.6%); eat: 202 (2.9%); court: 183 (2.6%); fight: 41 (0.6%); dance: 30 (0.4%); cry: 28 (0.4%).
+High hunger / high thirst / exhaustion: 29.9022% / 1.7033% / 1.7298% of alive creature-time.
 
-Innate expression starts: dance: 65; cry: 31. Maximum retained relationships: 8; current observed peers: 13.
+Actions: move: 3193 (47.8%); search: 1576 (23.6%); explore: 665 (10.0%); sleep: 489 (7.3%); drink: 281 (4.2%); eat: 203 (3.0%); court: 170 (2.5%); fight: 58 (0.9%); dance: 32 (0.5%); cry: 12 (0.2%).
 
-Intentions: satisfy_hunger: 2753 (39.8%); investigate_signal: 1026 (14.8%); satisfy_thirst: 894 (12.9%); explore: 765 (11.1%); rest: 606 (8.8%); court_peer: 304 (4.4%); flee: 269 (3.9%); hunt: 87 (1.3%); avoid_danger: 86 (1.2%); announce_resource: 45 (0.7%); dance: 30 (0.4%); cry: 28 (0.4%); warn_danger: 21 (0.3%).
+Innate expression starts: dance: 64; cry: 14. Maximum retained relationships: 8; current observed peers: 12.
 
-Most frequent rapid transition pairs: warn_danger → flee: 80; rest → satisfy_hunger: 70; rest → explore: 42; satisfy_thirst → satisfy_hunger: 38; rest → investigate_signal: 33.
+Intentions: satisfy_hunger: 2297 (34.4%); investigate_signal: 1266 (19.0%); satisfy_thirst: 827 (12.4%); explore: 665 (10.0%); rest: 576 (8.6%); flee: 345 (5.2%); court_peer: 260 (3.9%); avoid_danger: 221 (3.3%); hunt: 105 (1.6%); announce_resource: 51 (0.8%); dance: 32 (0.5%); warn_danger: 22 (0.3%); cry: 12 (0.2%).
 
-Final mean hunger/thirst/energy: 0.4039 / 0.3041 / 0.6612; injured creatures: 4/4; food sources: 5. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
+Most frequent rapid transition pairs: warn_danger → flee: 85; rest → satisfy_hunger: 55; rest → investigate_signal: 47; rest → explore: 43; satisfy_thirst → satisfy_hunger: 31.
+
+Final mean hunger/thirst/energy: 0.3799 / 0.3625 / 0.5678; injured creatures: 4/5; food sources: 4. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
 
 ### overnight-river
 
-Death causes: injury: 5 (41.7%); deprivation: 5 (41.7%); age: 2 (16.7%). Courtship failures: none. Saturated lifecycle-history steps: 0.
+Death causes: injury: 7 (58.3%); deprivation: 3 (25.0%); age: 2 (16.7%). Courtship failures: timeout: 1 (100.0%). Saturated lifecycle-history steps: 0.
 
-High hunger / high thirst / exhaustion: 29.0363% / 22.1456% / 2.2918% of alive creature-time.
+Latest local source bindings: unseen: 1213 (73.2%); bound: 404 (24.4%); ambiguous: 38 (2.3%); budget: 1 (0.1%). Saturated learning / emission history steps: 0 / 0. Final retained meaning carriers by generation: generation 1, alive 1, food 1, water 1, danger 0, approach 0. These are personal assignments among survivors, not inherited meanings or a population dictionary.
 
-Actions: move: 2472 (60.0%); search: 920 (22.3%); sleep: 269 (6.5%); explore: 157 (3.8%); eat: 138 (3.4%); drink: 132 (3.2%); court: 26 (0.6%); cry: 2 (0.0%); dance: 1 (0.0%).
+High hunger / high thirst / exhaustion: 23.1172% / 23.5204% / 2.1564% of alive creature-time.
 
-Innate expression starts: dance: 5; cry: 2. Maximum retained relationships: 8; current observed peers: 11.
+Actions: move: 2567 (62.9%); search: 718 (17.6%); sleep: 268 (6.6%); explore: 168 (4.1%); eat: 141 (3.5%); drink: 123 (3.0%); court: 70 (1.7%); fight: 12 (0.3%); cry: 8 (0.2%); dance: 4 (0.1%).
 
-Intentions: satisfy_hunger: 1143 (27.8%); flee: 842 (20.5%); investigate_signal: 777 (18.9%); satisfy_thirst: 693 (16.8%); rest: 300 (7.3%); explore: 157 (3.8%); avoid_danger: 103 (2.5%); warn_danger: 40 (1.0%); court_peer: 37 (0.9%); announce_resource: 16 (0.4%); hunt: 6 (0.1%); cry: 2 (0.0%); dance: 1 (0.0%).
+Innate expression starts: dance: 17; cry: 8. Maximum retained relationships: 8; current observed peers: 11.
 
-Most frequent rapid transition pairs: warn_danger → flee: 184; rest → satisfy_hunger: 48; rest → satisfy_thirst: 34; flee → satisfy_hunger: 23; satisfy_thirst → warn_danger: 22.
+Intentions: flee: 934 (22.9%); satisfy_hunger: 892 (21.9%); satisfy_thirst: 735 (18.0%); investigate_signal: 721 (17.7%); rest: 298 (7.3%); explore: 168 (4.1%); avoid_danger: 128 (3.1%); court_peer: 107 (2.6%); warn_danger: 42 (1.0%); hunt: 23 (0.6%); announce_resource: 19 (0.5%); cry: 8 (0.2%); dance: 4 (0.1%).
 
-Final mean hunger/thirst/energy: null / null / null; injured creatures: 0/0; food sources: 5. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
+Most frequent rapid transition pairs: warn_danger → flee: 202; rest → satisfy_hunger: 43; rest → satisfy_thirst: 28; flee → satisfy_thirst: 26; satisfy_hunger → warn_danger: 24.
+
+Final mean hunger/thirst/energy: 0.8537 / 1 / 0.1798; injured creatures: 1/1; food sources: 5. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
 
 ### overnight-drought
 
-Death causes: injury: 4 (33.3%); deprivation: 4 (33.3%); age: 4 (33.3%). Courtship failures: none. Saturated lifecycle-history steps: 0.
+Death causes: injury: 6 (42.9%); deprivation: 4 (28.6%); age: 4 (28.6%). Courtship failures: none. Saturated lifecycle-history steps: 0.
 
-High hunger / high thirst / exhaustion: 26.9411% / 35.2308% / 2.3934% of alive creature-time.
+Latest local source bindings: unseen: 1182 (65.2%); bound: 548 (30.2%); ambiguous: 82 (4.5%); budget: 2 (0.1%). Saturated learning / emission history steps: 0 / 0. Final retained meaning carriers by generation: no survivors. These are personal assignments among survivors, not inherited meanings or a population dictionary.
 
-Actions: move: 2215 (56.6%); search: 972 (24.8%); sleep: 276 (7.1%); explore: 185 (4.7%); eat: 124 (3.2%); drink: 101 (2.6%); fight: 27 (0.7%); cry: 11 (0.3%); dance: 3 (0.1%).
+High hunger / high thirst / exhaustion: 27.2638% / 20.6792% / 1.0543% of alive creature-time.
 
-Innate expression starts: dance: 3; cry: 11. Maximum retained relationships: 8; current observed peers: 11.
+Actions: move: 2742 (53.1%); search: 1262 (24.4%); sleep: 373 (7.2%); explore: 321 (6.2%); drink: 178 (3.4%); eat: 160 (3.1%); court: 58 (1.1%); fight: 42 (0.8%); cry: 18 (0.3%); dance: 9 (0.2%).
 
-Intentions: satisfy_thirst: 958 (24.5%); flee: 927 (23.7%); satisfy_hunger: 832 (21.3%); investigate_signal: 342 (8.7%); rest: 314 (8.0%); avoid_danger: 230 (5.9%); explore: 185 (4.7%); hunt: 51 (1.3%); warn_danger: 46 (1.2%); announce_resource: 12 (0.3%); cry: 11 (0.3%); dance: 3 (0.1%); court_peer: 3 (0.1%).
+Innate expression starts: dance: 19; cry: 20. Maximum retained relationships: 8; current observed peers: 11.
 
-Most frequent rapid transition pairs: warn_danger → flee: 205; flee → satisfy_thirst: 43; rest → satisfy_thirst: 38; rest → satisfy_hunger: 34; satisfy_hunger → warn_danger: 28.
+Intentions: satisfy_hunger: 1351 (26.2%); satisfy_thirst: 1017 (19.7%); flee: 916 (17.7%); investigate_signal: 605 (11.7%); rest: 442 (8.6%); explore: 321 (6.2%); avoid_danger: 271 (5.2%); court_peer: 86 (1.7%); hunt: 81 (1.6%); warn_danger: 46 (0.9%); cry: 18 (0.3%); dance: 9 (0.2%).
+
+Most frequent rapid transition pairs: warn_danger → flee: 211; rest → satisfy_hunger: 60; rest → satisfy_thirst: 42; satisfy_hunger → warn_danger: 37; flee → satisfy_hunger: 35.
 
 Final mean hunger/thirst/energy: null / null / null; injured creatures: 0/0; food sources: 5. Exhausted travel home: 0 creature-seconds. Memory bound violations: 0; saturated encounter-history steps: 0.
 
 ## Determinism and interpretation
 
-Two independent 60-second runs in Node v24.15.0 using the same source and seed `demo` produced identical complete-state trajectory SHA-256: `50df915771fbc6198f180cb4e715662292d7090226aa7fe82fc3de649273e864`. Summary metrics also matched after excluding wall-clock runtime.
+Two independent 60-second runs in Node v24.15.0 using the same source and seed `demo` produced identical complete-state trajectory SHA-256: `e46d1d0cf4af2c70f5b3963db45c739a1b1cf47de8adcece4c2ba2f0f397b83b`. Summary metrics also matched after excluding wall-clock runtime.
 
 All per-step need/health values remained finite and within [0,1]. See the pressure episodes and switching counts above when judging stability: repeatability alone does not establish that creatures meet their needs or that competing intentions are well tuned.
 

@@ -79,7 +79,7 @@ export type HeardSignalMemory = {
 	emissionId: string;
 	symbolId: SymbolId;
 	origin: Vec2;
-	/** One grounded receptive update per retained emission, including immediate co-occurrence. */
+	/** One physical-site evidence update per retained emission, including immediate danger co-occurrence. Temporal movement evidence has its own bounded observation channel. */
 	evidenceApplied: boolean;
 };
 

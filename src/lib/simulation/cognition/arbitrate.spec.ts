@@ -34,7 +34,7 @@ function baseInput(overrides: Partial<ArbitrationInput> = {}): ArbitrationInput 
 		verbosity: 1,
 		// Fully curious default so existing optional investigation margins stay true.
 		curiosity: 1,
-		lexicon: { food: null, water: null, danger: null },
+		lexicon: { food: null, water: null, danger: null, approach: null },
 		availableFood: [],
 		availableWater: [],
 		memory: emptyMemory(),
@@ -1156,7 +1156,7 @@ describe('curiosity investigation weighting (FLAME-85)', () => {
 			baseInput({
 				memory,
 				curiosity: 1,
-				lexicon: { food: null, water: null, danger: null },
+				lexicon: { food: null, water: null, danger: null, approach: null },
 				hunger: 0.1,
 				thirst: 0.1,
 				energy: 0.95
@@ -1252,7 +1252,7 @@ describe('curiosity investigation weighting (FLAME-85)', () => {
 			baseInput({
 				memory,
 				curiosity: 1,
-				lexicon: { food: null, water: null, danger: null },
+				lexicon: { food: null, water: null, danger: null, approach: null },
 				hunger: 0.9,
 				availableFood: [foodPerceived('food-1')]
 			})

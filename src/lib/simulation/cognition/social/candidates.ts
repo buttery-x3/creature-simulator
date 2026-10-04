@@ -1,3 +1,4 @@
+import { withMovementPlan } from './movement-policy';
 import { distanceSquared } from '../../creature-movement';
 import { deriveMood, SOCIAL_DEFAULTS, type ExpressionKind, type MoodSnapshot } from '../../social';
 import type { ArbitrationInput, CandidateReasonCode, IntentionCandidate } from '../types';
@@ -105,8 +106,7 @@ export function buildSocialCandidates(input: ArbitrationInput): IntentionCandida
 			SOCIAL_UTILITY.maximumApproach,
 			(interest * (0.5 + 0.5 * mood.comfort)) / (1 + distance / 4)
 		);
-		if (approach.valid && score <= approach.baseScore) continue;
-		approach = {
+		const candidate = withMovementPlan(input, {
 			...empty('approach_peer'),
 			valid: true,
 			score,
@@ -122,7 +122,8 @@ export function buildSocialCandidates(input: ArbitrationInput): IntentionCandida
 			],
 			reasonCodes: [distress > 0 ? 'observed_distress' : 'peer_affinity'],
 			rejectionReason: undefined
-		};
+		});
+		if (!approach.valid || candidate.baseScore > approach.baseScore) approach = candidate;
 	}
 	return [
 		approach,

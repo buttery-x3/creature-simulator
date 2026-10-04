@@ -18,7 +18,7 @@ function fixture() {
 		movementSpeed: 0,
 		verbosity: 0,
 		social: { ...creature.social, nextExpressionAt: 10_000 },
-		lexicon: { food: 'glyph-2', water: 'glyph-1', danger: null }
+		lexicon: { food: 'glyph-2', water: 'glyph-1', danger: null, approach: null }
 	}));
 	return { state, config };
 }
@@ -53,7 +53,7 @@ describe('offspring learning and survivor knowledge', () => {
 				},
 				0
 			);
-			expect(child.lexicon).toEqual({ food: null, water: null, danger: null });
+			expect(child.lexicon).toEqual({ food: null, water: null, danger: null, approach: null });
 			expect(child.memory.entries).toEqual([]);
 			expect(child.recentLearning).toEqual([]);
 			expect(

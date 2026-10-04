@@ -672,3 +672,50 @@ work for the imminent temporal approach learner; it does not add a meaning or
 change food/water/danger learning. Danger encounter provenance remains bounded
 and separate from numeric evidence. No saved-state compatibility layer is added:
 this application does not currently load persistent simulation saves.
+
+## Learned approach prediction
+
+Approach is a fourth personal meaning: a prediction that a local closing
+interaction follows a glyph, not an imperative or access to the speaker's goal.
+The movement learner binds a heard origin only to one fresh visible peer within
+0.25 units. It receives no sender identity, emission context, hidden position or
+intention. A bounded trace measures the peer's own displacement toward the
+listener's preceding observed position, then continuous comfortable proximity.
+Listener-only movement cannot supply approach evidence. Two separate retained
+encounters are required before approach can claim a glyph in the exclusive lexicon.
+
+Learning/movement owns sixteen encounter records and at most four pending traces.
+A trace lasts four seconds. Confirmation requires at least 0.35 units of inward
+peer travel and 0.5 seconds of comfortable contact within one unit. The learner's
+own derived comfort must be at least 0.65. Gaps longer than two sensing intervals,
+partial approach without contact, and capacity eviction remain unobserved. A
+fully watched stationary/withdrawing peer provides approach-only counterevidence.
+Repeated emissions or alternating glyphs do not create another credited outcome
+in the same retained encounter. Sight absence of twelve seconds ends an encounter,
+while a still-active response cooldown remains retained. Physical-site learning
+uses its existing evidenceApplied channel independently; uncertain movement never
+reduces food/water/danger strengths.
+
+A bound signal offers one response opportunity per encounter, lasting four seconds
+from original hearing. Repeated calls cannot extend it. Cognition adds a modest
+confidence/condition/affiliation bonus to an otherwise valid approach opportunity;
+only the learner's own assigned meaning qualifies. The peer must remain visible.
+Arrival, sight loss, expiry or interruption spends the response and starts a
+source cooldown. A subsequent independent social approach may still be worthwhile.
+Learned approach is excluded from old-origin investigation: fresh peer observation
+owns the response, just as danger interpretation owns warning avoidance. Unknown
+or conflicting resource interpretations retain their own ordinary investigation.
+
+Cognition also compares silent versus calling variants of selected approach/court
+movement. The calling utility and effort are explicit candidate factors, modulated
+by own verbosity and acquired affiliation. Execution transmits only a selected
+call plan, at most once per selected movement episode with a twelve-second global
+movement-call cooldown. A pending response to that peer suppresses a call back.
+The sender uses its personal approach glyph when learned, otherwise ordinary
+exploratory symbol selection. No success or reply is implied. Newborns start with
+empty temporal observation state as well as empty learned meanings.
+
+The inspector reports binding, pending/confirmed/contradicted/unobserved outcomes,
+measured movement/contact and the actual response opportunity. It never labels an
+unlearned glyph as a correctly understood command. Approach adds no follow chain,
+remote target resolution, go/stop grammar or universal command vocabulary.

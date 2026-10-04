@@ -37,7 +37,7 @@ function rankedListener(overrides: Partial<ArbitrationInput> = {}) {
 		availableFood: [],
 		availableWater: [],
 		memory,
-		lexicon: { food: 'glyph-0', water: 'glyph-1', danger: null },
+		lexicon: { food: 'glyph-0', water: 'glyph-1', danger: null, approach: null },
 		currentIntention: null,
 		currentTarget: null,
 		homeFeatureId: 'home-0',

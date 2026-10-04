@@ -4,6 +4,7 @@
  */
 
 import {
+	LEXICON_MEANINGS,
 	buildPopulationSymbolDiagnostics,
 	ensureCreatureMemory,
 	listHeardSignalMemories,
@@ -66,6 +67,9 @@ export type CompletedOutcomeCounts = {
 	food_evidence: number;
 	water_evidence: number;
 	danger_evidence: number;
+	approach_evidence: number;
+	approach_contradicted: number;
+	approach_unobserved: number;
 	mixed_evidence: number;
 	no_evidence: number;
 	interrupted: number;
@@ -117,6 +121,9 @@ export function buildCommunicationViewModel(
 		food_evidence: 0,
 		water_evidence: 0,
 		danger_evidence: 0,
+		approach_evidence: 0,
+		approach_contradicted: 0,
+		approach_unobserved: 0,
 		mixed_evidence: 0,
 		no_evidence: 0,
 		interrupted: 0,
@@ -180,10 +187,11 @@ function buildFunnel(
 	state: SimulationState,
 	population: PopulationSymbolDiagnostics
 ): FunnelStage[] {
-	const recentEmissions =
-		population.food.emissions.reduce((s, e) => s + e.recentCount, 0) +
-		population.water.emissions.reduce((s, e) => s + e.recentCount, 0) +
-		population.danger.emissions.reduce((s, e) => s + e.recentCount, 0);
+	const recentEmissions = LEXICON_MEANINGS.reduce(
+		(total, meaning) =>
+			total + population[meaning].emissions.reduce((sum, entry) => sum + entry.recentCount, 0),
+		0
+	);
 
 	let recentHeard = 0;
 	let recentLexiconChanges = 0;
@@ -201,11 +209,7 @@ function buildFunnel(
 			activeInvestigations += 1;
 		}
 		for (const entry of creature.recentLearning) {
-			if (
-				entry.outcome === 'food_evidence' ||
-				entry.outcome === 'water_evidence' ||
-				entry.outcome === 'danger_evidence'
-			) {
+			if (LEXICON_MEANINGS.some((meaning) => entry.outcome === `${meaning}_evidence`)) {
 				clearEvidence += 1;
 			} else if (entry.outcome === 'no_evidence' || entry.outcome === 'interrupted') {
 				noEvidence += 1;
@@ -272,7 +276,7 @@ function buildFunnel(
 			label: 'Clear evidence',
 			availability: 'recent_window',
 			value: clearEvidence,
-			note: 'food, water or danger evidence in recent history'
+			note: 'Single-meaning confirmed evidence in recent history'
 		},
 		{
 			id: 'no_evidence',

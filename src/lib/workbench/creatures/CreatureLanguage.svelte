@@ -119,6 +119,89 @@
 		</ul>
 	</div>
 
+	<section
+		class="movement"
+		data-testid="inspector-movement-learning"
+		aria-label="Movement sequence learning"
+	>
+		<h3>Observed movement sequences</h3>
+		<p class="hint">
+			Approach predicts locally observed closing and comfortable contact. It is a learned
+			prediction, not a command. Peer identity is bound only when a visible location has one
+			unambiguous match.
+		</p>
+		<dl class="meta">
+			<div>
+				<dt>Latest local binding</dt>
+				<dd data-testid="movement-source-binding">
+					{#if selectedCreature.movementLearning.lastBinding}{@const binding =
+							selectedCreature.movementLearning.lastBinding}<SymbolGlyph
+							symbolId={binding.symbolId}
+						/> · {binding.status}{#if binding.peerId}
+							· {binding.peerId}{/if} · heard {binding.heardAt.toFixed(2)}s{:else}none{/if}
+				</dd>
+			</div>
+			<div>
+				<dt>Response opportunity</dt>
+				<dd>
+					{#if selectedCreature.movementLearning.response}{@const response =
+							selectedCreature.movementLearning.response}<SymbolGlyph
+							symbolId={response.symbolId}
+						/> · {response.peerId} · expires {response.expiresAt.toFixed(2)}s{:else}none{/if}
+				</dd>
+			</div>
+		</dl>
+		<p class="hint">
+			Pending awaits evidence; confirmed records closing/contact; contradicted records observed
+			failure; unobserved means evidence was unavailable.
+		</p>
+		{#if selectedCreature.movementLearning.encounters.some((encounter) => encounter.trace)}
+			<ul class="sequences">
+				{#each selectedCreature.movementLearning.encounters as encounter (encounter.peerId)}
+					{#if encounter.trace}{@const trace = encounter.trace}
+						<li>
+							<details data-testid={`movement-sequence-${encounter.peerId}`}>
+								<summary
+									><SymbolGlyph symbolId={trace.symbolId} /> · {encounter.peerId} · {trace.status}</summary
+								>
+								<dl class="meta">
+									<div>
+										<dt>Signal</dt>
+										<dd>
+											{trace.emissionId} · heard {trace.heardAt.toFixed(2)}s · deadline {trace.expiresAt.toFixed(
+												2
+											)}s
+										</dd>
+									</div>
+									<div>
+										<dt>Peer travel toward listener</dt>
+										<dd>{trace.peerTowardDistance.toFixed(3)}</dd>
+									</div>
+									<div>
+										<dt>Closest distance</dt>
+										<dd>{trace.closestDistance.toFixed(3)}</dd>
+									</div>
+									<div>
+										<dt>Comfortable contact</dt>
+										<dd>{trace.comfortableContactSeconds.toFixed(2)}s</dd>
+									</div>
+									<div>
+										<dt>Last observed</dt>
+										<dd>{trace.lastObservedAt.toFixed(2)}s</dd>
+									</div>
+									<div>
+										<dt>Reason</dt>
+										<dd>{trace.reason}</dd>
+									</div>
+								</dl>
+							</details>
+						</li>
+					{/if}
+				{/each}
+			</ul>
+		{:else}<p class="hint">No retained movement sequences.</p>{/if}
+	</section>
+
 	<div class="nav-actions">
 		<button
 			type="button"
@@ -142,6 +225,29 @@
 </section>
 
 <style>
+	.movement {
+		margin: 0.8rem 0;
+	}
+	.movement .hint {
+		margin: 0.5rem 0;
+	}
+	.sequences {
+		list-style: none;
+		padding: 0;
+		margin: 0.5rem 0;
+		color: #cbd5e1;
+		font-size: 0.75rem;
+	}
+	.sequences li {
+		margin: 0.5rem 0;
+		border-top: 1px solid #1e293b;
+		padding-top: 0.4rem;
+	}
+	summary {
+		cursor: pointer;
+		margin-bottom: 0.35rem;
+	}
+
 	h3 {
 		margin: 0 0 0.4rem;
 		font-size: 0.78rem;

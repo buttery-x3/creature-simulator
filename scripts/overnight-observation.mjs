@@ -77,6 +77,16 @@ function run(api, seed, seconds, hashTrajectory = false) {
 		memoryBoundViolations: 0,
 		maxRelationships: 0,
 		maxObservedPeers: 0,
+		maxMovementEncounters: 0,
+		maxPendingMovementTraces: 0,
+		movementBoundViolations: 0,
+		movementOutcomes: {},
+		movementBindings: {},
+		approachCalls: 0,
+		learnedApproachCalls: 0,
+		saturatedEmissionSteps: 0,
+		maximumApproachCarriers: 0,
+		saturatedLearningSteps: 0,
 		expressionStarts: {},
 		highHungerCreatureSeconds: 0,
 		highThirstCreatureSeconds: 0,
@@ -135,6 +145,25 @@ function run(api, seed, seconds, hashTrajectory = false) {
 			if (event.kind === 'death') increment(stats.deathCauses, event.cause);
 			if (event.kind === 'courtship_failed') increment(stats.courtshipFailures, event.reason);
 		}
+		const currentCalls = new Set();
+		if (
+			state.recentEmissions.filter((emission) => emission.emittedAt === state.timeSeconds)
+				.length === config.recentSimulationEmissionHistoryLimit
+		)
+			stats.saturatedEmissionSteps += 1;
+		for (const emission of state.recentEmissions) {
+			if (
+				emission.emittedAt !== state.timeSeconds ||
+				emission.contextDetail !== 'approach' ||
+				currentCalls.has(emission.id)
+			)
+				continue;
+			currentCalls.add(emission.id);
+			stats.approachCalls += 1;
+			if (emission.selectionEvidence.mode === 'learned_lexicon') stats.learnedApproachCalls += 1;
+		}
+		let approachCarriers = 0;
+		const currentLearning = new Set();
 		const sample = state.timeSeconds + 1e-8 >= nextSample;
 		for (const creature of state.creatures) {
 			let prior = previous.get(creature.id);
@@ -167,6 +196,39 @@ function run(api, seed, seconds, hashTrajectory = false) {
 				creature.social.relationships.length
 			);
 			stats.maxObservedPeers = Math.max(stats.maxObservedPeers, creature.perceivedPeers.length);
+			const movement = creature.movementLearning;
+			const pending = movement.encounters.filter(
+				(encounter) => encounter.trace?.status === 'pending'
+			).length;
+			stats.maxMovementEncounters = Math.max(
+				stats.maxMovementEncounters,
+				movement.encounters.length
+			);
+			stats.maxPendingMovementTraces = Math.max(stats.maxPendingMovementTraces, pending);
+			if (
+				movement.encounters.length > api.MOVEMENT_DEFAULTS.encounterCapacity ||
+				pending > api.MOVEMENT_DEFAULTS.pendingCapacity
+			)
+				stats.movementBoundViolations += 1;
+			if (creature.lexicon.approach !== null) approachCarriers += 1;
+			if (movement.lastBinding?.heardAt === state.timeSeconds)
+				increment(stats.movementBindings, movement.lastBinding.status);
+			const learning = creature.recentLearning.filter(
+				(entry) => entry.timeSeconds === state.timeSeconds
+			);
+			if (learning.length === config.learningHistoryLimit) stats.saturatedLearningSteps += 1;
+			for (const event of learning) {
+				if (
+					!['approach_evidence', 'approach_contradicted', 'approach_unobserved'].includes(
+						event.outcome
+					)
+				)
+					continue;
+				const key = `${creature.id}:${event.emissionId}:${event.outcome}`;
+				if (currentLearning.has(key)) continue;
+				currentLearning.add(key);
+				increment(stats.movementOutcomes, event.outcome);
+			}
 			assert.ok(creature.social.relationships.length <= api.SOCIAL_DEFAULTS.relationshipCapacity);
 			assert.ok(creature.perceivedPeers.length <= api.SOCIAL_DEFAULTS.peerCapacity);
 			for (const relationship of creature.social.relationships) {
@@ -226,6 +288,7 @@ function run(api, seed, seconds, hashTrajectory = false) {
 				prior.position = creature.position;
 			}
 		}
+		stats.maximumApproachCarriers = Math.max(stats.maximumApproachCarriers, approachCarriers);
 		if (sample) nextSample += 1;
 	}
 	stats.runtimeSeconds = rounded((performance.now() - started) / 1000);
@@ -238,6 +301,25 @@ function run(api, seed, seconds, hashTrajectory = false) {
 			: null;
 	stats.final = {
 		population: state.creatures.length,
+		approachCarriers: state.creatures.filter((creature) => creature.lexicon.approach !== null)
+			.length,
+		generations: [...new Set(state.creatures.map((creature) => creature.lifecycle.generation))]
+			.sort((a, b) => a - b)
+			.map((generation) => {
+				const members = state.creatures.filter(
+					(creature) => creature.lifecycle.generation === generation
+				);
+				return {
+					generation,
+					population: members.length,
+					meaningCarriers: Object.fromEntries(
+						api.LEXICON_MEANINGS.map((meaning) => [
+							meaning,
+							members.filter((creature) => creature.lexicon[meaning] !== null).length
+						])
+					)
+				};
+			}),
 		livingWildlife: state.wildlife.filter((w) => w.health > 0).length,
 		carcasses: state.wildlife.filter((w) => w.health <= 0).length,
 		foodSources: state.habitat.food.length,
@@ -302,9 +384,9 @@ function report(results, repeat, metadata) {
 		'',
 		`Three fixed seeds, default configuration and fixed timestep, ${duration} simulated seconds per seed. Vite SSR loads the authoritative simulation in middleware mode without opening a listening port. Runtime includes stepping and measurement, excludes module loading. Action/intention distributions sample each creature once per simulated second; extrema, need-duration and encounter totals are accumulated every step. Alive creature-seconds integrate the post-step living population at each fixed timestep; need percentages use this same changing-population denominator. Empty-population final means are null.`,
 		'',
-		'Encounter, death-cause and failed-courtship counters select records whose timestamp equals the current step, rather than counting the same bounded history repeatedly. A saturated history step makes these detail totals lower bounds. Birth/death totals instead use live ID additions/removals and are not truncated by event-history capacity. Hunt/flee entries count actual intention changes into those states. “Rapid switches” means successive intention changes within two seconds; it is a diagnostic proxy, not proof of pathological oscillation. “Stationary movement” means consecutive one-second observations moving less than 0.02 units while action is move/search/explore; it can include turning or edge effects.',
+		'Encounter, death-cause, failed-courtship, movement-learning and approach-call counters select records whose timestamp equals the current step, rather than counting the same bounded history repeatedly. Learning records are also deduplicated by listener, emission and outcome within the step; emissions by ID. Saturated history steps make detail totals lower bounds, and learning immediately preceding same-step death can be absent from survivor history. Binding counts sample only the latest binding per listener per step. Birth/death totals instead use live ID additions/removals and are not truncated by event-history capacity. Hunt/flee entries count actual intention changes into those states. “Rapid switches” means successive intention changes within two seconds; it is a diagnostic proxy, not proof of pathological oscillation. “Stationary movement” means consecutive one-second observations moving less than 0.02 units while action is move/search/explore; it can include turning or edge effects.',
 		'',
-		'This run includes growth, reciprocal courtship, birth, ageing and mortality. Population decline or extinction is reported directly; no rescue or ecological success criterion is imposed. Historical fixed-population pressure totals are not comparable to these dynamic-population measurements and are intentionally omitted.',
+		'This run includes growth, reciprocal courtship, birth, ageing and mortality. Population decline or extinction is reported directly; no rescue or ecological success criterion is imposed. Historical fixed-population pressure totals are not comparable to these dynamic-population measurements and are intentionally omitted. Movement outcomes concern any heard form paired with local motion, including resource or danger emissions; approach-call counts concern only the observer-labelled approach emission context. A confirmed sequence is local evidence, not proof of the sender intention.',
 		'',
 		'## Results',
 		'',
@@ -342,12 +424,34 @@ function report(results, repeat, metadata) {
 		lines.push(
 			`| ${row.seed} | ${row.highHungerCreatureSeconds} / ${row.longestHighHungerSeconds} | ${row.highThirstCreatureSeconds} / ${row.longestHighThirstSeconds} | ${row.lowEnergyCreatureSeconds} | ${row.intentionSwitches} / ${row.rapidIntentionSwitches} | ${row.maximumStationaryMovementSeconds} |`
 		);
+	lines.push(
+		'',
+		'| Seed | Approach calls / learned calls | Confirmed / contradicted / unobserved sequences | Approach carriers final / max | Encounter / pending max | Bound violations |',
+		'| --- | ---: | ---: | ---: | ---: | ---: |'
+	);
+	for (const row of results)
+		lines.push(
+			`| ${row.seed} | ${row.approachCalls} / ${row.learnedApproachCalls} | ${row.movementOutcomes.approach_evidence ?? 0} / ${row.movementOutcomes.approach_contradicted ?? 0} / ${row.movementOutcomes.approach_unobserved ?? 0} | ${row.final.approachCarriers} / ${row.maximumApproachCarriers} | ${row.maxMovementEncounters} / ${row.maxPendingMovementTraces} | ${row.movementBoundViolations} |`
+		);
 	for (const row of results)
 		lines.push(
 			'',
 			`### ${row.seed}`,
 			'',
 			`Death causes: ${distribution(row.deathCauses)}. Courtship failures: ${distribution(row.courtshipFailures)}. Saturated lifecycle-history steps: ${row.saturatedLifeEventSteps}.`,
+			'',
+			`Latest local source bindings: ${distribution(row.movementBindings)}. Saturated learning / emission history steps: ${row.saturatedLearningSteps} / ${row.saturatedEmissionSteps}. Final retained meaning carriers by generation: ${
+				row.final.generations
+					.map(
+						(group) =>
+							`generation ${group.generation}, alive ${group.population}, ${Object.entries(
+								group.meaningCarriers
+							)
+								.map(([meaning, count]) => `${meaning} ${count}`)
+								.join(', ')}`
+					)
+					.join('; ') || 'no survivors'
+			}. These are personal assignments among survivors, not inherited meanings or a population dictionary.`,
 			'',
 			`High hunger / high thirst / exhaustion: ${row.highHungerAlivePercent ?? 'n/a'}% / ${row.highThirstAlivePercent ?? 'n/a'}% / ${row.lowEnergyAlivePercent ?? 'n/a'}% of alive creature-time.`,
 			'',

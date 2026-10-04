@@ -65,8 +65,8 @@ it('counts direct danger learning without describing it as a completed investiga
 			symbolId: 'glyph-2',
 			emissionId: 'e-danger',
 			reason: 'direct local evidence',
-			before: { food: 0, water: 0, danger: 0 },
-			after: { food: 0, water: 0, danger: 0.3 }
+			before: { food: 0, water: 0, danger: 0, approach: 0 },
+			after: { food: 0, water: 0, danger: 0.3, approach: 0 }
 		}
 	];
 	const vm = buildCommunicationViewModel(state, config);
@@ -77,4 +77,26 @@ it('counts direct danger learning without describing it as a completed investiga
 		'Learning outcomes'
 	);
 	expect(vm.funnel.find((f) => f.id === 'clear_evidence')?.value).toBe(1);
+});
+
+it('keeps confirmed, contradicted and unobserved approach outcomes distinct', () => {
+	const config = defaultSimulationConfig('approach-outcomes');
+	const state = createSimulation(config);
+	state.creatures[0].recentLearning = (
+		['approach_evidence', 'approach_contradicted', 'approach_unobserved'] as const
+	).map((outcome, index) => ({
+		timeSeconds: index + 1,
+		symbolId: 'glyph-0',
+		emissionId: 'approach-' + index,
+		outcome,
+		reason: 'local sequence',
+		before: { food: 0, water: 0, danger: 0, approach: 0.2 },
+		after: { food: 0, water: 0, danger: 0, approach: 0.2 }
+	}));
+	const vm = buildCommunicationViewModel(state, config);
+	expect(vm.completedOutcomes.approach_evidence).toBe(1);
+	expect(vm.completedOutcomes.approach_contradicted).toBe(1);
+	expect(vm.completedOutcomes.approach_unobserved).toBe(1);
+	expect(vm.funnel.find((row) => row.id === 'clear_evidence')?.value).toBe(1);
+	expect(vm.funnel.find((row) => row.id === 'no_evidence')?.value).toBe(0);
 });

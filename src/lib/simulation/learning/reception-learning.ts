@@ -1,4 +1,5 @@
 /** Listener-local coincidence grounding while a danger is still observable. */
+import type { ReceptionsByCreature } from '../communication';
 import { distanceSquared } from '../creature-movement';
 import { markHeardSignalEvidenceApplied } from '../memory';
 import type { Creature } from '../types';
@@ -21,11 +22,12 @@ import type { LearningStepConfig } from './step-signal-learning';
 export function learnFromLocalDangerReception(
 	creatures: readonly Creature[],
 	timeSeconds: number,
-	config: LearningStepConfig
+	config: LearningStepConfig,
+	receivedThisStep: ReceptionsByCreature
 ): Creature[] {
 	return creatures.map((creature) => {
 		let next = creature;
-		for (const heard of creature.recentHeard) {
+		for (const heard of receivedThisStep.get(creature.id) ?? []) {
 			if (heard.heardAt !== timeSeconds) continue;
 			const retained = next.memory.entries.find(
 				(entry) => entry.kind === 'heard_signal' && entry.emissionId === heard.emissionId

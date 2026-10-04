@@ -82,7 +82,11 @@ describe('offspring learning and survivor knowledge', () => {
 			);
 			let next = {
 				...communicated.state,
-				creatures: applyHeardSignalMemories(communicated.state.creatures, 0)
+				creatures: applyHeardSignalMemories(
+					communicated.state.creatures,
+					0,
+					communicated.receivedThisStep
+				)
 			};
 			const heardChild = next.creatures.find((creature) => creature.id === child.id)!;
 			expect(heardChild.recentHeard[0].symbolId).toBe('glyph-2');

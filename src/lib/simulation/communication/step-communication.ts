@@ -10,7 +10,12 @@ import type { Creature, SimulationConfig, SimulationState } from '../types';
 import { appendBounded, buildEmission, canEmit, nextEmissionId, toHeardSignal } from './emission';
 import { selectReceivers } from './reception';
 import { selectContextSymbol } from './symbol-selection';
-import type { EmissionRequest, SignalEmission } from './types';
+import type {
+	EmissionRequest,
+	SignalEmission,
+	ReceivedSignal,
+	ReceptionsByCreature
+} from './types';
 
 export type CommunicationStepConfig = Pick<
 	SimulationConfig,
@@ -31,6 +36,8 @@ export type CommunicationStepResult = {
 	state: SimulationState;
 	/** All emissions accepted this fixed step (not truncated by history limits). */
 	emittedThisStep: SignalEmission[];
+	/** Physical deliveries this step; never retained on SimulationState. */
+	receivedThisStep: ReceptionsByCreature;
 };
 
 /**
@@ -44,7 +51,7 @@ export type CommunicationStepResult = {
  *
  * Hearing does not alter goals, actions, needs, targets or perception.
  * Selection never mutates evidence/lexicon or routes listener outcomes to the emitter.
- * Bounded recentEmissions/recentEmitted are diagnostics only — memory must use emittedThisStep.
+ * Bounded histories are diagnostics only; cognition consumes the current-step handoffs.
  */
 export function stepCommunication(
 	state: SimulationState,
@@ -56,6 +63,7 @@ export function stepCommunication(
 	let activeEmissions = [...state.activeEmissions];
 	let recentEmissions = [...state.recentEmissions];
 	const emittedThisStep: SignalEmission[] = [];
+	const receivedThisStep = new Map<string, ReceivedSignal[]>();
 
 	const byId = new Map(creatures.map((c) => [c.id, c]));
 
@@ -123,6 +131,14 @@ export function stepCommunication(
 				continue;
 			}
 			const heard = toHeardSignal(emission, timeSeconds);
+			const signals = receivedThisStep.get(receiver.id) ?? [];
+			signals.push({
+				emissionId: heard.emissionId,
+				symbolId: heard.symbolId,
+				origin: { ...heard.origin },
+				heardAt: heard.heardAt
+			});
+			receivedThisStep.set(receiver.id, signals);
 			byId.set(receiver.id, {
 				...creature,
 				recentHeard: appendBounded(creature.recentHeard, heard, config.recentHeardHistoryLimit)
@@ -152,7 +168,8 @@ export function stepCommunication(
 			activeEmissions,
 			recentEmissions
 		},
-		emittedThisStep
+		emittedThisStep,
+		receivedThisStep
 	};
 }
 

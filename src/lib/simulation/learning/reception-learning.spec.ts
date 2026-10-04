@@ -61,7 +61,7 @@ function hear(
 		emissionCount: count,
 		lexicon: { food: null, water: null, danger: null, [context]: 'glyph-2', approach: null }
 	});
-	const { state } = stepCommunication(
+	const { state, receivedThisStep } = stepCommunication(
 		{ ...world, creatures: [sender, receiver] },
 		[
 			{
@@ -74,11 +74,18 @@ function hear(
 		time,
 		{ ...config, hearingRadius }
 	);
-	return applyHeardSignalMemories(state.creatures, time).find((c) => c.id === receiver.id)!;
+	return applyHeardSignalMemories(state.creatures, time, receivedThisStep).find(
+		(c) => c.id === receiver.id
+	)!;
 }
 
 function learn(receiver: Creature, time = 1): Creature {
-	return learnFromLocalDangerReception([receiver], time, config)[0]!;
+	return learnFromLocalDangerReception(
+		[receiver],
+		time,
+		config,
+		new Map([[receiver.id, receiver.recentHeard]])
+	)[0]!;
 }
 
 function association(creature: Creature) {

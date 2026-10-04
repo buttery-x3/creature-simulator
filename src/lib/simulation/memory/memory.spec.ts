@@ -628,7 +628,11 @@ describe('applyHeardSignalMemories', () => {
 				}
 			]
 		});
-		const [updated] = applyHeardSignalMemories([creature], 3);
+		const [updated] = applyHeardSignalMemories(
+			[creature],
+			3,
+			new Map([[creature.id, creature.recentHeard]])
+		);
 		const entry = findHeardSignalMemory(updated!.memory, 'em-1');
 		expect(entry).toMatchObject({
 			symbolId: 'glyph-3',
@@ -660,9 +664,17 @@ describe('applyHeardSignalMemories', () => {
 				}
 			]
 		});
-		let [updated] = applyHeardSignalMemories([creature], 3);
+		let [updated] = applyHeardSignalMemories(
+			[creature],
+			3,
+			new Map([[creature.id, creature.recentHeard]])
+		);
 		expect(countMemoryEntries(updated!.memory, 'heard_signal')).toBe(1);
-		[updated] = applyHeardSignalMemories([updated!], 3);
+		[updated] = applyHeardSignalMemories(
+			[updated!],
+			3,
+			new Map([[creature.id, creature.recentHeard]])
+		);
 		expect(countMemoryEntries(updated!.memory, 'heard_signal')).toBe(1);
 	});
 });

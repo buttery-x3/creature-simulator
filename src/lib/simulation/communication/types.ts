@@ -93,6 +93,12 @@ export type HeardSignal = {
 	heardAt: number;
 };
 
+/** Physical listener input; diagnostic sender identity and intent are excluded. */
+export type ReceivedSignal = Pick<HeardSignal, 'emissionId' | 'symbolId' | 'origin' | 'heardAt'>;
+
+/** Ephemeral current-step delivery, independent of bounded display histories. */
+export type ReceptionsByCreature = ReadonlyMap<string, readonly ReceivedSignal[]>;
+
 /**
  * Behaviour → communication handoff. Not stored on SimulationState.
  * Communication owns transmission, reception and lifetime.

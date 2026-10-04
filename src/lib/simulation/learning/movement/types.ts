@@ -1,12 +1,9 @@
 import type { Vec2 } from '$lib/habitat';
-import type { HeardSignal } from '../../communication';
+import type { ReceivedSignal } from '../../communication';
 import type { SimulationConfig } from '../../types';
 
 /** This input deliberately cannot expose diagnostic speaker identity or intent. */
-export type MovementHeardSignal = Pick<
-	HeardSignal,
-	'emissionId' | 'symbolId' | 'origin' | 'heardAt'
->;
+export type MovementHeardSignal = ReceivedSignal;
 export type MovementTraceStatus = 'pending' | 'confirmed' | 'contradicted' | 'unobserved';
 export type MovementTrace = {
 	emissionId: string;

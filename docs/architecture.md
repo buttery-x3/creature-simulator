@@ -247,16 +247,24 @@ authoritative perception.
 Communication is a named subdomain under simulation (`simulation/communication/`).
 It is the first communication substrate: physical emission and local hearing only.
 
-| Concern             | Rule                                                                                                                                                                                          |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Symbols**         | Small arbitrary inventory (`glyph-0` …). No global meaning; no hard-coded food/water/danger mapping.                                                                                          |
-| **Emission**        | Authoritative transient `SignalEmission` on simulation state (id, symbol, sender, origin, times). Optional hidden `provenance` for announcement diagnostics.                                  |
-| **Initial trigger** | Cognition may select `announce_resource` for a currently perceived unannounced resource; the announcement **executor** then evaluates clarity, may reposition, and requests emission.         |
-| **Cooldown**        | Configurable per-sender cooldown may delay emission while execution is active; it does not create or retain a queue of deferred announcements.                                                |
-| **Symbol choice**   | Exact exclusive lexicon assignment for the announced kind when assigned; otherwise deterministic exploratory selection among unassigned symbols. No production floor or speaker feedback.     |
-| **Reception**       | Finite circular hearing radius (default **12** on the 20×20 habitat — practical population reach, not structural global); omnidirectional; sender excluded; receivers ordered by creature id. |
-| **Heard result**    | Structured `HeardSignal` history only — **no** intention/action change; never carries trigger feature or clarity. Writes `heard_signal` memory and may request reconsideration only.          |
-| **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                                                                                            |
+| Concern             | Rule                                                                                                                                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Symbols**         | Small arbitrary inventory (`glyph-0` …). No global meaning; no hard-coded food/water/danger mapping.                                                                                                                         |
+| **Emission**        | Authoritative transient `SignalEmission` on simulation state (id, symbol, sender, origin, times). Optional hidden `provenance` for announcement diagnostics.                                                                 |
+| **Initial trigger** | Cognition may select `announce_resource` for a currently perceived unannounced resource; the announcement **executor** then evaluates clarity, may reposition, and requests emission.                                        |
+| **Cooldown**        | Configurable per-sender cooldown may delay emission while execution is active; it does not create or retain a queue of deferred announcements.                                                                               |
+| **Symbol choice**   | Exact exclusive lexicon assignment for the announced kind when assigned; otherwise deterministic exploratory selection among unassigned symbols. No production floor or speaker feedback.                                    |
+| **Reception**       | Finite circular hearing radius (default **12** on the 20×20 habitat — practical population reach, not structural global); omnidirectional; sender excluded; receivers ordered by creature id.                                |
+| **Heard result**    | Current-step physical reception plus bounded diagnostic `HeardSignal` history — **no** intention/action change; never carries trigger feature or clarity. Writes `heard_signal` memory and may request reconsideration only. |
+| **Lifetime**        | Active emissions expire by fixed-step clock; bounded recent histories on creatures and simulation.                                                                                                                           |
+
+Reception hands off a per-creature map of this step's physical sounds, containing
+only event id, arbitrary symbol, origin and hearing time. This ephemeral map is
+not stored on simulation state. Memory, local danger learning and movement
+learning consume it independently of diagnostic history limits. Personal memory
+capacity, retained danger evidence and movement encounter/pending budgets still
+bound what an individual can retain or learn. Simultaneous sounds enter memory
+in deterministic emission-id order; no attention or salience filter is implied.
 
 ### Resource announcement execution
 
@@ -373,7 +381,7 @@ Fixed-step order (authoritative):
 3. Memory: `resource_observation` writes/refreshes for creatures whose perception sensing ran this step (available food from snapshot; water via `availableOnly: false` geography query; forget food when re-sensing proves feature gone).
 4. Communication: apply emission requests (sorted by sender id), select receivers using **post-behaviour** positions, produce authoritative `emittedThisStep`, write bounded histories, expire active emissions.
 5. Memory: write `resource_announcement` entries from **`emittedThisStep` only** (not from bounded `recentEmissions` / diagnostic retention).
-6. Memory: write `heard_signal` entries from `recentHeard` with `heardAt === timeSeconds` (no sender identity).
+6. Memory: write `heard_signal` entries from the authoritative `receivedThisStep` handoff (no sender identity), subject to personal memory capacity. Bounded `recentHeard` history is diagnostic only.
 7. Request reconsideration (`pendingArbitrationTrigger = new_heard_signal_memory`) for listeners that gained heard_signal this step.
 
 **Eligibility:** a signal heard in step _N_ is remembered at the end of step _N_ and is investigable from step _N+1_ via ordinary arbitration. No Svelte/renderer timing.

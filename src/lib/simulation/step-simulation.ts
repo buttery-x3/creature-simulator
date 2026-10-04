@@ -224,12 +224,11 @@ export function stepSimulation(
 		creatures: afterObservationMemory
 	};
 
-	const { state: afterCommunication, emittedThisStep } = stepCommunication(
-		afterBehaviour,
-		emissionRequests,
-		timeSeconds,
-		config
-	);
+	const {
+		state: afterCommunication,
+		emittedThisStep,
+		receivedThisStep
+	} = stepCommunication(afterBehaviour, emissionRequests, timeSeconds, config);
 
 	// Successful announcement emissions this step → first-class memory (not perception).
 	const afterAnnouncementMemory = applySuccessfulAnnouncementMemories(
@@ -240,26 +239,15 @@ export function stepSimulation(
 
 	// Heard-signal retained memory.
 	const afterHeardMemory = learnFromLocalDangerReception(
-		applyHeardSignalMemories(afterAnnouncementMemory, timeSeconds),
+		applyHeardSignalMemories(afterAnnouncementMemory, timeSeconds, receivedThisStep),
 		timeSeconds,
-		config
+		config,
+		receivedThisStep
 	);
 
 	// Request reconsideration for listeners that gained heard_signal this step.
 	const afterMovementLearning = afterHeardMemory.map((creature) =>
-		hearMovementLearning(
-			creature,
-			creature.recentHeard
-				.filter((signal) => signal.heardAt === timeSeconds)
-				.map(({ emissionId, symbolId, origin, heardAt }) => ({
-					emissionId,
-					symbolId,
-					origin,
-					heardAt
-				})),
-			timeSeconds,
-			config
-		)
+		hearMovementLearning(creature, receivedThisStep.get(creature.id) ?? [], timeSeconds, config)
 	);
 	const withReconsider = requestArbitrationForNewHeardSignals(
 		afterAnnouncementMemory,

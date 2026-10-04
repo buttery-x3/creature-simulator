@@ -254,7 +254,7 @@ export type Creature = {
 	lastEmissionAt: number;
 	/** Recent emissions by this creature, newest last, length-capped. */
 	recentEmitted: SignalEmission[];
-	/** Recent signals heard by this creature, newest last, length-capped. */
+	/** Diagnostic history of heard signals, newest last, length-capped. */
 	recentHeard: HeardSignal[];
 
 	/**
@@ -435,7 +435,7 @@ export type SimulationConfig = {
 	emissionCooldownSeconds: number;
 	/** Max length of per-creature recentEmitted (oldest dropped). */
 	recentEmittedHistoryLimit: number;
-	/** Max length of per-creature recentHeard (oldest dropped). */
+	/** Max diagnostic recentHeard length (oldest dropped); does not limit reception. */
 	recentHeardHistoryLimit: number;
 	/** Max length of simulation recentEmissions (oldest dropped). */
 	recentSimulationEmissionHistoryLimit: number;

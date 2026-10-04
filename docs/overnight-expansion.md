@@ -20,8 +20,9 @@ and population turnover are implemented and observed, including natural births
 and eventual extinction. Grounded approach learning and reproducible scenario presets
 are implemented and observed, including voluntary visible companionship/following.
 Personal meanings are observable by living generation. The measured empty-hearing
-fast path is implemented with exact trajectory checks. Next is grounded personal
-experience from useful companionship, subject to actual local evidence.
+fast path is implemented with exact trajectory checks. Useful-companionship discovery credit is deferred: all four observed resource
+handoffs across three rich 900s runs led to already-known resources. Current work
+separates physical reception from bounded display history for crowded calls.
 
 The implementation sequence remains physical world, grounded danger language,
 relationships/innate expression, lifecycle, then voluntary learned social
@@ -579,3 +580,50 @@ build and 13 browser tests. Three focused regressions protect quiet hearing,
 sensing-owned expiry and mixed stale/current ordering. Next: inspect actual
 resource handoffs after following before deciding whether a bounded personal
 helpful-experience update has enough observable evidence.
+
+## Checkpoint 13: reception independent of diagnostic history
+
+Crowded simultaneous calls could overflow recentHeard before the memory and
+learning phases saw them. The default keeps eight diagnostic entries while
+personal memory ranges from eight to sixteen. An immutable pre-fix replay found
+this at the first step of both twelve-founder river/drought baselines, and more
+strongly at thirty-two and sixty-four founders. See overnight-reception-scale.md
+for measured omissions and the distinction between raw reception and retention.
+
+Communication now hands off every physical reception this step, with only event
+id, symbol, origin and hearing time. Memory keeps its existing deterministic
+capacity/eviction policy; danger learning still requires retained hearing and
+fresh local evidence; movement learning keeps its encounter and pending budgets.
+The map is ephemeral, not additional creature state. Bounded display histories
+remain available for inspection and no longer limit cognition. No attention or
+sound masking model has been introduced.
+
+Structure: existing communication step owns delivery and its public result gains
+receivedThisStep plus two input types. Existing sensory-memory and local danger
+learning functions require the explicit handoff, preventing fallback to display
+history. Movement hearing reuses the same restricted signal shape. The main
+orchestrator only wires these consumers. No new production file, directory,
+threshold exception, dependency direction or persistent-state change is needed;
+existing memory/learning modules retain their responsibility and headroom. The
+simulation public barrel remains a reviewed surface with deliberate type exports.
+
+Useful-companionship discovery credit remains deferred: a separate three-seed
+rich900 probe observed twelve follow episodes and four resource handoffs, all to
+already-known resources. Eating or drinking after following alone is insufficient
+evidence of a new discovery caused by a companion.
+
+Validation: full npm run check passed 665 unit tests in 82 files, server check,
+build and 13 browser tests. Five new regressions cover physical reception/range,
+input immutability/privacy, deterministic capacity eviction, danger episode
+deduplication and separate movement trace budgets. A normal river run compares
+all state at each of 1,800 steps for history limits one versus sixty-four,
+excluding only the diagnostic history arrays; the trajectories match exactly.
+The first gate attempt caught a test-fixture SymbolId typing error, corrected
+before the successful gate. An additional managed browser observation confirmed
+the natural river first step: creature-0 heard eleven calls, retained eleven in
+capacity eleven, and still displayed only eight diagnostic history entries. Three
+retained events were absent from that display history. Both hearing/language and
+bounded-memory inspector screenshots were reviewed with all eleven memory rows,
+no sender identity/context in retained fields, and no page errors. Port 8125 was
+released. Next: a measured quiet-communication fast path, only if full trajectory
+comparison and paired timing support it.

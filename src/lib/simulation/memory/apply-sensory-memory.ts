@@ -9,6 +9,7 @@
 
 import type { Habitat, ResourceFeature } from '$lib/habitat';
 import { queryFeaturesNear } from '../behaviour/habitat-feature-query';
+import type { ReceptionsByCreature } from '../communication';
 import { distanceSquared } from '../creature-movement';
 import type { Creature, SimulationConfig } from '../types';
 import { isResourceAvailable } from '../resources/availability';
@@ -122,15 +123,18 @@ export function applyResourceObservationMemories(
 
 /**
  * Write heard-signal memories for signals received this fixed step.
- * Source: recentHeard with heardAt === timeSeconds (mirrors learning ingest filter).
+ * Source: authoritative current-step reception, independent of display history.
  * Strips sender identity; dedupes by emissionId inside pure remember.
  */
 export function applyHeardSignalMemories(
 	creatures: readonly Creature[],
-	timeSeconds: number
+	timeSeconds: number,
+	receivedThisStep: ReceptionsByCreature
 ): Creature[] {
 	return creatures.map((raw) => {
-		const newlyHeard = raw.recentHeard.filter((h) => h.heardAt === timeSeconds);
+		const newlyHeard = (receivedThisStep.get(raw.id) ?? []).filter(
+			(h) => h.heardAt === timeSeconds
+		);
 		if (newlyHeard.length === 0) {
 			return raw;
 		}

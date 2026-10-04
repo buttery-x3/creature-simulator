@@ -7,6 +7,8 @@ export type {
 	EmissionContext,
 	EmissionRequest,
 	HeardSignal,
+	ReceivedSignal,
+	ReceptionsByCreature,
 	ResourceDiscoveryDetail,
 	SignalEmission,
 	SignalContextDetail,

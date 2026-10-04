@@ -131,6 +131,8 @@ export {
 	selectReceivers,
 	stepCommunication,
 	type CommunicationStepResult,
+	type ReceivedSignal,
+	type ReceptionsByCreature,
 	type EmissionRequest
 } from './communication';
 

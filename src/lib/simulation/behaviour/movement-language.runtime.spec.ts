@@ -73,21 +73,18 @@ function hear(
 		],
 		state.timeSeconds,
 		config
-	).state;
-	const remembered = applyHeardSignalMemories(communicated.creatures, state.timeSeconds);
+	);
+	const remembered = applyHeardSignalMemories(
+		communicated.state.creatures,
+		state.timeSeconds,
+		communicated.receivedThisStep
+	);
 	return {
-		...communicated,
+		...communicated.state,
 		creatures: remembered.map((creature) =>
 			hearMovementLearning(
 				creature,
-				creature.recentHeard
-					.filter((event) => event.heardAt === state.timeSeconds)
-					.map(({ emissionId, symbolId, origin, heardAt }) => ({
-						emissionId,
-						symbolId,
-						origin,
-						heardAt
-					})),
+				communicated.receivedThisStep.get(creature.id) ?? [],
 				state.timeSeconds,
 				config
 			)
